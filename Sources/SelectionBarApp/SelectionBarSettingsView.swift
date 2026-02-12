@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 import SelectionBarCore
 import SwiftUI
 
@@ -37,7 +38,12 @@ struct SelectionBarSettingsView: View {
 }
 
 private struct SelectionBarGeneralSettingsTab: View {
+  private static let logger = Logger(
+    subsystem: "com.selectionbar.app", category: "GeneralSettings"
+  )
+
   @Bindable var settingsStore: SelectionBarSettingsStore
+  @State private var launchAtLogin = LaunchAtLoginManager.isEnabled
   @State private var showIgnoredAppPicker = false
   @State private var showRestartAlert = false
 
@@ -49,11 +55,19 @@ private struct SelectionBarGeneralSettingsTab: View {
         Toggle("Enable selection bar", isOn: $settings.selectionBarEnabled)
           .help("Show a floating toolbar when text is selected in any app")
 
-        Text(
-          "Includes built-in Copy, Cut, Web Search, Open URL, Look Up, and app-based Translate actions."
-        )
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        Toggle("Launch at Login", isOn: $launchAtLogin)
+          .onChange(of: launchAtLogin) { _, newValue in
+            do {
+              if newValue {
+                try LaunchAtLoginManager.enable()
+              } else {
+                try LaunchAtLoginManager.disable()
+              }
+            } catch {
+              Self.logger.error("Failed to update launch at login: \(error)")
+              launchAtLogin = !newValue
+            }
+          }
       }
 
       Section {
@@ -72,7 +86,9 @@ private struct SelectionBarGeneralSettingsTab: View {
       } header: {
         Label("Activation", systemImage: "moon.zzz")
       } footer: {
-        Text("When enabled, Selection Bar appears only while the selected modifier key is held.")
+        Text(
+          "When enabled, Selection Bar appears only while the selected modifier key is held."
+        )
       }
 
       Section {

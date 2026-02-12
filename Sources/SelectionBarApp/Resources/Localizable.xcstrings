@@ -101,16 +101,7 @@
         }
       }
     },
-    "Includes built-in Copy, Cut, Web Search, Open URL, Look Up, and app-based Translate actions." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "コピー、カット、Web検索、URL、辞書、翻訳の組み込みアクションを含みます。" }
-        },
-        "zh-Hans" : {
-          "stringUnit" : { "state" : "translated", "value" : "包含内置的复制、剪切、网页搜索、打开URL、查询和翻译操作。" }
-        }
-      }
-    },
+
     "Activation" : {
       "localizations" : {
         "ja" : {
@@ -201,6 +192,16 @@
         }
       }
     },
+    "Launch at Login" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ログイン時に起動" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "登录时启动" }
+        }
+      }
+    },
     "Later" : {
       "localizations" : {
         "ja" : {
@@ -211,6 +212,7 @@
         }
       }
     },
+
     "Ignored Apps" : {
       "localizations" : {
         "ja" : {
@@ -1521,6 +1523,7 @@
         }
       }
     },
+
     "Start LM Studio with server mode enabled" : {
       "localizations" : {
         "ja" : {

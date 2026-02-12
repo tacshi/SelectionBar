@@ -322,7 +322,8 @@ struct SelectionBarCoreTests {
     let defaults = UserDefaults(suiteName: defaultsSuite)!
     defer { defaults.removePersistentDomain(forName: defaultsSuite) }
 
-    let store = SelectionBarSettingsStore(defaults: defaults, storageKey: "test.settings")
+    let store = SelectionBarSettingsStore(
+      defaults: defaults, storageKey: "test.settings", keychain: InMemoryKeychain())
 
     let missingProvider = CustomActionConfig(
       name: "Missing Provider",
@@ -353,7 +354,8 @@ struct SelectionBarCoreTests {
     let defaults = UserDefaults(suiteName: defaultsSuite)!
     defer { defaults.removePersistentDomain(forName: defaultsSuite) }
 
-    let store = SelectionBarSettingsStore(defaults: defaults, storageKey: "test.settings")
+    let store = SelectionBarSettingsStore(
+      defaults: defaults, storageKey: "test.settings", keychain: InMemoryKeychain())
     let invalidEnabledAction = CustomActionConfig(
       name: "Broken LLM Action",
       prompt: "x",
@@ -375,7 +377,8 @@ struct SelectionBarCoreTests {
     let defaults = UserDefaults(suiteName: defaultsSuite)!
     defer { defaults.removePersistentDomain(forName: defaultsSuite) }
 
-    let store = SelectionBarSettingsStore(defaults: defaults, storageKey: "test.settings")
+    let store = SelectionBarSettingsStore(
+      defaults: defaults, storageKey: "test.settings", keychain: InMemoryKeychain())
     let template = CustomActionConfig.createJavaScriptCleanEscapesTemplate()
     let legacyAction = CustomActionConfig(
       name: template.name,
