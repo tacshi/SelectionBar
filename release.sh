@@ -595,6 +595,13 @@ $DESCRIPTION_BLOCK
 }" "$RELEASES_DIR/appcast.xml"
 # Remove any releaseNotesLink lines as a safety measure
 sed -i '' '/<sparkle:releaseNotesLink/d' "$RELEASES_DIR/appcast.xml"
+# Add fullReleaseNotesLink so Sparkle's "Version History" button works
+FULL_NOTES_LINK="        <sparkle:fullReleaseNotesLink>https://github.com/$GITHUB_REPO/releases</sparkle:fullReleaseNotesLink>"
+if ! grep -q 'fullReleaseNotesLink' "$RELEASES_DIR/appcast.xml"; then
+    sed -i '' "/<title>$APP_NAME<\/title>/a\\
+$FULL_NOTES_LINK
+" "$RELEASES_DIR/appcast.xml"
+fi
 log_success "Release notes embedded in appcast"
 
 # Move current version's arch-specific builds back for GitHub upload
