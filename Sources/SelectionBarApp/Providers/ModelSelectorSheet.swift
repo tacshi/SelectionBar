@@ -82,9 +82,9 @@ struct ModelSelectorSheet: View {
       Divider()
       HStack {
         if filteredModels.count != models.count {
-          Text("\(filteredModels.count) of \(models.count) models")
+          Text("\(filteredModels.count) of \(models.count) models", comment: "Filtered model count")
         } else {
-          Text("\(models.count) models")
+          Text("\(models.count) models", comment: "Total model count")
         }
         Spacer()
       }

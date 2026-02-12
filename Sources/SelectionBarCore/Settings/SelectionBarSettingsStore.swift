@@ -140,10 +140,28 @@ public final class SelectionBarSettingsStore {
   /// Custom OpenAI-compatible providers.
   public var customLLMProviders: [CustomLLMProvider] {
     didSet {
-      if reconcileCustomActionsAvailabilityIfNeeded() {
+      if reconcileCustomActionsAvailabilityIfNeeded(checkProviderAvailability: false) {
         return
       }
       persistIfNeeded()
+    }
+  }
+
+  /// Per-device app language override via AppleLanguages.
+  /// Empty string means "System Default" (no override).
+  public var appLanguage: String {
+    didSet {
+      if appLanguage.isEmpty {
+        if defaults === UserDefaults.standard {
+          UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        }
+        defaults.removeObject(forKey: "SelectionBar_AppLanguageOverride")
+      } else {
+        if defaults === UserDefaults.standard {
+          UserDefaults.standard.set([appLanguage], forKey: "AppleLanguages")
+        }
+        defaults.set(appLanguage, forKey: "SelectionBar_AppLanguageOverride")
+      }
     }
   }
 
@@ -154,7 +172,7 @@ public final class SelectionBarSettingsStore {
         persistIfNeeded()
         return
       }
-      if reconcileCustomActionsAvailabilityIfNeeded() {
+      if reconcileCustomActionsAvailabilityIfNeeded(checkProviderAvailability: false) {
         return
       }
       persistIfNeeded()
@@ -189,6 +207,7 @@ public final class SelectionBarSettingsStore {
     selectionBarTranslationTargetLanguage = TranslationLanguageCatalog.defaultTargetLanguage
     customLLMProviders = []
     customActions = []
+    appLanguage = defaults.string(forKey: "SelectionBar_AppLanguageOverride") ?? ""
     openAIAPIKeyConfigured = false
     openRouterAPIKeyConfigured = false
     deepLAPIKeyConfigured = false
@@ -198,7 +217,7 @@ public final class SelectionBarSettingsStore {
     refreshCredentialAvailability()
     ensureValidSelectionBarTranslationProvider()
     ensureValidSelectionBarTranslationTargetLanguage()
-    _ = reconcileCustomActionsAvailabilityIfNeeded()
+    _ = reconcileCustomActionsAvailabilityIfNeeded(checkProviderAvailability: false)
   }
 
   public func availableSelectionBarTranslationProviders() -> [SelectionBarTranslationProviderOption]
@@ -381,8 +400,18 @@ public final class SelectionBarSettingsStore {
     return nil
   }
 
+  /// Reconcile custom actions: migrate legacy icons and optionally disable
+  /// LLM actions whose provider is no longer available.
+  ///
+  /// - Parameter checkProviderAvailability: When `true`, enabled LLM actions
+  ///   whose provider API key is missing will be disabled. Pass `false` on
+  ///   startup / load to avoid false negatives caused by Keychain being
+  ///   inaccessible after ad-hoc re-signing.  Structural issues (missing
+  ///   provider or model) are always checked regardless of this flag.
   @discardableResult
-  public func reconcileCustomActionsAvailabilityIfNeeded() -> Bool {
+  public func reconcileCustomActionsAvailabilityIfNeeded(
+    checkProviderAvailability: Bool = true
+  ) -> Bool {
     let cleanEscapesTemplate = CustomActionConfig.createJavaScriptCleanEscapesTemplate()
     let reconciled = customActions.map { action in
       var updated = migrateLegacyCleanEscapesIconIfNeeded(
@@ -390,9 +419,14 @@ public final class SelectionBarSettingsStore {
         cleanEscapesTemplate: cleanEscapesTemplate
       )
       guard updated.isEnabled, updated.kind == .llm else { return updated }
-      guard canEnableCustomAction(updated) else {
-        updated.isEnabled = false
-        return updated
+      if let issue = llmActionEnablementIssue(updated) {
+        // Always disable for structural issues (missing provider / model).
+        // Only disable for provider-unavailable when explicitly requested,
+        // because Keychain may be inaccessible after ad-hoc re-signing.
+        let isStructuralIssue = issue != .providerUnavailable
+        if isStructuralIssue || checkProviderAvailability {
+          updated.isEnabled = false
+        }
       }
       return updated
     }

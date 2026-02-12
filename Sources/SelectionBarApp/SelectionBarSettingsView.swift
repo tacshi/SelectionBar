@@ -4,21 +4,21 @@ import SwiftUI
 
 struct SelectionBarSettingsView: View {
   private enum RootTab: Hashable {
-    case selectionBar
+    case general
     case actions
     case providers
   }
 
   @Bindable var settingsStore: SelectionBarSettingsStore
-  @State private var selectedTab: RootTab = .selectionBar
+  @State private var selectedTab: RootTab = .general
 
   var body: some View {
     TabView(selection: $selectedTab) {
       SelectionBarGeneralSettingsTab(settingsStore: settingsStore)
         .tabItem {
-          Label("Selection Bar", systemImage: "rectangle.and.hand.point.up.left")
+          Label("General", systemImage: "gearshape")
         }
-        .tag(RootTab.selectionBar)
+        .tag(RootTab.general)
 
       SelectionBarActionsSettingsTab(settingsStore: settingsStore)
         .tabItem {
@@ -39,12 +39,10 @@ struct SelectionBarSettingsView: View {
 private struct SelectionBarGeneralSettingsTab: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
   @State private var showIgnoredAppPicker = false
+  @State private var showRestartAlert = false
 
   var body: some View {
     @Bindable var settings = settingsStore
-    let translationProviders = settings.availableSelectionBarTranslationProviders()
-    let appTranslationProviders = translationProviders.filter { $0.kind == .app }
-    let llmTranslationProviders = translationProviders.filter { $0.kind == .llm }
 
     Form {
       Section {
@@ -78,77 +76,17 @@ private struct SelectionBarGeneralSettingsTab: View {
       }
 
       Section {
-        Picker("Engine", selection: $settings.selectionBarSearchEngine) {
-          Text("Google").tag(SelectionBarSearchEngine.google)
-          Text("Baidu").tag(SelectionBarSearchEngine.baidu)
-          Text("Sogou").tag(SelectionBarSearchEngine.sogou)
-          Text("360 Search").tag(SelectionBarSearchEngine.so360)
-          Text("Bing").tag(SelectionBarSearchEngine.bing)
-          Text("Yandex").tag(SelectionBarSearchEngine.yandex)
-          Text("DuckDuckGo").tag(SelectionBarSearchEngine.duckDuckGo)
+        Picker("Language", selection: $settings.appLanguage) {
+          Text("System Default").tag("")
+          Text("English").tag("en")
+          Text("日本語").tag("ja")
+          Text("简体中文").tag("zh-Hans")
+        }
+        .onChange(of: settings.appLanguage) { _, _ in
+          showRestartAlert = true
         }
       } header: {
-        Label("Web Search", systemImage: "magnifyingglass")
-      }
-
-      Section {
-        Toggle("Enable Look Up", isOn: $settings.selectionBarLookupEnabled)
-
-        if settings.selectionBarLookupEnabled {
-          Picker("Dictionary", selection: $settings.selectionBarLookupProvider) {
-            Text("Dictionary (macOS)").tag(SelectionBarLookupProvider.systemDictionary)
-            Text("Eudic").tag(SelectionBarLookupProvider.eudic)
-            Text("Custom URL Scheme").tag(SelectionBarLookupProvider.customApp)
-          }
-
-          if settings.selectionBarLookupProvider == .customApp {
-            TextField("URL Scheme", text: $settings.selectionBarLookupCustomScheme)
-              .textFieldStyle(.roundedBorder)
-
-            Text("Enter a scheme like eudic, or a URL template with {{query}}.")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-        }
-      } header: {
-        Label("Word Lookup", systemImage: "book.closed")
-      }
-
-      Section {
-        Toggle("Enable Translate", isOn: $settings.selectionBarTranslationEnabled)
-
-        if settings.selectionBarTranslationEnabled {
-          if translationProviders.isEmpty {
-            Text("No translation providers configured")
-              .foregroundStyle(.secondary)
-          } else {
-            Picker("Provider", selection: $settings.selectionBarTranslationProviderId) {
-              ForEach(appTranslationProviders, id: \.id) { provider in
-                Text(provider.name).tag(provider.id)
-              }
-              if !appTranslationProviders.isEmpty && !llmTranslationProviders.isEmpty {
-                Divider()
-              }
-              ForEach(llmTranslationProviders, id: \.id) { provider in
-                Text(provider.name).tag(provider.id)
-              }
-            }
-
-            if settings.isSelectionBarLLMTranslationProvider(
-              id: settings.selectionBarTranslationProviderId
-            ) {
-              Picker("Target", selection: $settings.selectionBarTranslationTargetLanguage) {
-                ForEach(TranslationLanguageCatalog.targetLanguages) { language in
-                  Text(language.localizedName).tag(language.code)
-                }
-              }
-            }
-          }
-        }
-      } header: {
-        Label("Translation", systemImage: "translate")
-      } footer: {
-        Text("Translate supports app providers and LLM providers. Target applies to LLM providers.")
+        Label("Language", systemImage: "globe")
       }
 
       Section {
@@ -200,18 +138,49 @@ private struct SelectionBarGeneralSettingsTab: View {
         }
       )
     }
-    .onAppear {
-      settings.ensureValidSelectionBarTranslationProvider()
+    .alert("Restart Required", isPresented: $showRestartAlert) {
+      Button("Restart Now") {
+        restartApp()
+      }
+      Button("Later", role: .cancel) {}
+    } message: {
+      Text("The language change will take effect after restarting SelectionBar.")
     }
-    .onChange(of: settings.customLLMProviders) { _, _ in
-      settings.ensureValidSelectionBarTranslationProvider()
+  }
+
+  private func restartApp() {
+    let appPath = Bundle.main.bundleURL.path
+    let pid = ProcessInfo.processInfo.processIdentifier
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: "/bin/sh")
+    task.arguments = [
+      "-c",
+      "while kill -0 $1 2>/dev/null; do sleep 0.1; done; open -- \"$2\"",
+      "sh",
+      "\(pid)",
+      appPath,
+    ]
+
+    do {
+      try task.run()
+      if task.isRunning {
+        NSApplication.shared.terminate(nil)
+      } else {
+        showRestartFailureAlert()
+      }
+    } catch {
+      showRestartFailureAlert()
     }
-    .onChange(of: settings.availableOpenAIModels) { _, _ in
-      settings.ensureValidSelectionBarTranslationProvider()
-    }
-    .onChange(of: settings.availableOpenRouterModels) { _, _ in
-      settings.ensureValidSelectionBarTranslationProvider()
-    }
+  }
+
+  private func showRestartFailureAlert() {
+    let alert = NSAlert()
+    alert.messageText = "Restart Failed"
+    alert.informativeText =
+      "SelectionBar could not restart automatically. Please relaunch it manually."
+    alert.alertStyle = .warning
+    alert.addButton(withTitle: "OK")
+    alert.runModal()
   }
 }
 

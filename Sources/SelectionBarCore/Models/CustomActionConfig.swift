@@ -36,9 +36,9 @@ public enum CustomActionKind: String, Codable, CaseIterable, Sendable, Hashable 
   public var displayName: String {
     switch self {
     case .javascript:
-      "JavaScript"
+      String(localized: "JavaScript", bundle: .module)
     case .llm:
-      "LLM"
+      String(localized: "LLM", bundle: .module)
     }
   }
 }
@@ -50,9 +50,9 @@ public enum CustomActionOutputMode: String, Codable, CaseIterable, Sendable, Has
   public var displayName: String {
     switch self {
     case .resultWindow:
-      "Result Window"
+      String(localized: "Result Window", bundle: .module)
     case .inplace:
-      "Inplace Edit"
+      String(localized: "Inplace Edit", bundle: .module)
     }
   }
 }
@@ -83,12 +83,12 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
   public var localizedName: String {
     guard isBuiltIn, let templateId else { return name }
     switch templateId {
-    case "polish": return "Polish"
-    case "cleanup": return "Clean Up"
-    case "action-items": return "Extract Actions"
-    case "summary": return "Summarize"
-    case "bullet-points": return "Bulletize"
-    case "email-draft": return "Draft Email"
+    case "polish": return String(localized: "Polish", bundle: .module)
+    case "cleanup": return String(localized: "Clean Up", bundle: .module)
+    case "action-items": return String(localized: "Extract Actions", bundle: .module)
+    case "summary": return String(localized: "Summarize", bundle: .module)
+    case "bullet-points": return String(localized: "Bulletize", bundle: .module)
+    case "email-draft": return String(localized: "Draft Email", bundle: .module)
     default: return name
     }
   }

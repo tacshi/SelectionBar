@@ -1,0 +1,1546 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Enable" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "有効にする" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用" }
+        }
+      }
+    },
+    "Disable" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "無効にする" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "停用" }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "設定" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "设置" }
+        }
+      }
+    },
+    "Check for Updates..." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アップデートを確認…" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "检查更新…" }
+        }
+      }
+    },
+    "Quit" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "終了" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "退出" }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "一般" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "通用" }
+        }
+      }
+    },
+    "Actions" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アクション" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "操作" }
+        }
+      }
+    },
+    "Providers" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "服务商" }
+        }
+      }
+    },
+    "Enable selection bar" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "セレクションバーを有効にする" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用选择栏" }
+        }
+      }
+    },
+    "Show a floating toolbar when text is selected in any app" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "テキスト選択時にフローティングツールバーを表示" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "在任何应用中选择文本时显示浮动工具栏" }
+        }
+      }
+    },
+    "Includes built-in Copy, Cut, Web Search, Open URL, Look Up, and app-based Translate actions." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "コピー、カット、Web検索、URL、辞書、翻訳の組み込みアクションを含みます。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "包含内置的复制、剪切、网页搜索、打开URL、查询和翻译操作。" }
+        }
+      }
+    },
+    "Activation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "起動" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "激活" }
+        }
+      }
+    },
+    "Enable Do Not Disturb Mode" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "おやすみモードを有効にする" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用免打扰模式" }
+        }
+      }
+    },
+    "Hold Key" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "長押しキー" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "按住键" }
+        }
+      }
+    },
+    "When enabled, Selection Bar appears only while the selected modifier key is held." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "有効時、選択した修飾キーを押している間のみ表示されます。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用后，仅在按住所选修饰键时才显示选择栏。" }
+        }
+      }
+    },
+    "Language" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "言語" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "语言" }
+        }
+      }
+    },
+    "System Default" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "システムデフォルト" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "跟随系统" }
+        }
+      }
+    },
+    "Restart Required" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "再起動が必要" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "需要重启" }
+        }
+      }
+    },
+    "The language change will take effect after restarting SelectionBar." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "言語の変更はSelectionBarを再起動した後に有効になります。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "语言更改将在重启SelectionBar后生效。" }
+        }
+      }
+    },
+    "Restart Now" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "今すぐ再起動" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "立即重启" }
+        }
+      }
+    },
+    "Later" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "後で" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "稍后" }
+        }
+      }
+    },
+    "Ignored Apps" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "除外アプリ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "忽略的应用" }
+        }
+      }
+    },
+    "No ignored apps" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "無視するアプリなし" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "无忽略的应用" }
+        }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "削除" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "移除" }
+        }
+      }
+    },
+    "Add Application" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アプリを追加" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "添加应用" }
+        }
+      }
+    },
+    "The selection bar won't appear when these apps are in the foreground." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "これらのアプリが前面にある場合、セレクションバーは表示されません。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "当这些应用在前台时，选择栏不会显示。" }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "キャンセル" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "取消" }
+        }
+      }
+    },
+    "Choose Applications" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アプリを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择应用" }
+        }
+      }
+    },
+    "Add" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "追加" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "添加" }
+        }
+      }
+    },
+    "Search" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "検索" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "搜索" }
+        }
+      }
+    },
+    "Built-in" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "組み込み" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "内置" }
+        }
+      }
+    },
+    "Custom" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "カスタム" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "自定义" }
+        }
+      }
+    },
+    "Engine" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "エンジン" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "引擎" }
+        }
+      }
+    },
+    "Web Search" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "Web検索" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "网页搜索" }
+        }
+      }
+    },
+    "Enable Look Up" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "辞書を有効にする" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用查询" }
+        }
+      }
+    },
+    "Word Lookup" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "辞書検索" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "查词" }
+        }
+      }
+    },
+    "Dictionary" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "辞書" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "词典" }
+        }
+      }
+    },
+    "Dictionary (macOS)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "辞書（macOS）" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "词典（macOS）" }
+        }
+      }
+    },
+    "Custom URL Scheme" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "カスタムURLスキーム" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "自定义URL Scheme" }
+        }
+      }
+    },
+    "URL Scheme" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "URLスキーム" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "URL Scheme" }
+        }
+      }
+    },
+    "Enter a scheme like eudic, or a URL template with {{query}}." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "eudicなどのスキーム、または{{query}}を含むURLテンプレートを入力してください。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "输入如eudic的scheme，或包含{{query}}的URL模板。" }
+        }
+      }
+    },
+    "Enable Translate" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻訳を有効にする" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用翻译" }
+        }
+      }
+    },
+    "Translation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻訳" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻译" }
+        }
+      }
+    },
+    "Provider" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "服务商" }
+        }
+      }
+    },
+    "No translation providers configured" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻訳プロバイダが未設定" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未配置翻译服务商" }
+        }
+      }
+    },
+    "Target" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ターゲット" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "目标" }
+        }
+      }
+    },
+    "Translate supports app providers and LLM providers. Target applies to LLM providers." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アプリとLLMプロバイダに対応。ターゲットはLLMに適用。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "支持应用和LLM服务商。目标语言仅适用于LLM服务商。" }
+        }
+      }
+    },
+    "No actions configured" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アクションが未設定" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未配置操作" }
+        }
+      }
+    },
+    "Add Action" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アクションを追加" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "添加操作" }
+        }
+      }
+    },
+    "Enabled actions appear in Selection Bar actions. Drag to reorder enabled actions." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "有効なアクションはセレクションバーに表示。ドラッグで並べ替え。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "已启用的操作会显示在选择栏中。拖拽可重新排序。" }
+        }
+      }
+    },
+    "Choose provider before enabling" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "有効にする前にプロバイダを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用前请先选择服务商" }
+        }
+      }
+    },
+    "Choose model before enabling" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "有効にする前にモデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用前请先选择模型" }
+        }
+      }
+    },
+    "Provider key missing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダキーなし" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "缺少服务商密钥" }
+        }
+      }
+    },
+    "JavaScript • Inplace Edit" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "JavaScript・インプレース編集" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "JavaScript · 原位编辑" }
+        }
+      }
+    },
+    "JavaScript • Result Window" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "JavaScript・結果ウィンドウ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "JavaScript · 结果窗口" }
+        }
+      }
+    },
+    "New Action" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "新規アクション" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "新建操作" }
+        }
+      }
+    },
+    "Edit Action" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アクション編集" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "编辑操作" }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "保存" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "保存" }
+        }
+      }
+    },
+    "Action Name" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アクション名" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "操作名称" }
+        }
+      }
+    },
+    "Icon" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アイコン" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "图标" }
+        }
+      }
+    },
+    "Pick SF Symbol" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "SFシンボルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择SF符号" }
+        }
+      }
+    },
+    "Execution" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "実行" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "执行" }
+        }
+      }
+    },
+    "Kind" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "種類" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "类型" }
+        }
+      }
+    },
+    "Output" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "出力" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "输出" }
+        }
+      }
+    },
+    "Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "モデル" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "模型" }
+        }
+      }
+    },
+    "Select" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择" }
+        }
+      }
+    },
+    "No configured providers. Configure a provider in the Providers tab." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダ未設定。プロバイダタブで設定してください。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未配置服务商。请在服务商标签页中配置。" }
+        }
+      }
+    },
+    "Prompt Template" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロンプトテンプレート" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "提示词模板" }
+        }
+      }
+    },
+    "Use {{TEXT}} as placeholder for the selected text." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "{{TEXT}}を選択テキストのプレースホルダーとして使用。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "使用{{TEXT}}作为选中文本的占位符。" }
+        }
+      }
+    },
+    "Define a synchronous function transform(input) that returns a string." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "文字列を返す同期関数transform(input)を定義してください。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "定义一个返回字符串的同步函数transform(input)。" }
+        }
+      }
+    },
+    "LLM Prompt (Optional, unused for JavaScript)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLMプロンプト（任意、JavaScriptでは不使用）" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLM提示词（可选，JavaScript模式下不使用）" }
+        }
+      }
+    },
+    "This is kept so switching back to LLM preserves your previous prompt." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLMモードに切り替えた際にプロンプトが保持されます。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "保留此项，切换回LLM时可保留之前的提示词。" }
+        }
+      }
+    },
+    "Search symbols" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "シンボルを検索" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "搜索符号" }
+        }
+      }
+    },
+    "LLM" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLM" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLM" }
+        }
+      }
+    },
+    "Custom Providers" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "カスタムプロバイダ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "自定义服务商" }
+        }
+      }
+    },
+    "Add Provider" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダを追加" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "添加服务商" }
+        }
+      }
+    },
+    "Provider Not Found" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダが見つかりません" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未找到服务商" }
+        }
+      }
+    },
+    "This provider no longer exists." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "このプロバイダは存在しません。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "此服务商已不存在。" }
+        }
+      }
+    },
+    "Select a Provider" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择服务商" }
+        }
+      }
+    },
+    "Choose a provider from the sidebar." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "サイドバーからプロバイダを選択してください。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "从侧边栏选择一个服务商。" }
+        }
+      }
+    },
+    "Capabilities" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "機能" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "功能" }
+        }
+      }
+    },
+    "Chat Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "チャットモデル" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "对话模型" }
+        }
+      }
+    },
+    "Translation Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻訳モデル" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻译模型" }
+        }
+      }
+    },
+    "Uses chat model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "チャットモデルを使用" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "使用对话模型" }
+        }
+      }
+    },
+    "Test connection first" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "先に接続テスト" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "请先测试连接" }
+        }
+      }
+    },
+    "OpenAI supports both LLM chat and translation. You can choose separate models." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenAIはチャットと翻訳に対応。別々のモデルを選択可能。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenAI支持对话和翻译，可选择不同模型。" }
+        }
+      }
+    },
+    "Get API Key from OpenAI" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenAIのAPIキーを取得" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "获取OpenAI API密钥" }
+        }
+      }
+    },
+    "Select OpenAI Chat Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenAIチャットモデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择OpenAI对话模型" }
+        }
+      }
+    },
+    "Select OpenAI Translation Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenAI翻訳モデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择OpenAI翻译模型" }
+        }
+      }
+    },
+    "OpenRouter supports unified LLM chat and translation model routing. You can choose separate models." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenRouterはチャットと翻訳のモデルルーティングに対応。別々のモデルを選択可能。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenRouter支持对话和翻译模型路由，可选择不同模型。" }
+        }
+      }
+    },
+    "Get API Key from OpenRouter" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenRouterのAPIキーを取得" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "获取OpenRouter API密钥" }
+        }
+      }
+    },
+    "Select OpenRouter Chat Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenRouterチャットモデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择OpenRouter对话模型" }
+        }
+      }
+    },
+    "Select OpenRouter Translation Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenRouter翻訳モデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择OpenRouter翻译模型" }
+        }
+      }
+    },
+    "DeepL is translation-only. Chat capability is intentionally disabled." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "DeepLは翻訳専用です。チャット機能は無効。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "DeepL仅用于翻译，对话功能已禁用。" }
+        }
+      }
+    },
+    "No chat capability" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "チャット機能なし" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "无对话功能" }
+        }
+      }
+    },
+    "Custom Provider" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "カスタムプロバイダ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "自定义服务商" }
+        }
+      }
+    },
+    "OpenAI-compatible custom provider" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenAI互換カスタムプロバイダ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "OpenAI兼容的自定义服务商" }
+        }
+      }
+    },
+    "Edit" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "編集" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "编辑" }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "削除" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "删除" }
+        }
+      }
+    },
+    "Delete Provider?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダを削除？" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "删除服务商？" }
+        }
+      }
+    },
+    "This provider and its API key will be removed." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "このプロバイダとAPIキーが削除されます。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "此服务商及其API密钥将被移除。" }
+        }
+      }
+    },
+    "Chat" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "チャット" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "对话" }
+        }
+      }
+    },
+    "Enabled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "有効" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "已启用" }
+        }
+      }
+    },
+    "Disabled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "無効" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "已停用" }
+        }
+      }
+    },
+    "Base URL" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ベースURL" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "基础URL" }
+        }
+      }
+    },
+    "Available Models" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "利用可能なモデル" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "可用模型" }
+        }
+      }
+    },
+    "Custom Action" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "カスタムアクション" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "自定义操作" }
+        }
+      }
+    },
+    "SF Symbol Name" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "SF Symbolの名前" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "SF Symbol 名称" }
+        }
+      }
+    },
+    "SF Symbols" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "SF Symbols" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "SF Symbols" }
+        }
+      }
+    },
+    "LLM" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLM" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLM" }
+        }
+      }
+    },
+    "Translate" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻訳" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻译" }
+        }
+      }
+    },
+    "Success! Found %lld models." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "成功！%lld 個のモデルが見つかりました。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "成功！找到 %lld 个模型。" }
+        }
+      }
+    },
+    "Connected! Found %lld models" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "接続成功！%lld 個のモデルが見つかりました" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "连接成功！找到 %lld 个模型" }
+        }
+      }
+    },
+    "... and %lld more" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "…他 %lld 個" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "…还有 %lld 个" }
+        }
+      }
+    },
+    "%lld of %lld models" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "%1$lld / %2$lld モデル" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "%1$lld / %2$lld 个模型" }
+        }
+      }
+    },
+    "%lld models" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld 個のモデル" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld 个模型" }
+        }
+      }
+    },
+    "English" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "English" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "English" }
+        }
+      }
+    },
+    "Credentials" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "認証情報" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "凭据" }
+        }
+      }
+    },
+    "API Key" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "APIキー" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "API密钥" }
+        }
+      }
+    },
+    "Test Connection" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "接続テスト" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "测试连接" }
+        }
+      }
+    },
+    "Save Key" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "キーを保存" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "保存密钥" }
+        }
+      }
+    },
+    "Clear Key" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "キーを削除" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "清除密钥" }
+        }
+      }
+    },
+    "Select Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "モデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择模型" }
+        }
+      }
+    },
+    "Clear Selection" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "選択を解除" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "清除选择" }
+        }
+      }
+    },
+    "Search models..." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "モデルを検索..." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "搜索模型..." }
+        }
+      }
+    },
+    "Use Chat Model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "チャットモデルを使用" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "使用对话模型" }
+        }
+      }
+    },
+    "Edit Provider" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダを編集" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "编辑服务商" }
+        }
+      }
+    },
+    "Add Custom Provider" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "カスタムプロバイダを追加" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "添加自定义服务商" }
+        }
+      }
+    },
+    "Quick Setup" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "クイックセットアップ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "快速设置" }
+        }
+      }
+    },
+    "Provider Template" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダテンプレート" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "服务商模板" }
+        }
+      }
+    },
+    "Popular" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "人気" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "热门" }
+        }
+      }
+    },
+    "Local" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ローカル" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "本地" }
+        }
+      }
+    },
+    "Other" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "その他" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "其他" }
+        }
+      }
+    },
+    "Provider Details" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダ詳細" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "服务商详情" }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "名前" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "名称" }
+        }
+      }
+    },
+    "Display name (e.g., 'Volcengine Doubao', 'Together AI')" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "表示名（例：'Volcengine Doubao'、'Together AI'）" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "显示名称（如'Volcengine Doubao'、'Together AI'）" }
+        }
+      }
+    },
+    "API endpoint (e.g., https://api.together.xyz/v1)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "APIエンドポイント（例：https://api.together.xyz/v1）" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "API端点（如 https://api.together.xyz/v1）" }
+        }
+      }
+    },
+    "Please enter a valid URL starting with http:// or https://" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "http://またはhttps://で始まる有効なURLを入力してください" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "请输入以http://或https://开头的有效URL" }
+        }
+      }
+    },
+    "Authentication" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "認証" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "认证" }
+        }
+      }
+    },
+    "No API key required for local providers" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ローカルプロバイダはAPIキー不要" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "本地服务商无需API密钥" }
+        }
+      }
+    },
+    "Test connection to enable capabilities" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "接続テストで機能を有効化" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "测试连接以启用功能" }
+        }
+      }
+    },
+    "LLM (Chat)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLM（チャット）" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLM（对话）" }
+        }
+      }
+    },
+    "Select LLM model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLMモデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择LLM模型" }
+        }
+      }
+    },
+    "Select translation model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "翻訳モデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择翻译模型" }
+        }
+      }
+    },
+    "Use your endpoint ID as the model name" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "エンドポイントIDをモデル名として使用" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "使用端点ID作为模型名称" }
+        }
+      }
+    },
+    "Start LM Studio with server mode enabled" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LM Studioをサーバーモードで起動してください" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "请在服务器模式下启动LM Studio" }
+        }
+      }
+    },
+    "Requires Ollama running locally" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ローカルでOllamaが実行中である必要があります" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "需要本地运行Ollama" }
+        }
+      }
+    },
+    "LM Studio (Local)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LM Studio（ローカル）" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "LM Studio（本地）" }
+        }
+      }
+    },
+    "Ollama OpenAI API (Local)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "Ollama OpenAI API（ローカル）" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "Ollama OpenAI API（本地）" }
+        }
+      }
+    },
+    "Volcengine Ark (Doubao)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "Volcengine Ark（Doubao）" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "火山引擎（豆包）" }
+        }
+      }
+    },
+    "Key saved to Keychain." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "キーチェーンに保存しました。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "已保存到钥匙串。" }
+        }
+      }
+    },
+    "Key cleared from Keychain." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "キーチェーンから削除しました。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "已从钥匙串清除。" }
+        }
+      }
+    },
+    "Key cleared." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "キーを削除しました。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "已清除密钥。" }
+        }
+      }
+    },
+    "Edit Provider" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プロバイダを編集" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "编辑服务商" }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -69,6 +69,8 @@ struct MenuBarContentView: View {
   }
 
   static func enableButtonTitle(isEnabled: Bool) -> String {
-    isEnabled ? "Disable" : "Enable"
+    isEnabled
+      ? String(localized: "Disable")
+      : String(localized: "Enable")
   }
 }

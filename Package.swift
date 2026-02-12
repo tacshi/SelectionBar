@@ -25,7 +25,10 @@ let package = Package(
     ),
     .target(
       name: "SelectionBarCore",
-      path: "Sources/SelectionBarCore"
+      path: "Sources/SelectionBarCore",
+      resources: [
+        .process("Resources")
+      ]
     ),
     .testTarget(
       name: "SelectionBarCoreTests",

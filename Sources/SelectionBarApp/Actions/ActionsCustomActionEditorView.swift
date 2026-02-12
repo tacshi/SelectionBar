@@ -114,8 +114,12 @@ struct ActionsCustomActionEditorView: View {
 
         Spacer()
 
-        Text(isNewAction ? "New Action" : "Edit Action")
-          .font(.headline)
+        Text(
+          isNewAction
+            ? String(localized: "New Action")
+            : String(localized: "Edit Action")
+        )
+        .font(.headline)
 
         Spacer()
 
@@ -123,7 +127,7 @@ struct ActionsCustomActionEditorView: View {
           let newConfig = CustomActionConfig(
             id: config.id,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-              ? "Custom Action" : name,
+              ? String(localized: "Custom Action") : name,
             prompt: prompt,
             modelProvider: modelProvider ?? "",
             modelId: modelId ?? "",

@@ -1,9 +1,15 @@
 import SelectionBarCore
 import SwiftUI
 
+private enum ActionsTab: Hashable {
+  case builtIn
+  case custom
+}
+
 struct ActionsSettingsSections: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
 
+  @State private var selectedTab: ActionsTab? = .builtIn
   @State private var editingConfig: CustomActionConfig?
 
   private var llmTemplates: [CustomActionConfig] {
@@ -15,14 +21,36 @@ struct ActionsSettingsSections: View {
   }
 
   var body: some View {
-    ActionsSettingsContent(
-      settingsStore: settingsStore,
-      editingConfig: $editingConfig,
-      llmTemplates: llmTemplates,
-      javaScriptTemplates: javaScriptTemplates
-    )
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color(nsColor: .textBackgroundColor))
+    HStack(spacing: 0) {
+      List(selection: $selectedTab) {
+        Label("Built-in", systemImage: "tray.full")
+          .tag(ActionsTab.builtIn)
+
+        Label("Custom", systemImage: "square.and.pencil")
+          .tag(ActionsTab.custom)
+      }
+      .frame(width: 180)
+      .listStyle(.sidebar)
+
+      Divider()
+
+      Group {
+        switch selectedTab {
+        case .builtIn:
+          ActionsBuiltInSettingsContent(settingsStore: settingsStore)
+        case .custom:
+          ActionsCustomSettingsContent(
+            settingsStore: settingsStore,
+            editingConfig: $editingConfig,
+            llmTemplates: llmTemplates,
+            javaScriptTemplates: javaScriptTemplates
+          )
+        case .none:
+          ActionsBuiltInSettingsContent(settingsStore: settingsStore)
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
     .sheet(item: $editingConfig) { config in
       ActionsCustomActionEditorView(
         settingsStore: settingsStore,
@@ -43,7 +71,109 @@ struct ActionsSettingsSections: View {
   }
 }
 
-private struct ActionsSettingsContent: View {
+private struct ActionsBuiltInSettingsContent: View {
+  @Bindable var settingsStore: SelectionBarSettingsStore
+
+  var body: some View {
+    @Bindable var settings = settingsStore
+    let translationProviders = settings.availableSelectionBarTranslationProviders()
+    let appTranslationProviders = translationProviders.filter { $0.kind == .app }
+    let llmTranslationProviders = translationProviders.filter { $0.kind == .llm }
+
+    Form {
+      Section {
+        Picker("Engine", selection: $settings.selectionBarSearchEngine) {
+          Text("Google").tag(SelectionBarSearchEngine.google)
+          Text("Baidu").tag(SelectionBarSearchEngine.baidu)
+          Text("Sogou").tag(SelectionBarSearchEngine.sogou)
+          Text("360 Search").tag(SelectionBarSearchEngine.so360)
+          Text("Bing").tag(SelectionBarSearchEngine.bing)
+          Text("Yandex").tag(SelectionBarSearchEngine.yandex)
+          Text("DuckDuckGo").tag(SelectionBarSearchEngine.duckDuckGo)
+        }
+      } header: {
+        Label("Web Search", systemImage: "magnifyingglass")
+      }
+
+      Section {
+        Toggle("Enable Look Up", isOn: $settings.selectionBarLookupEnabled)
+
+        if settings.selectionBarLookupEnabled {
+          Picker("Dictionary", selection: $settings.selectionBarLookupProvider) {
+            Text("Dictionary (macOS)").tag(SelectionBarLookupProvider.systemDictionary)
+            Text("Eudic").tag(SelectionBarLookupProvider.eudic)
+            Text("Custom URL Scheme").tag(SelectionBarLookupProvider.customApp)
+          }
+
+          if settings.selectionBarLookupProvider == .customApp {
+            TextField("URL Scheme", text: $settings.selectionBarLookupCustomScheme)
+              .textFieldStyle(.roundedBorder)
+
+            Text("Enter a scheme like eudic, or a URL template with {{query}}.")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+        }
+      } header: {
+        Label("Word Lookup", systemImage: "book.closed")
+      }
+
+      Section {
+        Toggle("Enable Translate", isOn: $settings.selectionBarTranslationEnabled)
+
+        if settings.selectionBarTranslationEnabled {
+          if translationProviders.isEmpty {
+            Text("No translation providers configured")
+              .foregroundStyle(.secondary)
+          } else {
+            Picker("Provider", selection: $settings.selectionBarTranslationProviderId) {
+              ForEach(appTranslationProviders, id: \.id) { provider in
+                Text(provider.name).tag(provider.id)
+              }
+              if !appTranslationProviders.isEmpty && !llmTranslationProviders.isEmpty {
+                Divider()
+              }
+              ForEach(llmTranslationProviders, id: \.id) { provider in
+                Text(provider.name).tag(provider.id)
+              }
+            }
+
+            if settings.isSelectionBarLLMTranslationProvider(
+              id: settings.selectionBarTranslationProviderId
+            ) {
+              Picker("Target", selection: $settings.selectionBarTranslationTargetLanguage) {
+                ForEach(TranslationLanguageCatalog.targetLanguages) { language in
+                  Text(language.localizedName).tag(language.code)
+                }
+              }
+            }
+          }
+        }
+      } header: {
+        Label("Translation", systemImage: "translate")
+      } footer: {
+        Text(
+          "Translate supports app providers and LLM providers. Target applies to LLM providers.")
+      }
+    }
+    .formStyle(.grouped)
+    .padding()
+    .onAppear {
+      settings.ensureValidSelectionBarTranslationProvider()
+    }
+    .onChange(of: settings.customLLMProviders) { _, _ in
+      settings.ensureValidSelectionBarTranslationProvider()
+    }
+    .onChange(of: settings.availableOpenAIModels) { _, _ in
+      settings.ensureValidSelectionBarTranslationProvider()
+    }
+    .onChange(of: settings.availableOpenRouterModels) { _, _ in
+      settings.ensureValidSelectionBarTranslationProvider()
+    }
+  }
+}
+
+private struct ActionsCustomSettingsContent: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
   @Binding var editingConfig: CustomActionConfig?
   let llmTemplates: [CustomActionConfig]
@@ -229,20 +359,20 @@ private struct ActionsActionRow: View {
       if let enablementIssue, !isEnabled {
         switch enablementIssue {
         case .missingProvider:
-          return "Choose provider before enabling"
+          return String(localized: "Choose provider before enabling")
         case .missingModel:
-          return "Choose model before enabling"
+          return String(localized: "Choose model before enabling")
         case .providerUnavailable:
-          return "Provider key missing"
+          return String(localized: "Provider key missing")
         }
       }
       return config.modelId
     case .javascript:
       switch config.outputMode {
       case .inplace:
-        return "JavaScript • Inplace Edit"
+        return String(localized: "JavaScript • Inplace Edit")
       case .resultWindow:
-        return "JavaScript • Result Window"
+        return String(localized: "JavaScript • Result Window")
       }
     }
   }

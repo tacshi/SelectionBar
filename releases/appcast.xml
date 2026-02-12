@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.2.0</title>
+            <pubDate>Thu, 12 Feb 2026 17:48:12 +1300</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.2.0</h2><ul><li>Fix LLM actions' state and refine KeychainHelper documentation</li><li>Refactor SelectionBar settings and localization support</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.2.0/SelectionBar-0.2.0.dmg" length="4296135" type="application/octet-stream" sparkle:edSignature="oTtj+J6o6nRhVJ+R3gC31ts9SQ7zHsTLY5tkkSTp2Nl3AZYNYJv1vGzbGsyAhAGqR3zUX3acGRSplEXDmEsSBQ=="/>
+        </item>
+        <item>
             <title>0.1.3</title>
             <pubDate>Thu, 12 Feb 2026 15:17:48 +1300</pubDate>
             <sparkle:version>5</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.1.2</h2><ul><li>Enhance update check functionality and streamline appcast release notes</li><li>Remove unused icon mode and streamline button labels (#2)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.1.2/SelectionBar-0.1.2.dmg" length="4232345" type="application/octet-stream" sparkle:edSignature="v3GDzaaHYufsDifrvzkr0mb79x6Yjhhh/hXu5bAr8s0ioYV3a+d7vzP6r8gJ1vmBf5pjja0ZDM/F1JJORi8wDA=="/>
-        </item>
-        <item>
-            <title>0.1.1</title>
-            <pubDate>Thu, 12 Feb 2026 14:39:19 +1300</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.1.1</h2><ul><li>Remove unused icon mode and streamline button labels</li><li>Remove useless section</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.1.1/SelectionBar-0.1.1.dmg" length="4232348" type="application/octet-stream" sparkle:edSignature="bBASMehOzOe0ZUZ86vmfQf6w3tmV3+ODpUQacEM1v7vgj3TzfylE++tknpdaqms6Fqem9WEHBdegLFKU+8tuAA=="/>
         </item>
     </channel>
 </rss>
