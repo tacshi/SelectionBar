@@ -48,9 +48,6 @@ public final class SelectionMonitor {
   /// Track click count for mouse-down/up sequence (2+ means double/triple click selection)
   private var mouseDownClickCount: Int = 1
 
-  /// Whether mouse-down started in a text-capable AX context.
-  private var mouseDownWasTextContext: Bool = false
-
   /// Focused window origin at mouse-down to detect real window drags.
   private var mouseDownWindowOrigin: CGPoint?
   private var mouseDownWindowPID: pid_t?
@@ -136,7 +133,6 @@ public final class SelectionMonitor {
       Task { @MainActor in
         self?.mouseDownLocation = location
         self?.mouseDownClickCount = max(event.clickCount, 1)
-        self?.mouseDownWasTextContext = self?.accessibility.isTextContext(at: location) ?? false
         self?.captureMouseDownWindowOrigin()
         self?.onDismissRequested?()
       }
@@ -255,12 +251,9 @@ public final class SelectionMonitor {
     let effectiveClickCount = max(clickCount, mouseDownClickCount)
     let isSelectionGesture = wasDrag || effectiveClickCount >= 2
     let isMultiClickGesture = effectiveClickCount >= 2
-    let mouseDownWasTextContext = self.mouseDownWasTextContext
-    let mouseUpWasTextContext = wasDrag ? accessibility.isTextContext(at: mouseLocation) : false
     let didMoveWindow = focusedWindowMovedSinceMouseDown(forPID: frontApp.processIdentifier)
     mouseDownLocation = nil
     mouseDownClickCount = 1
-    self.mouseDownWasTextContext = false
     clearMouseDownWindowOrigin()
 
     // Only react to explicit selection gestures (drag, double-click, triple-click).
@@ -294,14 +287,13 @@ public final class SelectionMonitor {
         at: mouseLocation,
         isSelectionGesture: isSelectionGesture,
         isMultiClickGesture: isMultiClickGesture,
-        mouseDownWasTextContext: mouseDownWasTextContext,
-        mouseUpWasTextContext: mouseUpWasTextContext,
         didMoveWindow: didMoveWindow
       )
     }
   }
 
-  private func shouldIgnoreMultiClickSelection(frontmostBundleID: String?, clickCount: Int) -> Bool
+  private func shouldIgnoreMultiClickSelection(frontmostBundleID: String?, clickCount: Int)
+    -> Bool
   {
     guard clickCount >= 2, let bundleID = frontmostBundleID else { return false }
     return Self.fileBrowserBundleIDs.contains(bundleID)
@@ -347,8 +339,6 @@ public final class SelectionMonitor {
         at: mouseLocation,
         isSelectionGesture: true,
         isMultiClickGesture: true,
-        mouseDownWasTextContext: true,
-        mouseUpWasTextContext: true,
         didMoveWindow: false
       )
     }
@@ -358,8 +348,6 @@ public final class SelectionMonitor {
     at mouseLocation: NSPoint,
     isSelectionGesture: Bool,
     isMultiClickGesture: Bool,
-    mouseDownWasTextContext: Bool,
-    mouseUpWasTextContext: Bool,
     didMoveWindow: Bool
   ) async {
     guard isEnabled else { return }
@@ -391,15 +379,15 @@ public final class SelectionMonitor {
     // Dragging windows/titlebars in many apps would otherwise produce system beeps.
     if !isMultiClickGesture {
       if didMoveWindow {
-        logger.debug("Skipping clipboard fallback: focused window moved during drag gesture")
+        logger.debug(
+          "Skipping clipboard fallback: focused window moved during drag gesture")
         return
       }
-      let hasTextContext = mouseDownWasTextContext || mouseUpWasTextContext
-      guard hasTextContext else {
-        logger.debug("Skipping clipboard fallback for non-text drag gesture")
-        return
-      }
-      logger.debug("Allowing clipboard fallback for drag selection in text-capable context")
+      // Text-context detection relies on the same AX tree that already
+      // failed to return selected text (Strategy 1). Apps like WeChat,
+      // WhatsApp, and Telegram often don't expose text context reliably,
+      // so we don't gate the clipboard fallback on it — the didMoveWindow
+      // check and drag threshold are sufficient to filter false positives.
     }
 
     logger.debug("AX query failed, trying clipboard fallback")

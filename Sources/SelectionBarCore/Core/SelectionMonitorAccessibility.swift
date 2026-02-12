@@ -125,7 +125,8 @@ final class SelectionMonitorAccessibility {
 
     guard focusResult == .success, let element = focusedElement else {
       logger.debug(
-        "AX: could not get focused element, error: \(focusResult.rawValue, privacy: .public)")
+        "AX: could not get focused element, error: \(focusResult.rawValue, privacy: .public)"
+      )
       return nil
     }
 
@@ -140,7 +141,8 @@ final class SelectionMonitorAccessibility {
   private func isEditable(_ element: AXUIElement) -> Bool {
     var roleValue: AnyObject?
     guard
-      AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue) == .success,
+      AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
+        == .success,
       let role = roleValue as? String
     else {
       return false
@@ -256,7 +258,8 @@ final class SelectionMonitorAccessibility {
   private func elementRole(_ element: AXUIElement) -> String? {
     var roleValue: AnyObject?
     guard
-      AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue) == .success
+      AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
+        == .success
     else { return nil }
     return roleValue as? String
   }
@@ -264,7 +267,8 @@ final class SelectionMonitorAccessibility {
   private func isTextContextElement(_ element: AXUIElement) -> Bool {
     var roleValue: AnyObject?
     guard
-      AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue) == .success,
+      AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
+        == .success,
       let role = roleValue as? String
     else {
       return false
