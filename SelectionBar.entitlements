@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Sandbox disabled for Accessibility APIs (global text selection) -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+
+    <!-- Hardened Runtime - required for notarization -->
+    <key>com.apple.security.hardened-runtime</key>
+    <true/>
+
+    <!-- Disable library validation to allow loading the Sparkle framework.
+         Required because Sparkle is pre-signed by sparkle-project.org with their own identity. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>
