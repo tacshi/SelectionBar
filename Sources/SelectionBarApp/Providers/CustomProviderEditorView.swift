@@ -332,6 +332,16 @@ struct CustomProviderEditorView: View {
               placeholder: "Select translation model"
             )
           }
+
+          Toggle(String(localized: "Text-to-Speech"), isOn: capabilityBinding(.tts))
+            .disabled(!hasModels)
+          if provider.capabilities.contains(.tts) && hasModels {
+            modelPicker(
+              target: .tts,
+              selection: $provider.ttsModel,
+              placeholder: String(localized: "Select TTS model")
+            )
+          }
         }
       }
       .formStyle(.grouped)
@@ -343,6 +353,8 @@ struct CustomProviderEditorView: View {
               provider.llmModel
             case .translation:
               provider.translationModel
+            case .tts:
+              provider.ttsModel
             }
           },
           set: { newValue in
@@ -351,6 +363,8 @@ struct CustomProviderEditorView: View {
               provider.llmModel = newValue
             case .translation:
               provider.translationModel = newValue
+            case .tts:
+              provider.ttsModel = newValue
             }
           }
         )
@@ -423,6 +437,7 @@ struct CustomProviderEditorView: View {
         } else {
           updated.capabilities = updated.capabilities.subtracting(capability)
           if capability == .llm {
+            // Removing LLM also removes translation, but NOT tts.
             updated.capabilities = updated.capabilities.subtracting(.translation)
           }
         }
@@ -435,6 +450,7 @@ struct CustomProviderEditorView: View {
   private enum ModelSelectorTarget: Int, Identifiable {
     case llm
     case translation
+    case tts
 
     var id: Int { rawValue }
   }
@@ -541,7 +557,8 @@ struct CustomProviderEditorView: View {
       models: [],
       capabilities: [],
       llmModel: preset.llmModel,
-      translationModel: ""
+      translationModel: "",
+      ttsModel: ""
     )
 
     testResult = nil

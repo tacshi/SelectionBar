@@ -20,6 +20,7 @@ public final class SelectionBarCoordinator {
   private var errorActionId: UUID?
   private var isTranslating = false
   private var isTranslateError = false
+  private var isSpeaking = false
 
   public init(settingsStore: SelectionBarSettingsStore) {
     self.settingsStore = settingsStore
@@ -84,6 +85,8 @@ public final class SelectionBarCoordinator {
     errorActionId = nil
     isTranslating = false
     isTranslateError = false
+    isSpeaking = false
+    actionHandler.stopSpeaking()
 
     showBar(near: location)
     startAutoDismissTimer()
@@ -120,6 +123,7 @@ public final class SelectionBarCoordinator {
     let showTranslate =
       settingsStore.selectionBarTranslationEnabled
       && !settingsStore.availableSelectionBarTranslationProviders().isEmpty
+    let showSpeak = settingsStore.selectionBarSpeakEnabled
     let showCut = monitor.isFocusedElementEditable()
     let enabledActions = settingsStore.customActions.filter(\.isEnabled)
     let isBusy = processingActionId != nil || isTranslating
@@ -135,6 +139,8 @@ public final class SelectionBarCoordinator {
       showTranslate: showTranslate,
       isTranslating: isTranslating,
       isTranslateError: isTranslateError,
+      showSpeak: showSpeak,
+      isSpeaking: isSpeaking,
       isBusy: isBusy,
       onSearchSelected: { [weak self] in
         self?.handleSearchSelected()
@@ -153,6 +159,9 @@ public final class SelectionBarCoordinator {
       },
       onTranslateSelected: { [weak self] in
         self?.handleTranslateSelected()
+      },
+      onSpeakSelected: { [weak self] in
+        self?.handleSpeakSelected()
       },
       onActionSelected: { [weak self] action in
         self?.handleActionSelected(action)
@@ -221,6 +230,46 @@ public final class SelectionBarCoordinator {
         guard !Task.isCancelled else { return }
         logger.error("Translate action failed: \(error.localizedDescription, privacy: .public)")
         self.showTranslateError()
+      }
+    }
+  }
+
+  private func handleSpeakSelected() {
+    if isSpeaking {
+      actionHandler.stopSpeaking()
+      isSpeaking = false
+      rebuildBarIfVisible()
+      return
+    }
+
+    guard let selectedText else { return }
+
+    settingsStore.ensureValidSelectionBarSpeakProvider()
+
+    autoDismissTask?.cancel()
+    isSpeaking = true
+    rebuildBarIfVisible()
+
+    let providerId = settingsStore.selectionBarSpeakProviderId
+
+    if SelectionBarSpeakAPIProvider(rawValue: providerId) == .elevenLabs {
+      let voiceId = settingsStore.elevenLabsVoiceId
+      let modelId = settingsStore.elevenLabsModelId
+      actionHandler.speakWithElevenLabs(
+        text: selectedText, voiceId: voiceId, modelId: modelId
+      ) { [weak self] in
+        guard let self else { return }
+        self.isSpeaking = false
+        self.rebuildBarIfVisible()
+      }
+    } else {
+      let voiceId = settingsStore.selectionBarSpeakVoiceIdentifier
+      actionHandler.speak(
+        text: selectedText, voiceIdentifier: voiceId, providerId: providerId
+      ) { [weak self] in
+        guard let self else { return }
+        self.isSpeaking = false
+        self.rebuildBarIfVisible()
       }
     }
   }
@@ -423,6 +472,7 @@ public final class SelectionBarCoordinator {
     actionTask = nil
     autoDismissTask?.cancel()
     autoDismissTask = nil
+    actionHandler.stopSpeaking()
     windowController?.dismiss()
     windowController = nil
     selectedText = nil
@@ -431,5 +481,6 @@ public final class SelectionBarCoordinator {
     errorActionId = nil
     isTranslating = false
     isTranslateError = false
+    isSpeaking = false
   }
 }

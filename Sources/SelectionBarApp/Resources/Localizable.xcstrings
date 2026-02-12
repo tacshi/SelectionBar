@@ -471,6 +471,46 @@
         }
       }
     },
+    "Enable Speak" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "読み上げを有効にする" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用朗读" }
+        }
+      }
+    },
+    "Voice" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "音声" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "语音" }
+        }
+      }
+    },
+    "Speak" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "読み上げ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "朗读" }
+        }
+      }
+    },
+    "Reads selected text aloud using the chosen provider and voice." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "選択したプロバイダと音声でテキストを読み上げます。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "使用所选服务商和语音朗读选中的文本。" }
+        }
+      }
+    },
     "No actions configured" : {
       "localizations" : {
         "ja" : {
@@ -948,6 +988,36 @@
         },
         "zh-Hans" : {
           "stringUnit" : { "state" : "translated", "value" : "无对话功能" }
+        }
+      }
+    },
+    "ElevenLabs is a TTS-only provider for high-quality text-to-speech." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ElevenLabsは高品質テキスト読み上げ専用プロバイダです。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "ElevenLabs是仅用于高品质文字转语音的服务商。" }
+        }
+      }
+    },
+    "Get API Key from ElevenLabs" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ElevenLabsのAPIキーを取得" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "获取ElevenLabs API密钥" }
+        }
+      }
+    },
+    "No voices available. Save your API key and test the connection." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "音声が利用できません。APIキーを保存して接続テストを行ってください。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "暂无可用语音。请保存API密钥并测试连接。" }
         }
       }
     },
@@ -1538,6 +1608,36 @@
         },
         "zh-Hans" : {
           "stringUnit" : { "state" : "translated", "value" : "编辑服务商" }
+        }
+      }
+    },
+    "Text-to-Speech" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "テキスト読み上げ" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "文字转语音" }
+        }
+      }
+    },
+    "TTS" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "TTS" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "TTS" }
+        }
+      }
+    },
+    "Select TTS model" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "TTSモデルを選択" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "选择TTS模型" }
         }
       }
     }

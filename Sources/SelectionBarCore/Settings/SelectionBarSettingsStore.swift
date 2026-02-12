@@ -38,6 +38,7 @@ public final class SelectionBarSettingsStore {
   public private(set) var openAIAPIKeyConfigured: Bool
   public private(set) var openRouterAPIKeyConfigured: Bool
   public private(set) var deepLAPIKeyConfigured: Bool
+  public private(set) var elevenLabsAPIKeyConfigured: Bool
 
   /// Cached API key availability for custom providers by ID.
   public private(set) var customProviderAPIKeyConfiguredByID: [UUID: Bool]
@@ -78,6 +79,35 @@ public final class SelectionBarSettingsStore {
   }
 
   public var selectionBarSearchEngine: SelectionBarSearchEngine {
+    didSet { persistIfNeeded() }
+  }
+
+  public var selectionBarSpeakEnabled: Bool {
+    didSet { persistIfNeeded() }
+  }
+
+  /// Voice identifier for the Speak action. Empty means system default.
+  public var selectionBarSpeakVoiceIdentifier: String {
+    didSet { persistIfNeeded() }
+  }
+
+  /// Selected speak provider ID (e.g. "system-apple", "api-elevenlabs", or "custom-<uuid>").
+  public var selectionBarSpeakProviderId: String {
+    didSet { persistIfNeeded() }
+  }
+
+  /// Selected ElevenLabs voice ID.
+  public var elevenLabsVoiceId: String {
+    didSet { persistIfNeeded() }
+  }
+
+  /// Selected ElevenLabs model. Default: "eleven_v3".
+  public var elevenLabsModelId: String {
+    didSet { persistIfNeeded() }
+  }
+
+  /// Cached ElevenLabs voice list.
+  public var availableElevenLabsVoices: [ElevenLabsVoice] {
     didSet { persistIfNeeded() }
   }
 
@@ -195,6 +225,12 @@ public final class SelectionBarSettingsStore {
     selectionBarLookupProvider = .systemDictionary
     selectionBarLookupCustomScheme = ""
     selectionBarSearchEngine = .google
+    selectionBarSpeakEnabled = true
+    selectionBarSpeakVoiceIdentifier = ""
+    selectionBarSpeakProviderId = SelectionBarSpeakSystemProvider.apple.rawValue
+    elevenLabsVoiceId = ""
+    elevenLabsModelId = "eleven_v3"
+    availableElevenLabsVoices = []
     selectionBarTranslationEnabled = true
     selectionBarTranslationProviderId = SelectionBarTranslationAppProvider.bob.rawValue
     selectionBarIgnoredApps = Self.defaultIgnoredApps
@@ -211,12 +247,14 @@ public final class SelectionBarSettingsStore {
     openAIAPIKeyConfigured = false
     openRouterAPIKeyConfigured = false
     deepLAPIKeyConfigured = false
+    elevenLabsAPIKeyConfigured = false
     customProviderAPIKeyConfiguredByID = [:]
 
     load()
     refreshCredentialAvailability()
     ensureValidSelectionBarTranslationProvider()
     ensureValidSelectionBarTranslationTargetLanguage()
+    ensureValidSelectionBarSpeakProvider()
     _ = reconcileCustomActionsAvailabilityIfNeeded(checkProviderAvailability: false)
   }
 
@@ -289,6 +327,56 @@ public final class SelectionBarSettingsStore {
     }
   }
 
+  public func availableSelectionBarSpeakProviders() -> [SelectionBarSpeakProviderOption] {
+    var providers = SelectionBarSpeakSystemProvider.allCases.map { provider in
+      SelectionBarSpeakProviderOption(
+        id: provider.rawValue,
+        name: provider.displayName,
+        kind: .system
+      )
+    }
+
+    if elevenLabsAPIKeyConfigured {
+      providers.append(
+        SelectionBarSpeakProviderOption(
+          id: SelectionBarSpeakAPIProvider.elevenLabs.rawValue,
+          name: SelectionBarSpeakAPIProvider.elevenLabs.displayName,
+          kind: .api
+        ))
+    }
+
+    for provider in customLLMProviders where provider.capabilities.contains(.tts) {
+      guard isCustomProviderAPIKeyConfigured(id: provider.id) else { continue }
+      providers.append(
+        SelectionBarSpeakProviderOption(
+          id: provider.providerId,
+          name: provider.name,
+          kind: .custom
+        ))
+    }
+
+    return providers
+  }
+
+  public func isSelectionBarSystemSpeakProvider(id: String) -> Bool {
+    SelectionBarSpeakSystemProvider(rawValue: id) != nil
+  }
+
+  public func ensureValidSelectionBarSpeakProvider() {
+    let available = availableSelectionBarSpeakProviders()
+    guard !available.isEmpty else { return }
+
+    if available.contains(where: { $0.id == selectionBarSpeakProviderId }) {
+      return
+    }
+
+    if let systemFallback = available.first(where: { $0.kind == .system })?.id {
+      selectionBarSpeakProviderId = systemFallback
+    } else if let fallback = available.first?.id {
+      selectionBarSpeakProviderId = fallback
+    }
+  }
+
   public func ensureValidSelectionBarTranslationTargetLanguage() {
     if TranslationLanguageCatalog.contains(code: selectionBarTranslationTargetLanguage) {
       return
@@ -301,6 +389,7 @@ public final class SelectionBarSettingsStore {
     openAIAPIKeyConfigured = isAPIKeyConfiguredInKeychain("openai_api_key")
     openRouterAPIKeyConfigured = isAPIKeyConfiguredInKeychain("openrouter_api_key")
     deepLAPIKeyConfigured = isAPIKeyConfiguredInKeychain("deepl_api_key")
+    elevenLabsAPIKeyConfigured = isAPIKeyConfiguredInKeychain("elevenlabs_api_key")
 
     var customAvailability: [UUID: Bool] = [:]
     for provider in customLLMProviders {
@@ -323,6 +412,7 @@ public final class SelectionBarSettingsStore {
       }
       refreshCredentialAvailability()
       ensureValidSelectionBarTranslationProvider()
+      ensureValidSelectionBarSpeakProvider()
       _ = reconcileCustomActionsAvailabilityIfNeeded()
     }
     persistIfNeeded()
@@ -345,6 +435,7 @@ public final class SelectionBarSettingsStore {
       }
       refreshCredentialAvailability()
       ensureValidSelectionBarTranslationProvider()
+      ensureValidSelectionBarSpeakProvider()
       _ = reconcileCustomActionsAvailabilityIfNeeded()
     }
     persistIfNeeded()
@@ -358,6 +449,7 @@ public final class SelectionBarSettingsStore {
       customLLMProviders.removeAll { $0.id == id }
       refreshCredentialAvailability()
       ensureValidSelectionBarTranslationProvider()
+      ensureValidSelectionBarSpeakProvider()
       _ = reconcileCustomActionsAvailabilityIfNeeded()
     }
     persistIfNeeded()
@@ -368,6 +460,7 @@ public final class SelectionBarSettingsStore {
     withPersistenceSuppressed {
       refreshCredentialAvailability()
       ensureValidSelectionBarTranslationProvider()
+      ensureValidSelectionBarSpeakProvider()
       _ = reconcileCustomActionsAvailabilityIfNeeded()
     }
     persistIfNeeded()
@@ -493,6 +586,12 @@ public final class SelectionBarSettingsStore {
       selectionBarLookupCustomScheme: selectionBarLookupCustomScheme,
       selectionBarLookupCustomApp: nil,
       selectionBarSearchEngine: selectionBarSearchEngine.rawValue,
+      selectionBarSpeakEnabled: selectionBarSpeakEnabled,
+      selectionBarSpeakVoiceIdentifier: selectionBarSpeakVoiceIdentifier,
+      selectionBarSpeakProviderId: selectionBarSpeakProviderId,
+      elevenLabsVoiceId: elevenLabsVoiceId,
+      elevenLabsModelId: elevenLabsModelId,
+      availableElevenLabsVoices: availableElevenLabsVoices,
       selectionBarTranslationEnabled: selectionBarTranslationEnabled,
       selectionBarTranslationProviderId: selectionBarTranslationProviderId,
       selectionBarIgnoredApps: selectionBarIgnoredApps,
@@ -535,6 +634,14 @@ public final class SelectionBarSettingsStore {
       selectionBarSearchEngine =
         SelectionBarSearchEngine(rawValue: settings.selectionBarSearchEngine ?? "")
         ?? .google
+      selectionBarSpeakEnabled = settings.selectionBarSpeakEnabled ?? true
+      selectionBarSpeakVoiceIdentifier = settings.selectionBarSpeakVoiceIdentifier ?? ""
+      selectionBarSpeakProviderId =
+        settings.selectionBarSpeakProviderId
+        ?? SelectionBarSpeakSystemProvider.apple.rawValue
+      elevenLabsVoiceId = settings.elevenLabsVoiceId ?? ""
+      elevenLabsModelId = settings.elevenLabsModelId ?? "eleven_v3"
+      availableElevenLabsVoices = settings.availableElevenLabsVoices ?? []
       selectionBarTranslationEnabled = settings.selectionBarTranslationEnabled ?? true
       selectionBarTranslationProviderId =
         settings.selectionBarTranslationProviderId
@@ -576,6 +683,12 @@ private struct StoredSettings: Codable {
   let selectionBarLookupCustomScheme: String?
   let selectionBarLookupCustomApp: IgnoredApp?
   let selectionBarSearchEngine: String?
+  let selectionBarSpeakEnabled: Bool?
+  let selectionBarSpeakVoiceIdentifier: String?
+  let selectionBarSpeakProviderId: String?
+  let elevenLabsVoiceId: String?
+  let elevenLabsModelId: String?
+  let availableElevenLabsVoices: [ElevenLabsVoice]?
   let selectionBarTranslationEnabled: Bool?
   let selectionBarTranslationProviderId: String?
   let selectionBarIgnoredApps: [IgnoredApp]?

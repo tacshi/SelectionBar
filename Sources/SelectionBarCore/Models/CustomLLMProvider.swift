@@ -10,6 +10,7 @@ public struct CustomLLMProvider: Identifiable, Codable, Sendable, Hashable {
   public var capabilities: ProviderCapabilities
   public var llmModel: String
   public var translationModel: String
+  public var ttsModel: String
 
   /// Keychain key derived from provider ID.
   public var keychainKey: String {
@@ -29,7 +30,8 @@ public struct CustomLLMProvider: Identifiable, Codable, Sendable, Hashable {
     models: [String] = [],
     capabilities: ProviderCapabilities = [.llm],
     llmModel: String = "",
-    translationModel: String = ""
+    translationModel: String = "",
+    ttsModel: String = ""
   ) {
     self.id = id
     self.name = name
@@ -39,5 +41,26 @@ public struct CustomLLMProvider: Identifiable, Codable, Sendable, Hashable {
     self.capabilities = capabilities
     self.llmModel = llmModel
     self.translationModel = translationModel
+    self.ttsModel = ttsModel
+  }
+
+  // MARK: - Codable (backward-compatible)
+
+  private enum CodingKeys: String, CodingKey {
+    case id, name, baseURL, iconData, models, capabilities
+    case llmModel, translationModel, ttsModel
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(UUID.self, forKey: .id)
+    name = try container.decode(String.self, forKey: .name)
+    baseURL = try container.decode(URL.self, forKey: .baseURL)
+    iconData = try container.decodeIfPresent(Data.self, forKey: .iconData)
+    models = try container.decode([String].self, forKey: .models)
+    capabilities = try container.decode(ProviderCapabilities.self, forKey: .capabilities)
+    llmModel = try container.decode(String.self, forKey: .llmModel)
+    translationModel = try container.decode(String.self, forKey: .translationModel)
+    ttsModel = try container.decodeIfPresent(String.self, forKey: .ttsModel) ?? ""
   }
 }

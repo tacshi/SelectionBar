@@ -13,4 +13,7 @@ public struct ProviderCapabilities: OptionSet, Codable, Sendable, Hashable {
 
   /// Text translation via LLM.
   public static let translation = ProviderCapabilities(rawValue: 1 << 1)
+
+  /// Text-to-speech.
+  public static let tts = ProviderCapabilities(rawValue: 1 << 2)
 }
