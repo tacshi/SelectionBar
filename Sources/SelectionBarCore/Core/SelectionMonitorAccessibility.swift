@@ -195,6 +195,14 @@ final class SelectionMonitorAccessibility {
   }
 
   private func isTextContextInHierarchy(startingAt element: AXUIElement) -> Bool {
+    // When the deepest element at a position is the window itself, the app
+    // doesn't expose its content via Accessibility (e.g. GPU-rendered editors
+    // like Zed). Treat as potentially text-capable so the clipboard fallback
+    // can attempt a synthetic Cmd+C.
+    if elementRole(element) == kAXWindowRole as String {
+      return true
+    }
+
     for candidate in elementAndAncestors(startingAt: element) {
       if isEditable(candidate) || isTextContextElement(candidate) {
         return true
@@ -243,6 +251,14 @@ final class SelectionMonitorAccessibility {
       return nil
     }
     return unsafeDowncast(parentValue, to: AXUIElement.self)
+  }
+
+  private func elementRole(_ element: AXUIElement) -> String? {
+    var roleValue: AnyObject?
+    guard
+      AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue) == .success
+    else { return nil }
+    return roleValue as? String
   }
 
   private func isTextContextElement(_ element: AXUIElement) -> Bool {
