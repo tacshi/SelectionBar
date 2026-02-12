@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.3.2</title>
+            <pubDate>Thu, 12 Feb 2026 22:28:55 +1300</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.3.2</h2><ul><li>Fix Zed recognition</li><li>Add CLAUDE.md with guidance for Claude Code</li><li>Use Bundle ID for logger and bind LaunchAtLogin</li><li>Add Launch at Login support (#7)</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.3.2/SelectionBar-0.3.2.dmg" length="4514004" type="application/octet-stream" sparkle:edSignature="VPECj3/50NpA+bnZJAVKLK0RWonJPuDxJjnrCA/a4Rr/dHLxdndfpxnC6HBr6w7X57Uw3GEemxsTkX2MgIIHAg=="/>
+        </item>
+        <item>
             <title>0.3.1</title>
             <pubDate>Thu, 12 Feb 2026 21:54:44 +1300</pubDate>
             <sparkle:version>8</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.3.0</h2><ul><li>Add text-to-speech support with ElevenLabs (#6)</li><li>Refactor SelectionBar settings and localization support (#5)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.3.0/SelectionBar-0.3.0.dmg" length="4512795" type="application/octet-stream" sparkle:edSignature="IToDTN9jonCwCPxi4JyjceKKSqgo1acIZz4ekmL/WVJbiaDka6eLncGYdvi0R40WuBARo/GS0JP4/PSdsW1LAw=="/>
-        </item>
-        <item>
-            <title>0.2.0</title>
-            <pubDate>Thu, 12 Feb 2026 17:48:12 +1300</pubDate>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.2.0</h2><ul><li>Fix LLM actions' state and refine KeychainHelper documentation</li><li>Refactor SelectionBar settings and localization support</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.2.0/SelectionBar-0.2.0.dmg" length="4296135" type="application/octet-stream" sparkle:edSignature="oTtj+J6o6nRhVJ+R3gC31ts9SQ7zHsTLY5tkkSTp2Nl3AZYNYJv1vGzbGsyAhAGqR3zUX3acGRSplEXDmEsSBQ=="/>
         </item>
     </channel>
 </rss>
