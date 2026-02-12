@@ -7,7 +7,7 @@ public protocol KeychainServiceProtocol: Sendable {
   func delete(key: String) -> Bool
 }
 
-/// Keychain-only API key storage for SelectionBar.
+/// API key storage for SelectionBar.
 public final class KeychainHelper: KeychainServiceProtocol, @unchecked Sendable {
   public static let shared = KeychainHelper()
 
@@ -30,7 +30,6 @@ public final class KeychainHelper: KeychainServiceProtocol, @unchecked Sendable 
       kSecAttrService as String: keychainService,
       kSecAttrAccount as String: key,
       kSecValueData as String: data,
-      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
     ]
 
     let status = SecItemAdd(addQuery as CFDictionary, nil)
