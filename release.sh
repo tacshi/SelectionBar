@@ -560,31 +560,6 @@ log_success "All builds notarized"
 # ============================================================================
 log_step "5. Generating appcast with release notes"
 
-# Create release notes file for Sparkle
-RELEASE_NOTES_FILE="$RELEASES_DIR/$APP_NAME-$VERSION.html"
-ESCAPED_NOTES=$(escape_release_notes_html "$RELEASE_NOTES")
-cat > "$RELEASE_NOTES_FILE" << EOF
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 10px; }
-        h2 { font-size: 16px; margin-bottom: 10px; }
-        ul { padding-left: 20px; margin: 0; }
-        li { margin-bottom: 5px; line-height: 1.4; }
-    </style>
-</head>
-<body>
-<h2>What's New in $VERSION</h2>
-<ul>
-$ESCAPED_NOTES
-</ul>
-</body>
-</html>
-EOF
-
 # Move old version DMGs and arch-specific builds out temporarily
 # Sparkle only supports one archive per version, and old versions cause conflicts
 TEMP_ARCH_DIR="$SCRIPT_DIR/.build/arch-releases"
@@ -607,16 +582,19 @@ log_info "Isolated primary build ($PRIMARY_DMG_NAME) for appcast generation"
 "$SPARKLE_BIN/generate_appcast" "$RELEASES_DIR"
 log_success "Appcast generated"
 
-# Add embedded release notes description to appcast (renders in Sparkle UI)
-# Using CDATA to embed HTML directly since GitHub raw serves text/plain
+# Add embedded release notes as inline CDATA so Sparkle renders HTML directly
+# without a network fetch (raw.githubusercontent.com serves text/plain which
+# causes Sparkle's WKWebView to display raw HTML source).
 log_info "Embedding release notes in appcast..."
 ESCAPED_DESCRIPTION_NOTES=$(escape_release_notes_html "$RELEASE_NOTES")
 DESCRIPTION_BLOCK="            <description><![CDATA[<h2>What's New in $VERSION</h2><ul>$(echo "$ESCAPED_DESCRIPTION_NOTES" | tr -d '\n')</ul>]]></description>"
-# Insert description after the releaseNotesLink line for this version
+# Insert description after minimumSystemVersion for this version's item block
 sed -i '' "/<title>$VERSION<\/title>/,/<enclosure/{
-    /<sparkle:releaseNotesLink/a\\
+    /<sparkle:minimumSystemVersion/a\\
 $DESCRIPTION_BLOCK
 }" "$RELEASES_DIR/appcast.xml"
+# Remove any releaseNotesLink lines as a safety measure
+sed -i '' '/<sparkle:releaseNotesLink/d' "$RELEASES_DIR/appcast.xml"
 log_success "Release notes embedded in appcast"
 
 # Move current version's arch-specific builds back for GitHub upload
@@ -675,16 +653,18 @@ EOF
 
     log_success "GitHub release created"
 
-    # Update appcast URLs to point to GitHub release download URLs
+    # Update appcast download URL for this version only (not older entries)
     log_info "Updating appcast URLs..."
     GITHUB_DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/$TAG_NAME"
-    sed -i '' "s|url=\"[^\"]*/$APP_NAME-|url=\"$GITHUB_DOWNLOAD_URL/$APP_NAME-|g" "$RELEASES_DIR/appcast.xml"
+    sed -i '' "/<title>$VERSION<\/title>/,/<\/item>/{
+        s|url=\"[^\"]*/$APP_NAME-|url=\"$GITHUB_DOWNLOAD_URL/$APP_NAME-|
+    }" "$RELEASES_DIR/appcast.xml"
     log_success "Appcast URLs updated to point to GitHub releases"
 
     # Commit appcast and release notes to the same repo
     log_info "Committing appcast to repository..."
     cd "$SCRIPT_DIR"
-    git add "releases/appcast.xml" "releases/$APP_NAME-$VERSION.html"
+    git add "releases/appcast.xml"
     git commit -m "Update appcast for $VERSION"
     log_success "Appcast committed"
 

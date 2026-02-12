@@ -3,12 +3,20 @@
     <channel>
         <title>SelectionBar</title>
         <item>
+            <title>0.1.2</title>
+            <pubDate>Thu, 12 Feb 2026 15:04:02 +1300</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.1.2</h2><ul><li>Enhance update check functionality and streamline appcast release notes</li><li>Remove unused icon mode and streamline button labels (#2)</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.1.2/SelectionBar-0.1.2.dmg" length="4232345" type="application/octet-stream" sparkle:edSignature="v3GDzaaHYufsDifrvzkr0mb79x6Yjhhh/hXu5bAr8s0ioYV3a+d7vzP6r8gJ1vmBf5pjja0ZDM/F1JJORi8wDA=="/>
+        </item>
+        <item>
             <title>0.1.1</title>
             <pubDate>Thu, 12 Feb 2026 14:39:19 +1300</pubDate>
             <sparkle:version>3</sparkle:version>
             <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:releaseNotesLink>https://raw.githubusercontent.com/tacshi/SelectionBar/main/releases/SelectionBar-0.1.1.html</sparkle:releaseNotesLink>
             <description><![CDATA[<h2>What's New in 0.1.1</h2><ul><li>Remove unused icon mode and streamline button labels</li><li>Remove useless section</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.1.1/SelectionBar-0.1.1.dmg" length="4232348" type="application/octet-stream" sparkle:edSignature="bBASMehOzOe0ZUZ86vmfQf6w3tmV3+ODpUQacEM1v7vgj3TzfylE++tknpdaqms6Fqem9WEHBdegLFKU+8tuAA=="/>
         </item>
@@ -18,9 +26,8 @@
             <sparkle:version>2</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:releaseNotesLink>https://raw.githubusercontent.com/tacshi/SelectionBar/main/releases/SelectionBar-0.1.0.html</sparkle:releaseNotesLink>
             <description><![CDATA[<h2>What's New in 0.1.0</h2><ul><li>Extract from VoiceTale</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.1.1/SelectionBar-0.1.0.dmg" length="4242546" type="application/octet-stream" sparkle:edSignature="uaUy8947J8rKLVCMTGNhAkT0djM0fDIYVog1dpmO4nbr2QIthFKeUiwZWuCxjJaCvnuz3TfxFO5+DI/4XbjdAg=="/>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.1.0/SelectionBar-0.1.0.dmg" length="4242546" type="application/octet-stream" sparkle:edSignature="uaUy8947J8rKLVCMTGNhAkT0djM0fDIYVog1dpmO4nbr2QIthFKeUiwZWuCxjJaCvnuz3TfxFO5+DI/4XbjdAg=="/>
         </item>
     </channel>
 </rss>

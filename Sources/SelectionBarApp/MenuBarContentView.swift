@@ -31,6 +31,7 @@ struct MenuBarContentView: View {
       }
 
       Button(action: {
+        NSApplication.shared.activate(ignoringOtherApps: true)
         SelectionBarAppManager.shared.updaterManager.checkForUpdates()
       }) {
         Label("Check for Updates...", systemImage: "arrow.triangle.2.circlepath")
