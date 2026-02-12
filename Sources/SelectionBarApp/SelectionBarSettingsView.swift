@@ -39,7 +39,8 @@ struct SelectionBarSettingsView: View {
 
 private struct SelectionBarGeneralSettingsTab: View {
   private static let logger = Logger(
-    subsystem: "com.selectionbar.app", category: "GeneralSettings"
+    subsystem: Bundle.main.bundleIdentifier ?? "com.selectionbar.app",
+    category: "GeneralSettings"
   )
 
   @Bindable var settingsStore: SelectionBarSettingsStore
@@ -55,19 +56,7 @@ private struct SelectionBarGeneralSettingsTab: View {
         Toggle("Enable selection bar", isOn: $settings.selectionBarEnabled)
           .help("Show a floating toolbar when text is selected in any app")
 
-        Toggle("Launch at Login", isOn: $launchAtLogin)
-          .onChange(of: launchAtLogin) { _, newValue in
-            do {
-              if newValue {
-                try LaunchAtLoginManager.enable()
-              } else {
-                try LaunchAtLoginManager.disable()
-              }
-            } catch {
-              Self.logger.error("Failed to update launch at login: \(error)")
-              launchAtLogin = !newValue
-            }
-          }
+        Toggle("Launch at Login", isOn: launchAtLoginBinding)
       }
 
       Section {
@@ -162,6 +151,24 @@ private struct SelectionBarGeneralSettingsTab: View {
     } message: {
       Text("The language change will take effect after restarting SelectionBar.")
     }
+  }
+
+  private var launchAtLoginBinding: Binding<Bool> {
+    Binding(
+      get: { launchAtLogin },
+      set: { newValue in
+        do {
+          if newValue {
+            try LaunchAtLoginManager.enable()
+          } else {
+            try LaunchAtLoginManager.disable()
+          }
+          launchAtLogin = newValue
+        } catch {
+          Self.logger.error("Failed to update launch at login: \(error)")
+        }
+      }
+    )
   }
 
   private func restartApp() {
