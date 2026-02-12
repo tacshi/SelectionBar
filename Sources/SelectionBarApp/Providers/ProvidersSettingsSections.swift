@@ -21,6 +21,7 @@ private enum ProviderSelection: Hashable {
   case openAI
   case openRouter
   case deepL
+  case elevenLabs
   case custom(UUID)
 }
 
@@ -63,6 +64,18 @@ struct ProvidersSettingsSections: View {
           .tag(ProviderSelection.deepL)
         } header: {
           Label("Translation", systemImage: "character.book.closed")
+        }
+
+        Section {
+          ProviderSidebarRow(
+            title: "ElevenLabs",
+            systemIcon: "speaker.wave.2",
+            image: ProviderLogoLoader.image(named: "elevenlabs.png"),
+            isConfigured: isElevenLabsConfigured
+          )
+          .tag(ProviderSelection.elevenLabs)
+        } header: {
+          Label("Text-to-Speech", systemImage: "speaker.wave.2")
         }
 
         Section {
@@ -112,6 +125,11 @@ struct ProvidersSettingsSections: View {
             )
           case .deepL:
             DeepLProviderSettingsDetail(
+              settingsStore: settingsStore,
+              onKeychainChanged: refreshProviderConfiguration
+            )
+          case .elevenLabs:
+            ElevenLabsProviderSettingsDetail(
               settingsStore: settingsStore,
               onKeychainChanged: refreshProviderConfiguration
             )
@@ -179,6 +197,10 @@ struct ProvidersSettingsSections: View {
 
   private var isDeepLConfigured: Bool {
     settingsStore.deepLAPIKeyConfigured
+  }
+
+  private var isElevenLabsConfigured: Bool {
+    settingsStore.elevenLabsAPIKeyConfigured
   }
 
   private func refreshProviderConfiguration() {

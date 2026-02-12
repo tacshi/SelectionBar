@@ -155,14 +155,77 @@ private struct ActionsBuiltInSettingsContent: View {
         Text(
           "Translate supports app providers and LLM providers. Target applies to LLM providers.")
       }
+
+      Section {
+        Toggle("Enable Speak", isOn: $settings.selectionBarSpeakEnabled)
+
+        if settings.selectionBarSpeakEnabled {
+          let speakProviders = settings.availableSelectionBarSpeakProviders()
+          let systemSpeakProviders = speakProviders.filter { $0.kind == .system }
+          let apiSpeakProviders = speakProviders.filter { $0.kind == .api }
+          let customSpeakProviders = speakProviders.filter { $0.kind == .custom }
+
+          Picker("Provider", selection: $settings.selectionBarSpeakProviderId) {
+            ForEach(systemSpeakProviders, id: \.id) { provider in
+              Text(provider.name).tag(provider.id)
+            }
+            if !systemSpeakProviders.isEmpty && !apiSpeakProviders.isEmpty {
+              Divider()
+            }
+            ForEach(apiSpeakProviders, id: \.id) { provider in
+              Text(provider.name).tag(provider.id)
+            }
+            if !apiSpeakProviders.isEmpty && !customSpeakProviders.isEmpty
+              || !systemSpeakProviders.isEmpty && !customSpeakProviders.isEmpty
+            {
+              Divider()
+            }
+            ForEach(customSpeakProviders, id: \.id) { provider in
+              Text(provider.name).tag(provider.id)
+            }
+          }
+
+          if settings.isSelectionBarSystemSpeakProvider(
+            id: settings.selectionBarSpeakProviderId
+          ) {
+            Picker("Voice", selection: $settings.selectionBarSpeakVoiceIdentifier) {
+              Text("System Default").tag("")
+              Divider()
+              ForEach(SelectionBarSpeakService.availableSystemVoices()) { voice in
+                Text(voice.displayName).tag(voice.identifier)
+              }
+            }
+          } else if SelectionBarSpeakAPIProvider(rawValue: settings.selectionBarSpeakProviderId)
+            == .elevenLabs
+          {
+            if settings.availableElevenLabsVoices.isEmpty {
+              Text("No voices available. Save your API key and test the connection.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            } else {
+              Picker("Voice", selection: $settings.elevenLabsVoiceId) {
+                ForEach(settings.availableElevenLabsVoices) { voice in
+                  Text(voice.name).tag(voice.voiceId)
+                }
+              }
+            }
+          }
+        }
+      } header: {
+        Label("Speak", systemImage: "speaker.wave.2")
+      } footer: {
+        Text("Reads selected text aloud using the chosen provider and voice.")
+      }
     }
     .formStyle(.grouped)
     .padding()
     .onAppear {
       settings.ensureValidSelectionBarTranslationProvider()
+      settings.ensureValidSelectionBarSpeakProvider()
     }
     .onChange(of: settings.customLLMProviders) { _, _ in
       settings.ensureValidSelectionBarTranslationProvider()
+      settings.ensureValidSelectionBarSpeakProvider()
     }
     .onChange(of: settings.availableOpenAIModels) { _, _ in
       settings.ensureValidSelectionBarTranslationProvider()

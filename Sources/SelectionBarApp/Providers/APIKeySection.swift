@@ -50,6 +50,7 @@ struct APIKeySection: View {
           onKeychainChanged()
         }
         .buttonStyle(.bordered)
+        .foregroundStyle(.red)
         .disabled(!hasKey)
       }
 

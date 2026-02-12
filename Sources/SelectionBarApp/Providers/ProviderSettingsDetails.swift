@@ -1,7 +1,7 @@
 import SelectionBarCore
 import SwiftUI
 
-private struct ProviderDetailHeaderRow: View {
+struct ProviderDetailHeaderRow: View {
   let title: String
   let systemIcon: String
   let image: NSImage?
@@ -399,6 +399,9 @@ struct CustomProviderSettingsDetail: View {
                 if provider.capabilities.contains(.translation) {
                   capabilityBadge(String(localized: "Translate"), color: .cyan)
                 }
+                if provider.capabilities.contains(.tts) {
+                  capabilityBadge(String(localized: "TTS"), color: .purple)
+                }
               }
             }
 
@@ -448,6 +451,11 @@ struct CustomProviderSettingsDetail: View {
               enabled: provider.capabilities.contains(.translation),
               model: provider.translationModel.isEmpty
                 ? provider.llmModel : provider.translationModel
+            )
+            capabilityRow(
+              title: String(localized: "Text-to-Speech"),
+              enabled: provider.capabilities.contains(.tts),
+              model: provider.ttsModel
             )
           }
 

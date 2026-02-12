@@ -61,6 +61,7 @@ struct APIKeySectionWithTest: View {
             localKeyText = ""
           }
           .buttonStyle(.bordered)
+          .foregroundStyle(.red)
           .disabled(!hasKey)
         }
       }
