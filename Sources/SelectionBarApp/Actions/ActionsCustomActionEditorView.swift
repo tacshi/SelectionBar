@@ -8,20 +8,6 @@ private struct ActionProviderOption: Identifiable {
   let models: [String]
 }
 
-private enum ActionIconMode: String, CaseIterable, Identifiable {
-  case automatic
-  case sfSymbol
-
-  var id: String { rawValue }
-
-  var title: String {
-    switch self {
-    case .automatic: "Default"
-    case .sfSymbol: "SF Symbol"
-    }
-  }
-}
-
 struct ActionIconGlyph: View {
   let icon: CustomActionIcon
   let tint: Color
@@ -50,7 +36,6 @@ struct ActionsCustomActionEditorView: View {
   @State private var outputMode: CustomActionOutputMode = .resultWindow
   @State private var script = CustomActionConfig.defaultJavaScriptTemplate
   @State private var availableModels: [String] = []
-  @State private var iconMode: ActionIconMode = .automatic
   @State private var selectedSFSymbol = "sparkles"
   @State private var showingSFSymbolPicker = false
   @State private var sfSymbolSearchText = ""
@@ -166,31 +151,23 @@ struct ActionsCustomActionEditorView: View {
         }
 
         Section("Icon") {
-          Picker("Style", selection: $iconMode) {
-            ForEach(ActionIconMode.allCases) { mode in
-              Text(mode.title).tag(mode)
+          HStack(spacing: 8) {
+            ActionIconGlyph(
+              icon: CustomActionIcon(value: selectedSFSymbol),
+              tint: .primary,
+              size: 16
+            )
+            .frame(width: 20)
+
+            TextField("SF Symbol Name", text: .constant(selectedSFSymbol))
+              .textFieldStyle(.roundedBorder)
+              .disabled(true)
+
+            Button("Pick SF Symbol") {
+              showingSFSymbolPicker = true
             }
           }
-
-          if iconMode == .sfSymbol {
-            HStack(spacing: 8) {
-              ActionIconGlyph(
-                icon: CustomActionIcon(value: selectedSFSymbol),
-                tint: .primary,
-                size: 16
-              )
-              .frame(width: 20)
-
-              TextField("SF Symbol Name", text: .constant(selectedSFSymbol))
-                .textFieldStyle(.roundedBorder)
-                .disabled(true)
-
-              Button("Pick SF Symbol") {
-                showingSFSymbolPicker = true
-              }
-            }
-            .listRowSeparator(.hidden, edges: .bottom)
-          }
+          .listRowSeparator(.hidden, edges: .bottom)
         }
 
         Section("Execution") {
@@ -292,10 +269,7 @@ struct ActionsCustomActionEditorView: View {
       }
       selectedSFSymbol = config.defaultIconSFSymbolName
       if let icon = config.icon {
-        iconMode = .sfSymbol
         selectedSFSymbol = icon.value
-      } else {
-        iconMode = .automatic
       }
       refreshAvailableModels()
     }
@@ -398,13 +372,12 @@ struct ActionsCustomActionEditorView: View {
   }
 
   private func iconForSave() -> CustomActionIcon? {
-    switch iconMode {
-    case .automatic:
+    let value = selectedSFSymbol.trimmingCharacters(in: .whitespacesAndNewlines)
+    let defaultValue = config.defaultIconSFSymbolName.trimmingCharacters(in: .whitespacesAndNewlines)
+    if value.isEmpty || value == defaultValue {
       return nil
-    case .sfSymbol:
-      let value = selectedSFSymbol.trimmingCharacters(in: .whitespacesAndNewlines)
-      return value.isEmpty ? nil : CustomActionIcon(value: value)
     }
+    return CustomActionIcon(value: value)
   }
 }
 
