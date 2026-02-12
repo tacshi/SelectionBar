@@ -114,9 +114,3 @@ SelectionBar uses a two-layer architecture:
 ## License
 
 MIT License
-
-## Author
-
-**Rocky Shi**
-
-- GitHub: [@tacshi](https://github.com/tacshi)
