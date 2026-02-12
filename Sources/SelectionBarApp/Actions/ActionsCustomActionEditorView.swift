@@ -373,7 +373,8 @@ struct ActionsCustomActionEditorView: View {
 
   private func iconForSave() -> CustomActionIcon? {
     let value = selectedSFSymbol.trimmingCharacters(in: .whitespacesAndNewlines)
-    let defaultValue = config.defaultIconSFSymbolName.trimmingCharacters(in: .whitespacesAndNewlines)
+    let defaultValue = config.defaultIconSFSymbolName.trimmingCharacters(
+      in: .whitespacesAndNewlines)
     if value.isEmpty || value == defaultValue {
       return nil
     }
