@@ -2,6 +2,7 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>SelectionBar</title>
+        <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
             <title>0.1.2</title>
             <pubDate>Thu, 12 Feb 2026 15:04:02 +1300</pubDate>
