@@ -35,18 +35,19 @@ struct OpenAIProviderSettingsDetail: View {
       title: "OpenAI",
       systemIcon: "brain",
       imageName: "openai.png",
-      description: "OpenAI supports both LLM chat and translation. You can choose separate models.",
+      description: String(
+        localized: "OpenAI supports both LLM chat and translation. You can choose separate models."),
       keychainKey: "openai_api_key",
       apiKeyURL: URL(string: "https://platform.openai.com/api-keys")!,
-      apiKeyLinkTitle: "Get API Key from OpenAI",
+      apiKeyLinkTitle: String(localized: "Get API Key from OpenAI"),
       modelFetchContext: .init(
         baseURL: URL(string: "https://api.openai.com/v1")!,
         apiKey: "",
         extraHeaders: [:]
       ),
       defaultModel: SelectionBarSettingsStore.defaultOpenAIModel,
-      chatModelSelectorTitle: "Select OpenAI Chat Model",
-      translationModelSelectorTitle: "Select OpenAI Translation Model",
+      chatModelSelectorTitle: String(localized: "Select OpenAI Chat Model"),
+      translationModelSelectorTitle: String(localized: "Select OpenAI Translation Model"),
       modelFilter: { models in
         let filtered = models.filter {
           $0.hasPrefix("gpt-") || $0.hasPrefix("o1") || $0.hasPrefix("o3")
@@ -81,10 +82,13 @@ struct OpenRouterProviderSettingsDetail: View {
       systemIcon: "network",
       imageName: "openrouter.png",
       description:
-        "OpenRouter supports unified LLM chat and translation model routing. You can choose separate models.",
+        String(
+          localized:
+            "OpenRouter supports unified LLM chat and translation model routing. You can choose separate models."
+        ),
       keychainKey: "openrouter_api_key",
       apiKeyURL: URL(string: "https://openrouter.ai/keys")!,
-      apiKeyLinkTitle: "Get API Key from OpenRouter",
+      apiKeyLinkTitle: String(localized: "Get API Key from OpenRouter"),
       modelFetchContext: .init(
         baseURL: URL(string: "https://openrouter.ai/api/v1")!,
         apiKey: "",
@@ -94,8 +98,8 @@ struct OpenRouterProviderSettingsDetail: View {
         ]
       ),
       defaultModel: SelectionBarSettingsStore.defaultOpenRouterModel,
-      chatModelSelectorTitle: "Select OpenRouter Chat Model",
-      translationModelSelectorTitle: "Select OpenRouter Translation Model",
+      chatModelSelectorTitle: String(localized: "Select OpenRouter Chat Model"),
+      translationModelSelectorTitle: String(localized: "Select OpenRouter Translation Model"),
       modelFilter: { $0 },
       availableModels: Binding(
         get: { settingsStore.availableOpenRouterModels },
@@ -171,17 +175,17 @@ private struct OpenAICompatibleProviderSettingsDetail: View {
 
       Section("Capabilities") {
         capabilityRow(
-          title: "Chat Model",
+          title: String(localized: "Chat Model"),
           isEnabled: !filteredModels.isEmpty,
           selectedModel: chatModel,
           buttonAction: { showingModelSelector = true }
         )
 
         capabilityRow(
-          title: "Translation Model",
+          title: String(localized: "Translation Model"),
           isEnabled: !filteredModels.isEmpty,
           selectedModel: displayChatModel,
-          defaultDescription: "Uses chat model",
+          defaultDescription: String(localized: "Uses chat model"),
           buttonAction: { showingTranslationModelSelector = true }
         )
       }
@@ -229,7 +233,7 @@ private struct OpenAICompatibleProviderSettingsDetail: View {
     title: String,
     isEnabled: Bool,
     selectedModel: String,
-    defaultDescription: String = "Test connection first",
+    defaultDescription: String = String(localized: "Test connection first"),
     buttonAction: @escaping () -> Void
   ) -> some View {
     HStack {
@@ -261,7 +265,7 @@ private struct OpenAICompatibleProviderSettingsDetail: View {
 
   private func saveKey() {
     _ = KeychainHelper.shared.save(key: keychainKey, value: apiKey)
-    testResult = "Key saved to Keychain."
+    testResult = String(localized: "Key saved to Keychain.")
     onKeychainChanged()
   }
 
@@ -271,7 +275,7 @@ private struct OpenAICompatibleProviderSettingsDetail: View {
     availableModels = []
     chatModel = defaultModel
     translationModel = ""
-    testResult = "Key cleared from Keychain."
+    testResult = String(localized: "Key cleared from Keychain.")
     onKeychainChanged()
   }
 
@@ -298,7 +302,7 @@ private struct OpenAICompatibleProviderSettingsDetail: View {
           }
         }
       }
-      return .success("Success! Found \(filtered.count) models.")
+      return .success(String(localized: "Success! Found \(filtered.count) models."))
     } catch {
       return .failure(error)
     }
@@ -390,10 +394,10 @@ struct CustomProviderSettingsDetail: View {
 
               HStack(spacing: 4) {
                 if provider.capabilities.contains(.llm) {
-                  capabilityBadge("LLM", color: .blue)
+                  capabilityBadge(String(localized: "LLM"), color: .blue)
                 }
                 if provider.capabilities.contains(.translation) {
-                  capabilityBadge("Translate", color: .cyan)
+                  capabilityBadge(String(localized: "Translate"), color: .cyan)
                 }
               }
             }
@@ -435,12 +439,12 @@ struct CustomProviderSettingsDetail: View {
 
           Section("Capabilities") {
             capabilityRow(
-              title: "Chat",
+              title: String(localized: "Chat"),
               enabled: provider.capabilities.contains(.llm),
               model: provider.llmModel
             )
             capabilityRow(
-              title: "Translation",
+              title: String(localized: "Translation"),
               enabled: provider.capabilities.contains(.translation),
               model: provider.translationModel.isEmpty
                 ? provider.llmModel : provider.translationModel
@@ -455,8 +459,11 @@ struct CustomProviderSettingsDetail: View {
                   .foregroundStyle(.secondary)
               }
               if provider.models.count > 10 {
-                Text("... and \(provider.models.count - 10) more")
-                  .foregroundStyle(.tertiary)
+                Text(
+                  "... and \(provider.models.count - 10) more",
+                  comment: "Shows remaining model count"
+                )
+                .foregroundStyle(.tertiary)
               }
             }
           }
@@ -536,14 +543,14 @@ struct CustomProviderSettingsDetail: View {
 
   private func saveKey(for provider: CustomLLMProvider) {
     _ = KeychainHelper.shared.save(key: provider.keychainKey, value: apiKey)
-    testResult = "Key saved to Keychain."
+    testResult = String(localized: "Key saved to Keychain.")
     onKeychainChanged()
   }
 
   private func clearKey(for provider: CustomLLMProvider) {
     _ = KeychainHelper.shared.delete(key: provider.keychainKey)
     apiKey = ""
-    testResult = "Key cleared from Keychain."
+    testResult = String(localized: "Key cleared from Keychain.")
     onKeychainChanged()
   }
 
@@ -563,7 +570,7 @@ struct CustomProviderSettingsDetail: View {
         }
         settingsStore.updateCustomLLMProvider(updated)
       }
-      return .success("Success! Found \(models.count) models.")
+      return .success(String(localized: "Success! Found \(models.count) models."))
     } catch {
       return .failure(error)
     }

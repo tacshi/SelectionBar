@@ -23,25 +23,41 @@ struct SelectionBarView: View {
 
   var body: some View {
     HStack {
-      actionButton(title: "Copy", systemImage: "doc.on.doc", action: onCopySelected)
+      actionButton(
+        title: String(localized: "Copy", bundle: .module),
+        systemImage: "doc.on.doc", action: onCopySelected
+      )
       if showCut {
-        actionButton(title: "Cut", systemImage: "scissors", action: onCutSelected)
+        actionButton(
+          title: String(localized: "Cut", bundle: .module),
+          systemImage: "scissors", action: onCutSelected
+        )
       }
 
       if showSearch {
-        actionButton(title: "Web Search", systemImage: "magnifyingglass", action: onSearchSelected)
+        actionButton(
+          title: String(localized: "Web Search", bundle: .module),
+          systemImage: "magnifyingglass", action: onSearchSelected
+        )
       }
 
       if showOpenURL {
-        actionButton(title: "Open URL", systemImage: "link", action: onOpenURLSelected)
+        actionButton(
+          title: String(localized: "Open URL", bundle: .module),
+          systemImage: "link", action: onOpenURLSelected
+        )
       }
 
       if showLookup {
-        actionButton(title: "Look Up", systemImage: "book.closed", action: onLookupSelected)
+        actionButton(
+          title: String(localized: "Look Up", bundle: .module),
+          systemImage: "book.closed", action: onLookupSelected
+        )
       }
 
       if showTranslate {
-        Button("Translate", systemImage: "translate", action: onTranslateSelected)
+        let translateTitle = String(localized: "Translate", bundle: .module)
+        Button(translateTitle, systemImage: "translate", action: onTranslateSelected)
           .labelStyle(.iconOnly)
           .buttonStyle(.plain)
           .padding(.horizontal, 8)
@@ -57,7 +73,8 @@ struct SelectionBarView: View {
                 .controlSize(.small)
             }
           }
-          .accessibilityLabel(Text("Translate"))
+          .help(translateTitle)
+          .accessibilityLabel(Text(translateTitle))
           .disabled(isBusy)
       }
 
@@ -84,6 +101,7 @@ struct SelectionBarView: View {
         .padding(.vertical, 6)
         .background(buttonBackground(for: action), in: .rect(cornerRadius: 6))
         .foregroundStyle(buttonForeground(for: action))
+        .help(action.localizedName)
         .disabled(isBusy)
         .accessibilityLabel(Text(action.localizedName))
       }
@@ -112,6 +130,7 @@ struct SelectionBarView: View {
       .padding(.vertical, 6)
       .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 6))
       .foregroundStyle(.primary)
+      .help(title)
       .accessibilityLabel(Text(title))
       .disabled(isBusy)
   }

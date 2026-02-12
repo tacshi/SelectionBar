@@ -20,13 +20,17 @@ struct SelectionResultView: View {
         )
 
       HStack {
-        Button("Discard", action: onDiscard)
+        Button(String(localized: "Discard", bundle: .module), action: onDiscard)
         Spacer()
-        Button(selectedText.isEmpty ? "Copy" : "Copy Selected") {
+        Button(
+          selectedText.isEmpty
+            ? String(localized: "Copy", bundle: .module)
+            : String(localized: "Copy Selected", bundle: .module)
+        ) {
           onCopy(selectedText.isEmpty ? result : selectedText)
         }
         if canApply {
-          Button("Apply", action: onApply)
+          Button(String(localized: "Apply", bundle: .module), action: onApply)
             .buttonStyle(.borderedProminent)
         }
       }

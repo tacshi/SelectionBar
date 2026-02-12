@@ -147,6 +147,24 @@ public final class SelectionBarSettingsStore {
     }
   }
 
+  /// Per-device app language override via AppleLanguages.
+  /// Empty string means "System Default" (no override).
+  public var appLanguage: String {
+    didSet {
+      if appLanguage.isEmpty {
+        if defaults === UserDefaults.standard {
+          UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        }
+        defaults.removeObject(forKey: "SelectionBar_AppLanguageOverride")
+      } else {
+        if defaults === UserDefaults.standard {
+          UserDefaults.standard.set([appLanguage], forKey: "AppleLanguages")
+        }
+        defaults.set(appLanguage, forKey: "SelectionBar_AppLanguageOverride")
+      }
+    }
+  }
+
   /// Configurable text actions.
   public var customActions: [CustomActionConfig] {
     didSet {
@@ -189,6 +207,7 @@ public final class SelectionBarSettingsStore {
     selectionBarTranslationTargetLanguage = TranslationLanguageCatalog.defaultTargetLanguage
     customLLMProviders = []
     customActions = []
+    appLanguage = defaults.string(forKey: "SelectionBar_AppLanguageOverride") ?? ""
     openAIAPIKeyConfigured = false
     openRouterAPIKeyConfigured = false
     deepLAPIKeyConfigured = false

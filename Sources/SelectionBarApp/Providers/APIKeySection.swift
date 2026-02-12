@@ -36,7 +36,7 @@ struct APIKeySection: View {
         Spacer()
         Button("Save Key") {
           _ = keychainService.save(key: keychainKey, value: apiKey)
-          statusMessage = "Key saved to Keychain."
+          statusMessage = String(localized: "Key saved to Keychain.")
           onKeychainChanged()
         }
         .buttonStyle(.bordered)
@@ -46,7 +46,7 @@ struct APIKeySection: View {
           _ = keychainService.delete(key: keychainKey)
           localKeyText = ""
           apiKey = ""
-          statusMessage = "Key cleared."
+          statusMessage = String(localized: "Key cleared.")
           onKeychainChanged()
         }
         .buttonStyle(.bordered)

@@ -259,6 +259,27 @@ create_app_bundle() {
         fi
     done
 
+    # Compile .xcstrings -> .lproj for localization support
+    for app_bundle in "$app_dir/Contents/Resources"/SelectionBar_*.bundle; do
+        if [[ -f "$app_bundle/Localizable.xcstrings" ]]; then
+            local target_name
+            target_name=$(basename "$app_bundle" | sed 's/SelectionBar_//' | sed 's/\.bundle//')
+            local xcstrings_source="$SCRIPT_DIR/Sources/$target_name/Resources/Localizable.xcstrings"
+            if [[ -f "$xcstrings_source" ]]; then
+                xcrun xcstringstool compile "$xcstrings_source" \
+                    --output-directory "$app_bundle" \
+                    --language en --language ja --language zh-Hans
+            fi
+        fi
+    done
+
+    # Also compile App target strings into the main Resources for SwiftUI auto-localization
+    if [[ -f "$SCRIPT_DIR/Sources/SelectionBarApp/Resources/Localizable.xcstrings" ]]; then
+        xcrun xcstringstool compile "$SCRIPT_DIR/Sources/SelectionBarApp/Resources/Localizable.xcstrings" \
+            --output-directory "$app_dir/Contents/Resources" \
+            --language en --language ja --language zh-Hans
+    fi
+
     # App icon: copy from pre-generated assets
     local icon_icns_source="$SCRIPT_DIR/Assets/AppIcon.icns"
     local iconset_source="$SCRIPT_DIR/Assets/AppIcon.iconset"

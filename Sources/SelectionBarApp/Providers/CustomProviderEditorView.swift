@@ -21,7 +21,7 @@ enum ProviderPreset: String, CaseIterable, Identifiable {
 
   var displayName: String {
     switch self {
-    case .custom: "Custom Provider"
+    case .custom: String(localized: "Custom Provider")
     case .togetherAI: "Together AI"
     case .groq: "Groq"
     case .fireworks: "Fireworks AI"
@@ -29,9 +29,9 @@ enum ProviderPreset: String, CaseIterable, Identifiable {
     case .mistral: "Mistral AI"
     case .nvidia: "Nvidia NIM"
     case .perplexity: "Perplexity"
-    case .volcengine: "Volcengine Ark (Doubao)"
-    case .lmStudio: "LM Studio (Local)"
-    case .ollamaOpenAI: "Ollama OpenAI API (Local)"
+    case .volcengine: String(localized: "Volcengine Ark (Doubao)")
+    case .lmStudio: String(localized: "LM Studio (Local)")
+    case .ollamaOpenAI: String(localized: "Ollama OpenAI API (Local)")
     }
   }
 
@@ -80,9 +80,9 @@ enum ProviderPreset: String, CaseIterable, Identifiable {
 
   var helpText: String? {
     switch self {
-    case .volcengine: "Use your endpoint ID as the model name"
-    case .lmStudio: "Start LM Studio with server mode enabled"
-    case .ollamaOpenAI: "Requires Ollama running locally"
+    case .volcengine: String(localized: "Use your endpoint ID as the model name")
+    case .lmStudio: String(localized: "Start LM Studio with server mode enabled")
+    case .ollamaOpenAI: String(localized: "Requires Ollama running locally")
     default: nil
     }
   }
@@ -194,8 +194,12 @@ struct CustomProviderEditorView: View {
     VStack(spacing: 0) {
       // Header
       HStack {
-        Text(isEditing ? "Edit Provider" : "Add Custom Provider")
-          .font(.headline)
+        Text(
+          isEditing
+            ? String(localized: "Edit Provider")
+            : String(localized: "Add Custom Provider")
+        )
+        .font(.headline)
         Spacer()
         Button("Cancel") {
           dismiss()
@@ -364,7 +368,7 @@ struct CustomProviderEditorView: View {
       // Footer
       HStack {
         Spacer()
-        Button(isEditing ? "Save" : "Add Provider") {
+        Button(isEditing ? String(localized: "Save") : String(localized: "Add Provider")) {
           saveProvider()
         }
         .keyboardShortcut(.return, modifiers: .command)
@@ -389,9 +393,12 @@ struct CustomProviderEditorView: View {
   private func testResultView(_ result: TestResult) -> some View {
     switch result {
     case .success(let models):
-      Label("Connected! Found \(models.count) models", systemImage: "checkmark.circle.fill")
-        .foregroundStyle(.green)
-        .font(.callout)
+      Label(
+        String(localized: "Connected! Found \(models.count) models"),
+        systemImage: "checkmark.circle.fill"
+      )
+      .foregroundStyle(.green)
+      .font(.callout)
     case .failure(let error):
       Label(error, systemImage: "xmark.circle.fill")
         .foregroundStyle(.red)
