@@ -106,29 +106,10 @@ private struct ActionsSettingsContent: View {
               isEnabled: false,
               isBuiltIn: false,
               templateId: nil,
-              icon: CustomActionIcon(value: "chevron.left.forwardslash.chevron.right")
-            )
-          } label: {
-            Label("Custom JavaScript", systemImage: "chevron.left.forwardslash.chevron.right")
-          }
-
-          Button {
-            editingConfig = CustomActionConfig(
-              id: UUID(),
-              name: "",
-              prompt: CustomActionConfig.defaultPromptTemplate,
-              modelProvider: "",
-              modelId: "",
-              kind: .llm,
-              outputMode: .resultWindow,
-              script: CustomActionConfig.defaultJavaScriptTemplate,
-              isEnabled: false,
-              isBuiltIn: false,
-              templateId: nil,
               icon: nil
             )
           } label: {
-            Label("Custom LLM", systemImage: "square.and.pencil")
+            Label("Custom", systemImage: "square.and.pencil")
           }
 
           Divider()
