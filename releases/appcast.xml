@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.3.3</title>
+            <pubDate>Fri, 13 Feb 2026 10:32:43 +1300</pubDate>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>0.3.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.3.3</h2><ul><li>Allow clipboard fallback without text context</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.3.3/SelectionBar-0.3.3.dmg" length="4506811" type="application/octet-stream" sparkle:edSignature="jElWWq5OLCug9eM32zTqS/xTV6q+hpYVXysoCJgeZNjiC0eu7SJ45wLsFKEWAJNLySb+oXSbhITt/vdmyVnoAg=="/>
+        </item>
+        <item>
             <title>0.3.2</title>
             <pubDate>Thu, 12 Feb 2026 22:28:55 +1300</pubDate>
             <sparkle:version>9</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.3.1</h2><ul><li>Add Launch at Login support</li><li>fmt</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.3.1/SelectionBar-0.3.1.dmg" length="4519457" type="application/octet-stream" sparkle:edSignature="aLQr2mwE9T7zold+F/3HsX6J2Ji80Xup6QTaKU6dprNGZISBvkcW4oOzJR+1I5odF4nrnzVBJ0/k1KhlLtZCCg=="/>
-        </item>
-        <item>
-            <title>0.3.0</title>
-            <pubDate>Thu, 12 Feb 2026 21:14:51 +1300</pubDate>
-            <sparkle:version>7</sparkle:version>
-            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.3.0</h2><ul><li>Add text-to-speech support with ElevenLabs (#6)</li><li>Refactor SelectionBar settings and localization support (#5)</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.3.0/SelectionBar-0.3.0.dmg" length="4512795" type="application/octet-stream" sparkle:edSignature="IToDTN9jonCwCPxi4JyjceKKSqgo1acIZz4ekmL/WVJbiaDka6eLncGYdvi0R40WuBARo/GS0JP4/PSdsW1LAw=="/>
         </item>
     </channel>
 </rss>
