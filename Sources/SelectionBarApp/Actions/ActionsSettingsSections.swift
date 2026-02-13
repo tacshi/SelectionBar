@@ -216,6 +216,44 @@ private struct ActionsBuiltInSettingsContent: View {
       } footer: {
         Text("Reads selected text aloud using the chosen provider and voice.")
       }
+
+      Section {
+        Toggle("Enable Chat", isOn: $settings.selectionBarChatEnabled)
+
+        if settings.selectionBarChatEnabled {
+          let chatProviders = settings.availableChatProviders()
+          if chatProviders.isEmpty {
+            Text("No LLM providers configured. Add an API key in Providers.")
+              .foregroundStyle(.secondary)
+              .font(.caption)
+          } else {
+            Picker("Provider", selection: $settings.selectionBarChatProviderId) {
+              ForEach(chatProviders, id: \.id) { provider in
+                Text(provider.name).tag(provider.id)
+              }
+            }
+            .onChange(of: settings.selectionBarChatProviderId) { _, _ in
+              settings.selectionBarChatModelId = ""
+            }
+
+            let chatModels = chatModelsForSelectedProvider(settings: settings)
+            if chatModels.isEmpty {
+              TextField("Model", text: $settings.selectionBarChatModelId)
+                .textFieldStyle(.roundedBorder)
+            } else {
+              Picker("Model", selection: $settings.selectionBarChatModelId) {
+                ForEach(chatModels, id: \.self) { model in
+                  Text(model).tag(model)
+                }
+              }
+            }
+          }
+        }
+      } header: {
+        Label("Chat", systemImage: "ellipsis.message")
+      } footer: {
+        Text("Chat with AI about selected text using streaming responses.")
+      }
     }
     .formStyle(.grouped)
     .padding()
@@ -232,6 +270,34 @@ private struct ActionsBuiltInSettingsContent: View {
     }
     .onChange(of: settings.availableOpenRouterModels) { _, _ in
       settings.ensureValidSelectionBarTranslationProvider()
+    }
+  }
+
+  private func chatModelsForSelectedProvider(
+    settings: SelectionBarSettingsStore
+  ) -> [String] {
+    let providerId = settings.selectionBarChatProviderId
+    switch providerId {
+    case "openai":
+      return settings.availableOpenAIModels.isEmpty
+        ? [settings.openAIModel]
+        : settings.availableOpenAIModels
+    case "openrouter":
+      return settings.availableOpenRouterModels.isEmpty
+        ? [settings.openRouterModel]
+        : settings.availableOpenRouterModels
+    default:
+      if let custom = settings.customLLMProviders.first(where: {
+        $0.providerId == providerId
+      }) {
+        if !custom.models.isEmpty {
+          return custom.models
+        }
+        if !custom.llmModel.isEmpty {
+          return [custom.llmModel]
+        }
+      }
+      return []
     }
   }
 }

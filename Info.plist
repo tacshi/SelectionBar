@@ -32,5 +32,7 @@
 	<string>https://raw.githubusercontent.com/tacshi/SelectionBar/main/releases/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>jX5CD6cObf1SqxQ5mkv+BOu3/n/mf6Y0Q0Sgbo4reWM=</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>SelectionBar needs permission to communicate with your web browser, Finder, and other apps to detect the current URL and source context.</string>
 </dict>
 </plist>
