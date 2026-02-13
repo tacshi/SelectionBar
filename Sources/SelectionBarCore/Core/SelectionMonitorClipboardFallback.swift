@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 import os.log
 
@@ -15,19 +16,25 @@ final class SelectionMonitorClipboardFallback {
     let savedChangeCount = pasteboard.changeCount
     let savedItems = savePasteboardContents(pasteboard)
 
-    simulateCopy()
+    let secureInput = IsSecureEventInputEnabled()
+    simulateCopy(secureInput: secureInput)
 
     var clipboardChanged = false
-    for _ in 0..<3 {
-      try? await Task.sleep(for: .milliseconds(75))
+    for poll in 1...5 {
+      try? await Task.sleep(for: .milliseconds(100))
       if pasteboard.changeCount != savedChangeCount {
         clipboardChanged = true
+        logger.debug("Clipboard changed on poll iteration \(poll)")
         break
       }
     }
 
     guard clipboardChanged else {
-      logger.debug("Clipboard fallback failed: pasteboard did not change after Cmd+C")
+      if secureInput {
+        logger.debug("Clipboard fallback failed: SecureEventInput is active (password field?)")
+      } else {
+        logger.debug("Clipboard fallback failed: pasteboard did not change after Cmd+C")
+      }
       return nil
     }
 
@@ -40,21 +47,49 @@ final class SelectionMonitorClipboardFallback {
     return trimmed
   }
 
-  private func simulateCopy() {
+  private func simulateCopy(secureInput: Bool) {
+    if secureInput {
+      logger.warning("SecureEventInput is active — synthesized Cmd+C may be silently swallowed")
+    }
+
     // Use .privateState to avoid inheriting hardware modifier state (e.g. Shift
     // held during drag-select) and to prevent corrupting the system's global
     // modifier tracking.
     let source = CGEventSource(stateID: .privateState)
 
-    // Key code 8 = 'C'
-    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 8, keyDown: true),
-      let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 8, keyDown: false)
-    else { return }
+    // Full modifier key sequence matching real hardware:
+    //   Command↓ → C↓ → C↑ → Command↑
+    // Apps with custom event handling (e.g. WeChat) may require the complete
+    // sequence rather than just C key events with Command flags.
 
+    // Key code 55 = Left Command, 8 = 'C'
+    guard let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: 55, keyDown: true) else {
+      logger.error("Failed to create Command key-down event")
+      return
+    }
+    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 8, keyDown: true) else {
+      logger.error("Failed to create C key-down event")
+      return
+    }
+    guard let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 8, keyDown: false) else {
+      logger.error("Failed to create C key-up event")
+      return
+    }
+    guard let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: 55, keyDown: false) else {
+      logger.error("Failed to create Command key-up event")
+      return
+    }
+
+    cmdDown.flags = .maskCommand
     keyDown.flags = .maskCommand
     keyUp.flags = .maskCommand
-    keyDown.post(tap: .cghidEventTap)
-    keyUp.post(tap: .cghidEventTap)
+    cmdUp.flags = []
+
+    // Post at session level — HID-level events are invisible to some apps.
+    cmdDown.post(tap: .cgSessionEventTap)
+    keyDown.post(tap: .cgSessionEventTap)
+    keyUp.post(tap: .cgSessionEventTap)
+    cmdUp.post(tap: .cgSessionEventTap)
   }
 
   private func savePasteboardContents(_ pasteboard: NSPasteboard) -> [(
