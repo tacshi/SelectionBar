@@ -16,6 +16,11 @@ public final class SelectionBarCoordinator {
 
   private var chatWindowController: ChatWindowController?
   private var chatSession: ChatSession?
+  private let chatSessionStore: ChatSessionStore
+  private var chatSourceFilePath: String?
+  private var chatCurrentSessionID: UUID?
+  private var chatSavedSessions: [ChatSessionRecord] = []
+  private var chatRestoredMessageCount = 0
 
   private var selectedText: String?
   private var processedText: String?
@@ -27,6 +32,7 @@ public final class SelectionBarCoordinator {
 
   public init(settingsStore: SelectionBarSettingsStore) {
     self.settingsStore = settingsStore
+    self.chatSessionStore = ChatSessionStore()
 
     monitor.onTextSelected = { [weak self] text, location in
       self?.handleTextSelected(text: text, at: location)
@@ -377,16 +383,53 @@ public final class SelectionBarCoordinator {
         bundleID: frontmostBundleID, pid: frontmostPID)
       logger.info("Chat: source: \(sourceURL ?? "nil", privacy: .public)")
 
+      // Load previous session if source is a file path
+      var restoredMessages: [ChatMessage] = []
+      var restoredSourceReadHistory: [String] = []
+      if let sourceURL, sourceURL.hasPrefix("/") {
+        self.chatSourceFilePath = sourceURL
+        let savedSessions = self.chatSessionStore.listSessions(forFilePath: sourceURL)
+        self.chatSavedSessions = savedSessions
+        if let existingSession = savedSessions.first {
+          restoredMessages = existingSession.messages
+          restoredSourceReadHistory = existingSession.sourceReadHistory
+          self.chatCurrentSessionID = existingSession.id
+          logger.info("Chat: restored \(restoredMessages.count) messages from session")
+        } else {
+          self.chatCurrentSessionID = nil
+        }
+      } else {
+        self.chatSourceFilePath = nil
+        self.chatCurrentSessionID = nil
+        self.chatSavedSessions = []
+      }
+      self.chatRestoredMessageCount = restoredMessages.count
+
       let session = ChatSession(
         selectedText: selectedText, sourceURL: sourceURL, sourceBundleID: frontmostBundleID,
-        client: client, context: context)
+        client: client, context: context, restoredMessages: restoredMessages,
+        restoredSourceReadHistory: restoredSourceReadHistory)
       self.chatSession = session
+
+      session.onStreamingComplete = { [weak self] in
+        self?.saveChatSession()
+      }
 
       let chatView = ChatPanelView(
         session: session,
         selectedText: selectedText,
         sourceURL: sourceURL,
         canApply: canApply,
+        showsSessionControls: sourceURL?.hasPrefix("/") == true,
+        savedSessions: { [weak self] in
+          self?.chatSavedSessions ?? []
+        },
+        activeSessionID: { [weak self] in
+          self?.chatCurrentSessionID
+        },
+        restoredMessageCount: { [weak self] in
+          self?.chatRestoredMessageCount ?? 0
+        },
         onCopy: { [weak self] text in
           self?.actionHandler.copyToClipboard(text)
         },
@@ -403,6 +446,12 @@ public final class SelectionBarCoordinator {
         onTogglePin: { [weak self] pinned in
           self?.chatWindowController?.setPin(pinned)
         },
+        onNewSession: { [weak self] in
+          self?.handleNewChatSession()
+        },
+        onSelectSession: { [weak self] sessionID in
+          self?.handleSelectChatSession(sessionID: sessionID)
+        },
         onDismiss: { [weak self] in
           self?.dismissChat()
         }
@@ -418,10 +467,74 @@ public final class SelectionBarCoordinator {
   }
 
   private func dismissChat() {
+    saveChatSession()
     chatSession?.cancelStreaming()
     chatSession = nil
+    chatSourceFilePath = nil
+    chatCurrentSessionID = nil
+    chatSavedSessions = []
+    chatRestoredMessageCount = 0
     chatWindowController?.dismiss()
     chatWindowController = nil
+  }
+
+  private func saveChatSession() {
+    guard let chatSourceFilePath,
+      let messages = chatSession?.messages,
+      !messages.isEmpty
+    else { return }
+
+    let now = Date()
+    let createdAt: Date
+    if let chatCurrentSessionID,
+      let existing = chatSessionStore.loadSession(
+        forFilePath: chatSourceFilePath,
+        sessionID: chatCurrentSessionID
+      )
+    {
+      createdAt = existing.createdAt
+    } else {
+      createdAt = now
+    }
+
+    let record = ChatSessionRecord(
+      id: chatCurrentSessionID ?? UUID(),
+      filePath: chatSourceFilePath,
+      messages: messages,
+      sourceReadHistory: chatSession?.sourceReadHistory ?? [],
+      createdAt: createdAt,
+      lastAccessedAt: now
+    )
+    chatSessionStore.saveSession(record)
+    chatSessionStore.pruneIfNeeded(limit: settingsStore.selectionBarChatSessionLimit)
+    chatCurrentSessionID = record.id
+    chatSavedSessions = chatSessionStore.listSessions(forFilePath: chatSourceFilePath)
+  }
+
+  private func handleNewChatSession() {
+    saveChatSession()
+    chatCurrentSessionID = nil
+    chatRestoredMessageCount = 0
+    chatSession?.reset()
+  }
+
+  private func handleSelectChatSession(sessionID: UUID) {
+    guard let chatSourceFilePath else { return }
+    guard chatSession?.isStreaming != true else { return }
+
+    saveChatSession()
+
+    guard
+      let record = chatSessionStore.loadSession(
+        forFilePath: chatSourceFilePath,
+        sessionID: sessionID
+      )
+    else { return }
+
+    chatCurrentSessionID = record.id
+    chatRestoredMessageCount = record.messages.count
+    chatSession?.restoreMessages(record.messages, sourceReadHistory: record.sourceReadHistory)
+    chatSavedSessions = chatSessionStore.listSessions(forFilePath: chatSourceFilePath)
   }
 
   private func handleLookupSelected() {

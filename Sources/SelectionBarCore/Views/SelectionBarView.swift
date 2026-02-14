@@ -29,39 +29,39 @@ struct SelectionBarView: View {
   var body: some View {
     HStack {
       actionButton(
-        title: String(localized: "Copy", bundle: .module),
+        title: String(localized: "Copy", bundle: .localizedModule),
         systemImage: "doc.on.doc", action: onCopySelected
       )
       if showCut {
         actionButton(
-          title: String(localized: "Cut", bundle: .module),
+          title: String(localized: "Cut", bundle: .localizedModule),
           systemImage: "scissors", action: onCutSelected
         )
       }
 
       if showSearch {
         actionButton(
-          title: String(localized: "Web Search", bundle: .module),
+          title: String(localized: "Web Search", bundle: .localizedModule),
           systemImage: "magnifyingglass", action: onSearchSelected
         )
       }
 
       if showOpenURL {
         actionButton(
-          title: String(localized: "Open URL", bundle: .module),
+          title: String(localized: "Open URL", bundle: .localizedModule),
           systemImage: "link", action: onOpenURLSelected
         )
       }
 
       if showLookup {
         actionButton(
-          title: String(localized: "Look Up", bundle: .module),
+          title: String(localized: "Look Up", bundle: .localizedModule),
           systemImage: "book.closed", action: onLookupSelected
         )
       }
 
       if showTranslate {
-        let translateTitle = String(localized: "Translate", bundle: .module)
+        let translateTitle = String(localized: "Translate", bundle: .localizedModule)
         Button(action: onTranslateSelected) {
           Image(systemName: "translate")
             .font(.system(size: 14, weight: .medium))
@@ -89,8 +89,8 @@ struct SelectionBarView: View {
       if showSpeak {
         let speakTitle =
           isSpeaking
-          ? String(localized: "Stop", bundle: .module)
-          : String(localized: "Speak", bundle: .module)
+          ? String(localized: "Stop", bundle: .localizedModule)
+          : String(localized: "Speak", bundle: .localizedModule)
         let speakIcon = isSpeaking ? "stop.fill" : "speaker.wave.2"
         Button(action: onSpeakSelected) {
           Image(systemName: speakIcon)
@@ -112,7 +112,7 @@ struct SelectionBarView: View {
 
       if showChat {
         actionButton(
-          title: String(localized: "Chat", bundle: .module),
+          title: String(localized: "Chat", bundle: .localizedModule),
           systemImage: "ellipsis.message",
           action: onChatSelected
         )

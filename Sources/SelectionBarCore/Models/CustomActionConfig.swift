@@ -36,9 +36,9 @@ public enum CustomActionKind: String, Codable, CaseIterable, Sendable, Hashable 
   public var displayName: String {
     switch self {
     case .javascript:
-      String(localized: "JavaScript", bundle: .module)
+      String(localized: "JavaScript", bundle: .localizedModule)
     case .llm:
-      String(localized: "LLM", bundle: .module)
+      String(localized: "LLM", bundle: .localizedModule)
     }
   }
 }
@@ -50,9 +50,9 @@ public enum CustomActionOutputMode: String, Codable, CaseIterable, Sendable, Has
   public var displayName: String {
     switch self {
     case .resultWindow:
-      String(localized: "Result Window", bundle: .module)
+      String(localized: "Result Window", bundle: .localizedModule)
     case .inplace:
-      String(localized: "Inplace Edit", bundle: .module)
+      String(localized: "Inplace Edit", bundle: .localizedModule)
     }
   }
 }
@@ -83,12 +83,12 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
   public var localizedName: String {
     guard isBuiltIn, let templateId else { return name }
     switch templateId {
-    case "polish": return String(localized: "Polish", bundle: .module)
-    case "cleanup": return String(localized: "Clean Up", bundle: .module)
-    case "action-items": return String(localized: "Extract Actions", bundle: .module)
-    case "summary": return String(localized: "Summarize", bundle: .module)
-    case "bullet-points": return String(localized: "Bulletize", bundle: .module)
-    case "email-draft": return String(localized: "Draft Email", bundle: .module)
+    case "polish": return String(localized: "Polish", bundle: .localizedModule)
+    case "cleanup": return String(localized: "Clean Up", bundle: .localizedModule)
+    case "action-items": return String(localized: "Extract Actions", bundle: .localizedModule)
+    case "summary": return String(localized: "Summarize", bundle: .localizedModule)
+    case "bullet-points": return String(localized: "Bulletize", bundle: .localizedModule)
+    case "email-draft": return String(localized: "Draft Email", bundle: .localizedModule)
     default: return name
     }
   }

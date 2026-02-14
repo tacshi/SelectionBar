@@ -254,6 +254,8 @@ private struct ActionsBuiltInSettingsContent: View {
       } footer: {
         Text("Chat with AI about selected text using streaming responses.")
       }
+
+      ChatSessionsSettingsSection(settingsStore: settings)
     }
     .formStyle(.grouped)
     .padding()
@@ -462,6 +464,76 @@ private struct ActionsActionListRow: View {
       )
     }
     .padding(.vertical, 4)
+  }
+}
+
+private struct ChatSessionsSettingsSection: View {
+  @Bindable var settingsStore: SelectionBarSettingsStore
+
+  @State private var sessions: [ChatSessionRecord] = []
+  @State private var showClearConfirmation = false
+  @State private var store = ChatSessionStore()
+
+  var body: some View {
+    Section {
+      Picker("Session Limit", selection: $settingsStore.selectionBarChatSessionLimit) {
+        Text("20").tag(20)
+        Text("50").tag(50)
+        Text("100").tag(100)
+      }
+
+      if sessions.isEmpty {
+        Text("No saved sessions")
+          .foregroundStyle(.secondary)
+          .font(.caption)
+      } else {
+        ForEach(sessions) { session in
+          HStack {
+            VStack(alignment: .leading, spacing: 2) {
+              Text(URL(fileURLWithPath: session.filePath).lastPathComponent)
+                .font(.callout)
+              Text(session.filePath)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+              Text(
+                "\(session.messages.count) messages \u{00B7} \(session.lastAccessedAt.formatted(.relative(presentation: .named)))"
+              )
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+              store.deleteSession(forFilePath: session.filePath, sessionID: session.id)
+              sessions = store.listSessions()
+            } label: {
+              Image(systemName: "trash")
+                .foregroundStyle(.red)
+            }
+            .buttonStyle(.borderless)
+          }
+        }
+      }
+
+      if !sessions.isEmpty {
+        Button("Clear All Sessions") {
+          showClearConfirmation = true
+        }
+        .foregroundStyle(.red)
+        .confirmationDialog("Clear All Sessions?", isPresented: $showClearConfirmation) {
+          Button("Clear All", role: .destructive) {
+            store.clearAll()
+            sessions = store.listSessions()
+          }
+        }
+      }
+    } header: {
+      Label("Chat Sessions", systemImage: "clock.arrow.circlepath")
+    }
+    .onAppear {
+      sessions = store.listSessions()
+    }
   }
 }
 

@@ -10,13 +10,13 @@ public enum SelectionBarActivationModifier: String, CaseIterable, Codable, Senda
   public var displayName: String {
     switch self {
     case .command:
-      return String(localized: "Command", bundle: .module)
+      return String(localized: "Command", bundle: .localizedModule)
     case .option:
-      return String(localized: "Option", bundle: .module)
+      return String(localized: "Option", bundle: .localizedModule)
     case .control:
-      return String(localized: "Control", bundle: .module)
+      return String(localized: "Control", bundle: .localizedModule)
     case .shift:
-      return String(localized: "Shift", bundle: .module)
+      return String(localized: "Shift", bundle: .localizedModule)
     }
   }
 }

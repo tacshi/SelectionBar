@@ -123,6 +123,10 @@ public final class SelectionBarSettingsStore {
     didSet { persistIfNeeded() }
   }
 
+  public var selectionBarChatSessionLimit: Int {
+    didSet { persistIfNeeded() }
+  }
+
   public var selectionBarTranslationEnabled: Bool {
     didSet { persistIfNeeded() }
   }
@@ -246,6 +250,7 @@ public final class SelectionBarSettingsStore {
     selectionBarChatEnabled = false
     selectionBarChatProviderId = ""
     selectionBarChatModelId = ""
+    selectionBarChatSessionLimit = 50
     selectionBarTranslationEnabled = true
     selectionBarTranslationProviderId = SelectionBarTranslationAppProvider.bob.rawValue
     selectionBarIgnoredApps = Self.defaultIgnoredApps
@@ -650,6 +655,7 @@ public final class SelectionBarSettingsStore {
       selectionBarChatEnabled: selectionBarChatEnabled,
       selectionBarChatProviderId: selectionBarChatProviderId,
       selectionBarChatModelId: selectionBarChatModelId,
+      selectionBarChatSessionLimit: selectionBarChatSessionLimit,
       selectionBarTranslationEnabled: selectionBarTranslationEnabled,
       selectionBarTranslationProviderId: selectionBarTranslationProviderId,
       selectionBarIgnoredApps: selectionBarIgnoredApps,
@@ -703,6 +709,7 @@ public final class SelectionBarSettingsStore {
       selectionBarChatEnabled = settings.selectionBarChatEnabled ?? false
       selectionBarChatProviderId = settings.selectionBarChatProviderId ?? ""
       selectionBarChatModelId = settings.selectionBarChatModelId ?? ""
+      selectionBarChatSessionLimit = settings.selectionBarChatSessionLimit ?? 50
       selectionBarTranslationEnabled = settings.selectionBarTranslationEnabled ?? true
       selectionBarTranslationProviderId =
         settings.selectionBarTranslationProviderId
@@ -753,6 +760,7 @@ private struct StoredSettings: Codable {
   let selectionBarChatEnabled: Bool?
   let selectionBarChatProviderId: String?
   let selectionBarChatModelId: String?
+  let selectionBarChatSessionLimit: Int?
   let selectionBarTranslationEnabled: Bool?
   let selectionBarTranslationProviderId: String?
   let selectionBarIgnoredApps: [IgnoredApp]?

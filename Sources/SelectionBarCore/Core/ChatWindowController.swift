@@ -6,10 +6,9 @@ private class ChatPanel: NSPanel {
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
 
-  var onEscapePressed: (() -> Void)?
-
+  /// Handle Escape by dismissing the panel.
   override func cancelOperation(_ sender: Any?) {
-    onEscapePressed?()
+    orderOut(sender)
   }
 }
 
@@ -17,8 +16,6 @@ private class ChatPanel: NSPanel {
 @MainActor
 final class ChatWindowController: NSWindowController {
   var onDismiss: (() -> Void)?
-  private var globalEscMonitor: Any?
-  private var localEscMonitor: Any?
 
   init(contentView: some View) {
     let hostingView = NSHostingView(rootView: AnyView(contentView))
@@ -43,25 +40,6 @@ final class ChatWindowController: NSWindowController {
 
     super.init(window: window)
 
-    window.onEscapePressed = { [weak self] in
-      self?.onDismiss?()
-    }
-
-    // Global monitor: catches Escape when the chat window is not focused
-    globalEscMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-      if event.keyCode == 53 {  // Escape
-        Task { @MainActor in self?.onDismiss?() }
-      }
-    }
-
-    // Local monitor: catches Escape when the app is active but a different window is key
-    localEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-      if event.keyCode == 53 {
-        Task { @MainActor in self?.onDismiss?() }
-        return nil  // consume the event
-      }
-      return event
-    }
   }
 
   @available(*, unavailable)
@@ -94,14 +72,6 @@ final class ChatWindowController: NSWindowController {
   }
 
   func dismiss() {
-    if let globalEscMonitor {
-      NSEvent.removeMonitor(globalEscMonitor)
-      self.globalEscMonitor = nil
-    }
-    if let localEscMonitor {
-      NSEvent.removeMonitor(localEscMonitor)
-      self.localEscMonitor = nil
-    }
     window?.orderOut(nil)
   }
 }

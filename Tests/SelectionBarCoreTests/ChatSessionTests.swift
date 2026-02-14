@@ -392,6 +392,54 @@ struct ChatSessionTests {
     #expect(result.contains("Error: line_start (5) must be <= line_end (2)."))
   }
 
+  // MARK: - Restored messages
+
+  @Test("restoredMessages populates messages array")
+  func restoredMessages() {
+    let restored = [
+      ChatMessage(role: .user, content: "Previous question"),
+      ChatMessage(role: .assistant, content: "Previous answer"),
+    ]
+    let session = ChatSession(
+      selectedText: "test",
+      client: makeClient(),
+      context: makeContext(),
+      restoredMessages: restored
+    )
+    #expect(session.messages.count == 2)
+    #expect(session.messages[0].role == .user)
+    #expect(session.messages[0].content == "Previous question")
+    #expect(session.messages[1].role == .assistant)
+    #expect(session.messages[1].content == "Previous answer")
+  }
+
+  @Test("restoredMessages defaults to empty")
+  func restoredMessagesDefault() {
+    let session = ChatSession(
+      selectedText: "test",
+      client: makeClient(),
+      context: makeContext()
+    )
+    #expect(session.messages.isEmpty)
+  }
+
+  // MARK: - onStreamingComplete
+
+  @Test("onStreamingComplete callback can be set")
+  func onStreamingCompleteCallback() {
+    let session = ChatSession(
+      selectedText: "test",
+      client: makeClient(),
+      context: makeContext()
+    )
+    #expect(session.onStreamingComplete == nil)
+
+    var called = false
+    session.onStreamingComplete = { called = true }
+    session.onStreamingComplete?()
+    #expect(called)
+  }
+
   // MARK: - Helpers
 
   private func makeClient() -> SelectionBarOpenAIClient {
