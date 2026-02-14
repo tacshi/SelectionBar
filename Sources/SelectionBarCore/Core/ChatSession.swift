@@ -57,6 +57,14 @@ public final class ChatSession {
       && SourceContextService.isBrowser(sourceBundleID)
   }
 
+  /// Whether the source file is a PDF.
+  private var sourceIsPDF: Bool {
+    guard let sourceURL, sourceIsFilePath else { return false }
+    let url = URL(fileURLWithPath: sourceURL)
+    let contentType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+    return contentType?.conforms(to: .pdf) == true
+  }
+
   private static let readSourceTool = ToolDefinition(
     type: "function",
     function: .init(
@@ -88,6 +96,23 @@ public final class ChatSession {
             description: "Maximum characters to return (default 5000, max 20000)")
         ],
         required: []
+      )
+    )
+  )
+
+  private static let readPDFTool = ToolDefinition(
+    type: "function",
+    function: .init(
+      name: "read_pdf_pages",
+      description:
+        "Read specific pages from the PDF document. Returns the text content of the requested pages.",
+      parameters: .init(
+        type: "object",
+        properties: [
+          "page_start": .init(type: "integer", description: "Starting page number (1-based)"),
+          "page_end": .init(type: "integer", description: "Ending page number (1-based)"),
+        ],
+        required: ["page_start", "page_end"]
       )
     )
   )
@@ -262,7 +287,7 @@ public final class ChatSession {
 
   private func resolveTools() -> [ToolDefinition]? {
     switch sourceKind {
-    case .file: [ChatSession.readSourceTool]
+    case .file: [sourceIsPDF ? ChatSession.readPDFTool : ChatSession.readSourceTool]
     case .webPage: [ChatSession.readPageTool]
     case nil: nil
     }
@@ -272,6 +297,8 @@ public final class ChatSession {
     switch tc.function.name {
     case "read_source":
       return readSourceLines(arguments: tc.function.arguments)
+    case "read_pdf_pages":
+      return readPDFPages(arguments: tc.function.arguments)
     case "read_page":
       return await readPageExcerpt(arguments: tc.function.arguments)
     default:
@@ -281,22 +308,13 @@ public final class ChatSession {
 
   // MARK: - Source content
 
-  /// Fetches and caches the full source content (file or browser page).
+  /// Fetches and caches the full source content (browser page only).
   private func getSourceContent() async -> String? {
     if sourceContentResolved { return cachedSourceContent }
     sourceContentResolved = true
 
-    switch sourceKind {
-    case .file:
-      if let sourceURL {
-        cachedSourceContent = readFileContent(at: sourceURL)
-      }
-    case .webPage:
-      if let sourceBundleID {
-        cachedSourceContent = await SourceContextService.readPageContent(bundleID: sourceBundleID)
-      }
-    case nil:
-      break
+    if case .webPage = sourceKind, let sourceBundleID {
+      cachedSourceContent = await SourceContextService.readPageContent(bundleID: sourceBundleID)
     }
 
     return cachedSourceContent
@@ -304,46 +322,46 @@ public final class ChatSession {
 
   // MARK: - File content reading
 
-  /// Reads file content, supporting both text files and PDFs.
-  private func readFileContent(at path: String) -> String? {
-    let url = URL(fileURLWithPath: path)
-    let contentType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
-
-    if let contentType, contentType.conforms(to: .pdf) {
-      guard let doc = PDFDocument(url: url) else { return nil }
-      let text = (0..<doc.pageCount).compactMap { doc.page(at: $0)?.string }
-        .joined(separator: "\n")
-      return text.isEmpty ? nil : text
-    }
-    return try? String(contentsOfFile: path, encoding: .utf8)
-  }
-
-  private struct SourceFileInfo {
-    let totalLines: Int
-    let selectionLine: Int?
-  }
-
-  private struct ReadSourceArgs: Decodable {
-    let lineStart: Int
-    let lineEnd: Int
-
-    enum CodingKeys: String, CodingKey {
-      case lineStart = "line_start"
-      case lineEnd = "line_end"
-    }
+  private enum SourceFileInfo {
+    case text(totalLines: Int, selectionLine: Int?)
+    case pdf(totalPages: Int, selectionPage: Int?)
   }
 
   private func resolveSourceInfo() -> SourceFileInfo? {
     if sourceInfoResolved { return cachedSourceInfo }
     sourceInfoResolved = true
 
-    guard let sourceURL, sourceURL.hasPrefix("/"),
-      let content = readFileContent(at: sourceURL)
+    guard let sourceURL, sourceIsFilePath else { return nil }
+
+    if sourceIsPDF {
+      guard let doc = PDFDocument(url: URL(fileURLWithPath: sourceURL)) else { return nil }
+      let totalPages = doc.pageCount
+
+      // Find page containing selected text
+      var selectionPage: Int?
+      let searchText = String(
+        selectedText.prefix(200)
+      ).trimmingCharacters(in: .whitespacesAndNewlines)
+      if !searchText.isEmpty {
+        for i in 0..<totalPages {
+          if let pageText = doc.page(at: i)?.string, pageText.contains(searchText) {
+            selectionPage = i + 1
+            break
+          }
+        }
+      }
+
+      let info = SourceFileInfo.pdf(totalPages: totalPages, selectionPage: selectionPage)
+      cachedSourceInfo = info
+      return info
+    }
+
+    // Text file
+    guard let content = try? String(contentsOfFile: sourceURL, encoding: .utf8)
     else { return nil }
 
     let lines = content.components(separatedBy: .newlines)
 
-    // Find line where selected text starts
     let firstSelectedLine =
       selectedText.components(separatedBy: .newlines).first?
       .trimmingCharacters(in: .whitespaces) ?? ""
@@ -357,18 +375,30 @@ public final class ChatSession {
       }
     }
 
-    let info = SourceFileInfo(totalLines: lines.count, selectionLine: selectionLine)
+    let info = SourceFileInfo.text(totalLines: lines.count, selectionLine: selectionLine)
     cachedSourceInfo = info
     return info
   }
 
+  // MARK: - Text file reading
+
+  private struct ReadSourceArgs: Decodable {
+    let lineStart: Int
+    let lineEnd: Int
+
+    enum CodingKeys: String, CodingKey {
+      case lineStart = "line_start"
+      case lineEnd = "line_end"
+    }
+  }
+
   private func readSourceLines(arguments: String) -> String {
-    guard let sourceURL, sourceURL.hasPrefix("/") else {
+    guard let sourceURL, sourceIsFilePath else {
       return "Error: Source is not a readable file."
     }
 
-    guard let content = readFileContent(at: sourceURL) else {
-      return "Error: Could not read file. The format may not be supported."
+    guard let content = try? String(contentsOfFile: sourceURL, encoding: .utf8) else {
+      return "Error: Could not read file."
     }
 
     let allLines = content.components(separatedBy: .newlines)
@@ -392,6 +422,49 @@ public final class ChatSession {
     }.joined(separator: "\n")
 
     return "Lines \(start)-\(end) of \(allLines.count):\n\(numbered)"
+  }
+
+  // MARK: - PDF reading
+
+  private struct ReadPDFArgs: Decodable {
+    let pageStart: Int
+    let pageEnd: Int
+
+    enum CodingKeys: String, CodingKey {
+      case pageStart = "page_start"
+      case pageEnd = "page_end"
+    }
+  }
+
+  private func readPDFPages(arguments: String) -> String {
+    guard let sourceURL, sourceIsFilePath else {
+      return "Error: Source is not a readable file."
+    }
+
+    guard let doc = PDFDocument(url: URL(fileURLWithPath: sourceURL)) else {
+      return "Error: Could not open PDF document."
+    }
+
+    guard let data = arguments.data(using: .utf8),
+      let args = try? JSONDecoder().decode(ReadPDFArgs.self, from: data)
+    else {
+      return "Error: Invalid arguments. Provide page_start and page_end as integers."
+    }
+
+    let start = max(1, args.pageStart)
+    let end = min(doc.pageCount, args.pageEnd)
+
+    guard start <= end else {
+      return "Error: page_start (\(args.pageStart)) must be <= page_end (\(args.pageEnd))."
+    }
+
+    var pages: [String] = []
+    for i in start...end {
+      let pageText = doc.page(at: i - 1)?.string ?? "(empty page)"
+      pages.append("--- Page \(i) ---\n\(pageText)")
+    }
+
+    return "Pages \(start)-\(end) of \(doc.pageCount):\n\(pages.joined(separator: "\n\n"))"
   }
 
   // MARK: - Web page reading
@@ -466,12 +539,22 @@ public final class ChatSession {
       switch sourceKind {
       case .file:
         if let info = resolveSourceInfo() {
-          systemPrompt += "\nFile has \(info.totalLines) lines."
-          if let line = info.selectionLine {
-            systemPrompt += " The selected text is around line \(line)."
+          switch info {
+          case .text(let totalLines, let selectionLine):
+            systemPrompt += "\nFile has \(totalLines) lines."
+            if let line = selectionLine {
+              systemPrompt += " The selected text is around line \(line)."
+            }
+            systemPrompt +=
+              "\nUse the read_source tool with line_start and line_end to read specific lines. Start with a small range (~50 lines around the area of interest) and expand if needed."
+          case .pdf(let totalPages, let selectionPage):
+            systemPrompt += "\nPDF document has \(totalPages) pages."
+            if let page = selectionPage {
+              systemPrompt += " The selected text is on page \(page)."
+            }
+            systemPrompt +=
+              "\nUse the read_pdf_pages tool with page_start and page_end to read specific pages."
           }
-          systemPrompt +=
-            "\nUse the read_source tool with line_start and line_end to read specific lines. Start with a small range (~50 lines around the area of interest) and expand if needed."
         }
       case .webPage:
         systemPrompt +=
