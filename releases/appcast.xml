@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.4.2</title>
+            <pubDate>Sun, 15 Feb 2026 07:41:00 +0800</pubDate>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.4.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.4.2</h2><ul><li>Implement chat session persistence with JSON storage</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.4.2/SelectionBar-0.4.2.dmg" length="6359294" type="application/octet-stream" sparkle:edSignature="cjTIJJeq6wOAaUKsDfvMpOEJBKgrdQDXXaQEaFa6bCqhODId0UzJaJuh1Q3bl+bh+4y0n/WCqwQRw1z6wPt9AA=="/>
+        </item>
+        <item>
             <title>0.4.1</title>
             <pubDate>Sat, 14 Feb 2026 15:12:53 +1300</pubDate>
             <sparkle:version>13</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.4.0</h2><ul><li>Implement chat functionality with OpenAI integration</li><li>Fix the bug that selection bar doesn't work in WeChat (#10)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.4.0/SelectionBar-0.4.0.dmg" length="6158766" type="application/octet-stream" sparkle:edSignature="EGJT27aDig3PiKkFQh8IKBeNtrKpFma+CtUB3PxJTScTZQSgP/UuLvz42+CRNs+YZU0CFamxAjmiT+SxVNsNAQ=="/>
-        </item>
-        <item>
-            <title>0.3.4</title>
-            <pubDate>Fri, 13 Feb 2026 23:40:30 +1300</pubDate>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.3.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.3.4</h2><ul><li>Fix the bug that selection bar doesn't work in WeChat</li><li>Allow clipboard fallback without text context (#9)</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.3.4/SelectionBar-0.3.4.dmg" length="4515596" type="application/octet-stream" sparkle:edSignature="2FO89kzhPGnCdKk7pg6aoNsM5OJ1kOqkr4f3WAUR+35ySUjvDo4eajqzC2RAUe/S25CM/Kfc9SEWMDa0EQa8BA=="/>
         </item>
     </channel>
 </rss>
