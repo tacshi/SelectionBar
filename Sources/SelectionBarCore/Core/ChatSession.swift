@@ -1,5 +1,7 @@
 import Foundation
 import Observation
+import PDFKit
+import UniformTypeIdentifiers
 import os.log
 
 private let logger = Logger(subsystem: "com.selectionbar", category: "ChatSession")
@@ -292,7 +294,7 @@ public final class ChatSession {
     switch sourceKind {
     case .file:
       if let sourceURL {
-        cachedSourceContent = try? String(contentsOfFile: sourceURL, encoding: .utf8)
+        cachedSourceContent = readFileContent(at: sourceURL)
       }
     case .webPage:
       if let sourceBundleID {
@@ -305,7 +307,21 @@ public final class ChatSession {
     return cachedSourceContent
   }
 
-  // MARK: - File source reading
+  // MARK: - File content reading
+
+  /// Reads file content, supporting both text files and PDFs.
+  private func readFileContent(at path: String) -> String? {
+    let url = URL(fileURLWithPath: path)
+    let contentType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+
+    if let contentType, contentType.conforms(to: .pdf) {
+      guard let doc = PDFDocument(url: url) else { return nil }
+      let text = (0..<doc.pageCount).compactMap { doc.page(at: $0)?.string }
+        .joined(separator: "\n")
+      return text.isEmpty ? nil : text
+    }
+    return try? String(contentsOfFile: path, encoding: .utf8)
+  }
 
   private struct SourceFileInfo {
     let totalLines: Int
@@ -327,7 +343,7 @@ public final class ChatSession {
     sourceInfoResolved = true
 
     guard let sourceURL, sourceURL.hasPrefix("/"),
-      let content = try? String(contentsOfFile: sourceURL, encoding: .utf8)
+      let content = readFileContent(at: sourceURL)
     else { return nil }
 
     let lines = content.components(separatedBy: .newlines)
@@ -356,32 +372,31 @@ public final class ChatSession {
       return "Error: Source is not a readable file."
     }
 
-    do {
-      let content = try String(contentsOfFile: sourceURL, encoding: .utf8)
-      let allLines = content.components(separatedBy: .newlines)
-
-      guard let data = arguments.data(using: .utf8),
-        let args = try? JSONDecoder().decode(ReadSourceArgs.self, from: data)
-      else {
-        return "Error: Invalid arguments. Provide line_start and line_end as integers."
-      }
-
-      let start = max(1, args.lineStart)
-      let end = min(allLines.count, args.lineEnd)
-
-      guard start <= end else {
-        return "Error: line_start (\(args.lineStart)) must be <= line_end (\(args.lineEnd))."
-      }
-
-      let slice = allLines[(start - 1)..<end]
-      let numbered = slice.enumerated().map { offset, line in
-        "\(start + offset):\(line)"
-      }.joined(separator: "\n")
-
-      return "Lines \(start)-\(end) of \(allLines.count):\n\(numbered)"
-    } catch {
-      return "Error reading file: \(error.localizedDescription)"
+    guard let content = readFileContent(at: sourceURL) else {
+      return "Error: Could not read file. The format may not be supported."
     }
+
+    let allLines = content.components(separatedBy: .newlines)
+
+    guard let data = arguments.data(using: .utf8),
+      let args = try? JSONDecoder().decode(ReadSourceArgs.self, from: data)
+    else {
+      return "Error: Invalid arguments. Provide line_start and line_end as integers."
+    }
+
+    let start = max(1, args.lineStart)
+    let end = min(allLines.count, args.lineEnd)
+
+    guard start <= end else {
+      return "Error: line_start (\(args.lineStart)) must be <= line_end (\(args.lineEnd))."
+    }
+
+    let slice = allLines[(start - 1)..<end]
+    let numbered = slice.enumerated().map { offset, line in
+      "\(start + offset):\(line)"
+    }.joined(separator: "\n")
+
+    return "Lines \(start)-\(end) of \(allLines.count):\n\(numbered)"
   }
 
   // MARK: - Web page reading
