@@ -57,11 +57,6 @@ public final class ChatSession {
       && SourceContextService.isBrowser(sourceBundleID)
   }
 
-  /// Whether the source can be read (file or browser page).
-  private var sourceIsReadable: Bool {
-    sourceIsFilePath || sourceIsBrowserURL
-  }
-
   private static let readSourceTool = ToolDefinition(
     type: "function",
     function: .init(

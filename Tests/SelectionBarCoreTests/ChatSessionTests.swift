@@ -130,4 +130,92 @@ struct ChatSessionTests {
     session.cancelStreaming()
     #expect(!session.isStreaming)
   }
+
+  // MARK: - Source kind detection
+
+  @Test("sourceKind returns .file for local file path")
+  func sourceKindFile() {
+    let session = ChatSession(
+      selectedText: "test",
+      sourceURL: "/Users/test/document.txt",
+      client: makeClient(),
+      context: makeContext()
+    )
+    #expect(session.sourceKind == .file)
+  }
+
+  @Test("sourceKind returns .webPage for browser URL with known bundle ID")
+  func sourceKindWebPage() {
+    let session = ChatSession(
+      selectedText: "test",
+      sourceURL: "https://example.com/page",
+      sourceBundleID: "com.google.Chrome",
+      client: makeClient(),
+      context: makeContext()
+    )
+    #expect(session.sourceKind == .webPage)
+  }
+
+  @Test("sourceKind returns nil for browser URL with unknown bundle ID")
+  func sourceKindUnknownBrowser() {
+    let session = ChatSession(
+      selectedText: "test",
+      sourceURL: "https://example.com/page",
+      sourceBundleID: "com.unknown.app",
+      client: makeClient(),
+      context: makeContext()
+    )
+    #expect(session.sourceKind == nil)
+  }
+
+  @Test("sourceKind returns nil when no source URL")
+  func sourceKindNoSource() {
+    let session = ChatSession(
+      selectedText: "test",
+      client: makeClient(),
+      context: makeContext()
+    )
+    #expect(session.sourceKind == nil)
+  }
+
+  @Test("sourceKind returns .webPage for http URL")
+  func sourceKindHttpURL() {
+    let session = ChatSession(
+      selectedText: "test",
+      sourceURL: "http://example.com/page",
+      sourceBundleID: "com.apple.Safari",
+      client: makeClient(),
+      context: makeContext()
+    )
+    #expect(session.sourceKind == .webPage)
+  }
+
+  @Test("sourceKind returns nil for browser URL without bundle ID")
+  func sourceKindNoBundleID() {
+    let session = ChatSession(
+      selectedText: "test",
+      sourceURL: "https://example.com/page",
+      client: makeClient(),
+      context: makeContext()
+    )
+    #expect(session.sourceKind == nil)
+  }
+
+  // MARK: - Helpers
+
+  private func makeClient() -> SelectionBarOpenAIClient {
+    SelectionBarOpenAIClient(
+      apiKeyReader: { _ in "key" },
+      dataLoader: { _ in (Data(), URLResponse()) }
+    )
+  }
+
+  private func makeContext() -> OpenAICompatibleCompletionContext {
+    OpenAICompatibleCompletionContext(
+      baseURL: URL(string: "https://api.example.com/v1")!,
+      apiKey: "key",
+      modelId: "model",
+      extraHeaders: [:]
+    )
+  }
 }

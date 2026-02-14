@@ -1,13 +1,12 @@
 # SelectionBar
 
-A macOS menu bar app that provides instant text processing, translation, lookup, and web search through a floating toolbar that appears on text selection.
+A macOS menu bar app that provides a floating toolbar on text selection for quick actions — copy, search, translate, speak, chat with AI, and run custom LLM/JavaScript processing.
 
 ## Features
 
 ### Quick Actions
 
-- **Copy** - Copy selected text to clipboard
-- **Cut** - Cut selected text to clipboard
+- **Copy** / **Cut** - Clipboard operations on selected text
 - **Open URL** - Open selected text as a URL in the default browser
 
 ### Web Search
@@ -25,13 +24,31 @@ Search selected text with 7 built-in engines:
 ### Translation
 
 - **App-based** - Bob (via AppleScript), Eudic (via URL scheme)
-- **LLM-based** - Translate using any configured LLM provider with 27 target languages including English, Chinese (Simplified/Traditional), Japanese, Korean, Spanish, French, German, Italian, Portuguese, Russian, Arabic, Hindi, Vietnamese, Thai, Dutch, Polish, Turkish, Ukrainian, Czech, Swedish, Danish, Finnish, Greek, Hebrew, Indonesian, and Malay
+- **LLM-based** - Translate using any configured LLM provider with 27 target languages including English, Chinese (Simplified/Traditional), Japanese, Korean, Spanish, French, German, and more
+- **DeepL** - API-based translation
+
+### Text-to-Speech
+
+- **System** - Apple's built-in AVSpeechSynthesizer with multiple voices and languages
+- **ElevenLabs** - High-quality API-based TTS with multiple models (v3, Turbo v2.5, Flash v2.5, Multilingual v2) and custom voice selection
+
+### Chat
+
+Chat with AI about selected text in a floating panel with streaming responses and rich Markdown rendering.
+
+- Source context awareness — the AI can read the source file (line-range) or web page (character-range) for deeper understanding
+- Supports PDF files via PDFKit text extraction
+- Tool calling with user approval before reading source content
+- Copy or apply AI responses directly to the original selection
+- Pinnable panel that persists across interactions
 
 ### Custom LLM Actions
 
 6 built-in prompt templates, plus support for creating your own:
 
 - Polish, Clean Up, Extract Actions, Summarize, Bulletize, Draft Email
+
+Each action can output to a result window or edit text inline.
 
 ### Custom JavaScript Actions
 
@@ -43,18 +60,17 @@ Search selected text with 7 built-in engines:
 
 Require a modifier key (Option, Command, Control, or Shift) to activate the toolbar. Prevents the toolbar from appearing during normal text selection.
 
-### Ignored Apps
+### Other
 
-Exclude specific applications from text selection monitoring.
-
-### Auto-Updates
-
-Built-in update checking via Sparkle.
+- **Ignored Apps** - Exclude specific applications from text selection monitoring
+- **Launch at Login** - Auto-start SelectionBar on login
+- **Auto-Updates** - Built-in update checking via Sparkle
 
 ## Requirements
 
 - macOS 14.0 (Sonoma) or later
 - Accessibility permission (for global text selection monitoring)
+- Automation permission (optional, for browser page reading and app-specific integrations)
 
 ## Installation
 
@@ -81,26 +97,27 @@ Hold a configured modifier key while selecting text to activate the toolbar. Whe
 
 ## Supported Providers
 
-| Provider | Type | Setup |
-|----------|------|-------|
-| OpenAI | LLM + Translation | API key required |
-| OpenRouter | LLM + Translation | API key required |
+| Provider | Capabilities | Setup |
+|----------|-------------|-------|
+| OpenAI | LLM, Translation, Chat | API key required |
+| OpenRouter | LLM, Translation, Chat | API key required |
 | DeepL | Translation | API key required |
-| Custom | LLM and/or Translation | OpenAI-compatible endpoint |
+| ElevenLabs | Text-to-Speech | API key required |
+| Custom | LLM, Translation, and/or TTS | OpenAI-compatible endpoint |
 
 ## Architecture
 
-SelectionBar uses a two-layer architecture:
+Two-target SPM package:
 
 - **SelectionBarApp** - SwiftUI menu bar app, settings UI, provider configuration
-- **SelectionBarCore** - Core library with selection monitoring, action handling, floating toolbar
+- **SelectionBarCore** - Core library with selection monitoring, action handling, floating toolbar, chat
 
 ### Data Flow
 
 1. `SelectionMonitor` detects text selection via Accessibility API
 2. `SelectionBarCoordinator` shows the floating `SelectionBarView`
-3. User clicks an action and `SelectionBarActionHandler` processes it
-4. Results are displayed in `SelectionResultView` or replaced inline
+3. User clicks an action → `SelectionBarActionHandler` processes it
+4. Results are displayed in `SelectionResultView`, replaced inline, or shown in `ChatPanelView`
 
 ## Tech Stack
 
@@ -108,8 +125,14 @@ SelectionBar uses a two-layer architecture:
 - `@Observable` (Observation framework)
 - macOS Accessibility APIs
 - JavaScriptCore (custom JS actions)
+- MarkdownUI (chat response rendering)
+- PDFKit (PDF text extraction)
 - Sparkle (auto-updates)
 - Keychain Services (secure credential storage)
+
+## Localization
+
+English, Japanese, Simplified Chinese.
 
 ## License
 
