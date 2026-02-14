@@ -146,12 +146,19 @@ struct ChatPanelView: View {
 
           if session.pendingSourceRead {
             HStack(spacing: 8) {
-              Image(systemName: "doc.text")
+              Image(systemName: session.sourceKind == .webPage ? "globe" : "doc.text")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
-              Text("AI wants to read the source file", bundle: .module)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+              Group {
+                switch session.sourceKind {
+                case .webPage:
+                  Text("AI wants to read the web page", bundle: .module)
+                case .file, nil:
+                  Text("AI wants to read the source file", bundle: .module)
+                }
+              }
+              .font(.caption)
+              .foregroundStyle(.secondary)
               Spacer()
               Button(String(localized: "Allow", bundle: .module)) {
                 session.approveSourceRead()
