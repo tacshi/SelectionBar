@@ -14,6 +14,7 @@ struct SelectionBarView: View {
   let isTranslateError: Bool
   let showSpeak: Bool
   let isSpeaking: Bool
+  let showChat: Bool
   let isBusy: Bool
   let onSearchSelected: () -> Void
   let onOpenURLSelected: () -> Void
@@ -22,6 +23,7 @@ struct SelectionBarView: View {
   let onLookupSelected: () -> Void
   let onTranslateSelected: () -> Void
   let onSpeakSelected: () -> Void
+  let onChatSelected: () -> Void
   let onActionSelected: (CustomActionConfig) -> Void
 
   var body: some View {
@@ -106,6 +108,14 @@ struct SelectionBarView: View {
         .help(speakTitle)
         .accessibilityLabel(Text(speakTitle))
         .disabled(isBusy)
+      }
+
+      if showChat {
+        actionButton(
+          title: String(localized: "Chat", bundle: .module),
+          systemImage: "ellipsis.message",
+          action: onChatSelected
+        )
       }
 
       if !actions.isEmpty {

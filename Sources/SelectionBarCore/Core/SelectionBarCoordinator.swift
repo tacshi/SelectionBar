@@ -14,6 +14,9 @@ public final class SelectionBarCoordinator {
   private var actionTask: Task<Void, Never>?
   private var autoDismissTask: Task<Void, Never>?
 
+  private var chatWindowController: ChatWindowController?
+  private var chatSession: ChatSession?
+
   private var selectedText: String?
   private var processedText: String?
   private var processingActionId: UUID?
@@ -124,6 +127,9 @@ public final class SelectionBarCoordinator {
       settingsStore.selectionBarTranslationEnabled
       && !settingsStore.availableSelectionBarTranslationProviders().isEmpty
     let showSpeak = settingsStore.selectionBarSpeakEnabled
+    let showChat =
+      settingsStore.selectionBarChatEnabled
+      && !settingsStore.availableChatProviders().isEmpty
     let showCut = monitor.isFocusedElementEditable()
     let enabledActions = settingsStore.customActions.filter(\.isEnabled)
     let isBusy = processingActionId != nil || isTranslating
@@ -141,6 +147,7 @@ public final class SelectionBarCoordinator {
       isTranslateError: isTranslateError,
       showSpeak: showSpeak,
       isSpeaking: isSpeaking,
+      showChat: showChat,
       isBusy: isBusy,
       onSearchSelected: { [weak self] in
         self?.handleSearchSelected()
@@ -162,6 +169,9 @@ public final class SelectionBarCoordinator {
       },
       onSpeakSelected: { [weak self] in
         self?.handleSpeakSelected()
+      },
+      onChatSelected: { [weak self] in
+        self?.handleChatSelected()
       },
       onActionSelected: { [weak self] action in
         self?.handleActionSelected(action)
@@ -319,6 +329,98 @@ public final class SelectionBarCoordinator {
         self.showActionError(for: action.id)
       }
     }
+  }
+
+  private func handleChatSelected() {
+    guard let selectedText else { return }
+
+    autoDismissTask?.cancel()
+    autoDismissTask = nil
+
+    windowController?.dismiss()
+    windowController = nil
+
+    settingsStore.ensureValidChatProvider()
+
+    let client = SelectionBarOpenAIClient()
+    let snapshot = SelectionBarProviderSettingsSnapshot(
+      openAIModel: settingsStore.openAIModel,
+      openAITranslationModel: "",
+      openRouterModel: settingsStore.openRouterModel,
+      openRouterTranslationModel: "",
+      customLLMProviders: settingsStore.customLLMProviders
+    )
+
+    let providerId = settingsStore.selectionBarChatProviderId
+    let modelId = settingsStore.selectionBarChatModelId
+
+    guard
+      let context = try? client.resolveProviderContext(
+        providerId: providerId,
+        explicitModelId: modelId,
+        preferTranslationModel: false,
+        settingsSnapshot: snapshot
+      )
+    else {
+      logger.error("Chat: failed to resolve provider context for \(providerId)")
+      return
+    }
+
+    let canApply = monitor.isFocusedElementEditable()
+    let frontmostApp = NSWorkspace.shared.frontmostApplication
+    let frontmostBundleID = frontmostApp?.bundleIdentifier
+    let frontmostPID = frontmostApp?.processIdentifier
+    logger.info("Chat: frontmost app bundle ID: \(frontmostBundleID ?? "nil", privacy: .public)")
+
+    Task {
+      let sourceURL = await SourceContextService.resolveSource(
+        bundleID: frontmostBundleID, pid: frontmostPID)
+      logger.info("Chat: source: \(sourceURL ?? "nil", privacy: .public)")
+
+      let session = ChatSession(
+        selectedText: selectedText, sourceURL: sourceURL, client: client, context: context)
+      self.chatSession = session
+
+      let chatView = ChatPanelView(
+        session: session,
+        selectedText: selectedText,
+        sourceURL: sourceURL,
+        canApply: canApply,
+        onCopy: { [weak self] text in
+          self?.actionHandler.copyToClipboard(text)
+        },
+        onApply: { [weak self] text in
+          self?.actionTask?.cancel()
+          self?.actionTask = Task { [weak self] in
+            // Dismiss chat first so the browser regains keyboard focus,
+            // then the simulated Cmd+V paste goes to the browser.
+            self?.dismissChat()
+            try? await Task.sleep(for: .milliseconds(100))
+            await self?.actionHandler.replaceSelectedText(with: text)
+          }
+        },
+        onTogglePin: { [weak self] pinned in
+          self?.chatWindowController?.setPin(pinned)
+        },
+        onDismiss: { [weak self] in
+          self?.dismissChat()
+        }
+      )
+
+      let controller = ChatWindowController(contentView: chatView)
+      controller.onDismiss = { [weak self] in
+        self?.dismissChat()
+      }
+      controller.showCentered()
+      self.chatWindowController = controller
+    }
+  }
+
+  private func dismissChat() {
+    chatSession?.cancelStreaming()
+    chatSession = nil
+    chatWindowController?.dismiss()
+    chatWindowController = nil
   }
 
   private func handleLookupSelected() {

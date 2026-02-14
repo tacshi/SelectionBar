@@ -12,7 +12,8 @@ let package = Package(
     .library(name: "SelectionBarCore", targets: ["SelectionBarCore"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.8.1")
+    .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.8.1"),
+    .package(url: "https://github.com/gonzalezreal/swift-markdown-ui.git", from: "2.4.0"),
   ],
   targets: [
     .executableTarget(
@@ -25,6 +26,9 @@ let package = Package(
     ),
     .target(
       name: "SelectionBarCore",
+      dependencies: [
+        .product(name: "MarkdownUI", package: "swift-markdown-ui")
+      ],
       path: "Sources/SelectionBarCore",
       resources: [
         .process("Resources")

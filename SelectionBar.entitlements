@@ -10,6 +10,10 @@
     <key>com.apple.security.hardened-runtime</key>
     <true/>
 
+    <!-- Allow sending Apple Events (e.g. get browser URL, Finder selection) -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+
     <!-- Disable library validation to allow loading the Sparkle framework.
          Required because Sparkle is pre-signed by sparkle-project.org with their own identity. -->
     <key>com.apple.security.cs.disable-library-validation</key>

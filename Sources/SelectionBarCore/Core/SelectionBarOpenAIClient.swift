@@ -89,7 +89,7 @@ struct SelectionBarOpenAIClient: Sendable {
     }
   }
 
-  private func resolveProviderContext(
+  func resolveProviderContext(
     providerId: String,
     explicitModelId: String,
     preferTranslationModel: Bool,
@@ -242,21 +242,79 @@ struct SelectionBarProviderSettingsSnapshot: Sendable {
   let customLLMProviders: [CustomLLMProvider]
 }
 
-private struct OpenAICompatibleCompletionContext {
+struct OpenAICompatibleCompletionContext {
   let baseURL: URL
   let apiKey: String
   let modelId: String
   let extraHeaders: [String: String]
 }
 
-private struct OpenAICompatibleCompletionRequest: Encodable {
+struct OpenAICompatibleCompletionRequest: Encodable {
   let model: String
   let messages: [Message]
   let temperature: Double
+  var stream: Bool? = nil
+  var tools: [ToolDefinition]? = nil
 
   struct Message: Encodable {
     let role: String
     let content: String
+    let toolCalls: [ToolCall]?
+    let toolCallId: String?
+
+    init(role: String, content: String, toolCalls: [ToolCall]? = nil, toolCallId: String? = nil) {
+      self.role = role
+      self.content = content
+      self.toolCalls = toolCalls
+      self.toolCallId = toolCallId
+    }
+
+    enum CodingKeys: String, CodingKey {
+      case role, content
+      case toolCalls = "tool_calls"
+      case toolCallId = "tool_call_id"
+    }
+
+    func encode(to encoder: Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      try container.encode(role, forKey: .role)
+      try container.encode(content, forKey: .content)
+      try container.encodeIfPresent(toolCalls, forKey: .toolCalls)
+      try container.encodeIfPresent(toolCallId, forKey: .toolCallId)
+    }
+  }
+}
+
+struct ToolDefinition: Encodable {
+  let type: String
+  let function: FunctionDef
+
+  struct FunctionDef: Encodable {
+    let name: String
+    let description: String
+    let parameters: Parameters
+
+    struct Parameters: Encodable {
+      let type: String
+      let properties: [String: Property]
+      var required: [String]?
+
+      struct Property: Encodable {
+        let type: String
+        let description: String
+      }
+    }
+  }
+}
+
+struct ToolCall: Codable, Sendable {
+  let id: String
+  let type: String
+  let function: FunctionCall
+
+  struct FunctionCall: Codable, Sendable {
+    let name: String
+    let arguments: String
   }
 }
 

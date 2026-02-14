@@ -513,6 +513,36 @@
         }
       }
     },
+    "Enable Chat" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "チャットを有効にする" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "启用聊天" }
+        }
+      }
+    },
+    "Chat with AI about selected text using streaming responses." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ストリーミング応答で選択テキストについてAIとチャット。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "使用流式响应与AI聊天讨论选中的文本。" }
+        }
+      }
+    },
+    "No LLM providers configured. Add an API key in Providers." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "LLMプロバイダが未設定。プロバイダでAPIキーを追加してください。" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未配置LLM服务商。请在服务商中添加API密钥。" }
+        }
+      }
+    },
     "No actions configured" : {
       "localizations" : {
         "ja" : {
