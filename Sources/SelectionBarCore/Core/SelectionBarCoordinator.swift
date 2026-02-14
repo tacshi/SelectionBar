@@ -378,7 +378,8 @@ public final class SelectionBarCoordinator {
       logger.info("Chat: source: \(sourceURL ?? "nil", privacy: .public)")
 
       let session = ChatSession(
-        selectedText: selectedText, sourceURL: sourceURL, client: client, context: context)
+        selectedText: selectedText, sourceURL: sourceURL, sourceBundleID: frontmostBundleID,
+        client: client, context: context)
       self.chatSession = session
 
       let chatView = ChatPanelView(

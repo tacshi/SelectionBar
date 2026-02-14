@@ -26,6 +26,40 @@ enum SourceContextService {
     return nil
   }
 
+  /// Whether the given bundle ID is a known browser.
+  static func isBrowser(_ bundleID: String) -> Bool {
+    browserKinds[bundleID] != nil
+  }
+
+  /// Reads the text content of the current browser page using AppleScript + JavaScript.
+  nonisolated static func readPageContent(bundleID: String) async -> String? {
+    guard let kind = browserKinds[bundleID] else { return nil }
+
+    let script: String
+    switch kind {
+    case .safari:
+      script = """
+        tell application "Safari"
+          do JavaScript "document.body.innerText" in front document
+        end tell
+        """
+    case .chromium:
+      script = """
+        tell application id "\(bundleID)"
+          execute front window's active tab javascript "document.body.innerText"
+        end tell
+        """
+    }
+
+    let result = await runAppleScript(script)
+    if result == nil {
+      logger.warning(
+        "Failed to read page content from browser \(bundleID, privacy: .public). Check Automation permission."
+      )
+    }
+    return result
+  }
+
   // MARK: - Browser URL (AppleScript)
 
   private enum BrowserKind {

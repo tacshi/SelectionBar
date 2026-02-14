@@ -14,8 +14,20 @@ public final class ChatSession {
   public private(set) var currentStreamingContent = ""
   public var error: String?
 
+  public enum SourceKind {
+    case file
+    case webPage
+  }
+
+  public var sourceKind: SourceKind? {
+    if sourceIsFilePath { return .file }
+    if sourceIsBrowserURL { return .webPage }
+    return nil
+  }
+
   private let selectedText: String
   private let sourceURL: String?
+  private let sourceBundleID: String?
   private let client: SelectionBarOpenAIClient
   private let context: OpenAICompatibleCompletionContext
   private let bytesLoader: SelectionBarOpenAIClient.BytesLoader?
@@ -26,10 +38,26 @@ public final class ChatSession {
   private var cachedSourceInfo: SourceFileInfo?
   private var sourceInfoResolved = false
 
+  /// Cached source content (file or page text, fetched once).
+  private var cachedSourceContent: String?
+  private var sourceContentResolved = false
+
   /// Whether the source is a local file path (not a URL) that can be read.
   private var sourceIsFilePath: Bool {
     guard let sourceURL else { return false }
     return sourceURL.hasPrefix("/")
+  }
+
+  /// Whether the source is a browser URL with a known browser that can provide page content.
+  private var sourceIsBrowserURL: Bool {
+    guard let sourceURL, let sourceBundleID else { return false }
+    return (sourceURL.hasPrefix("http://") || sourceURL.hasPrefix("https://"))
+      && SourceContextService.isBrowser(sourceBundleID)
+  }
+
+  /// Whether the source can be read (file or browser page).
+  private var sourceIsReadable: Bool {
+    sourceIsFilePath || sourceIsBrowserURL
   }
 
   private static let readSourceTool = ToolDefinition(
@@ -49,15 +77,35 @@ public final class ChatSession {
     )
   )
 
+  private static let readPageTool = ToolDefinition(
+    type: "function",
+    function: .init(
+      name: "read_page",
+      description:
+        "Read text content from the web page around the selected text. Returns surrounding context to help understand what the user selected.",
+      parameters: .init(
+        type: "object",
+        properties: [
+          "max_chars": .init(
+            type: "integer",
+            description: "Maximum characters to return (default 5000, max 20000)")
+        ],
+        required: []
+      )
+    )
+  )
+
   init(
     selectedText: String,
     sourceURL: String? = nil,
+    sourceBundleID: String? = nil,
     client: SelectionBarOpenAIClient,
     context: OpenAICompatibleCompletionContext,
     bytesLoader: SelectionBarOpenAIClient.BytesLoader? = nil
   ) {
     self.selectedText = selectedText
     self.sourceURL = sourceURL
+    self.sourceBundleID = sourceBundleID
     self.client = client
     self.context = context
     self.bytesLoader = bytesLoader
@@ -80,8 +128,8 @@ public final class ChatSession {
     streamTask = Task { [weak self] in
       guard let self else { return }
       do {
-        var apiMessages = self.buildAPIMessages()
-        let tools: [ToolDefinition]? = self.sourceIsFilePath ? [ChatSession.readSourceTool] : nil
+        var apiMessages = await self.buildAPIMessages()
+        let tools: [ToolDefinition]? = self.resolveTools()
         let maxToolRounds = 5
 
         for _ in 0..<maxToolRounds {
@@ -112,7 +160,7 @@ public final class ChatSession {
 
           // Ask user for permission
           self.pendingSourceRead = true
-          logger.info("AI requested read_source — waiting for user approval")
+          logger.info("AI requested tool call — waiting for user approval")
 
           let approved = await withCheckedContinuation { continuation in
             self.sourceReadContinuation = continuation
@@ -131,11 +179,11 @@ public final class ChatSession {
 
           if approved {
             self.isReadingSource = true
-            logger.info("User approved read_source")
+            logger.info("User approved source read")
 
             for tc in toolCalls {
-              let result = self.readSourceLines(arguments: tc.function.arguments)
-              logger.info("read_source returned \(result.count) chars")
+              let result = await self.executeToolCall(tc)
+              logger.info("\(tc.function.name) returned \(result.count) chars")
               apiMessages.append(
                 OpenAICompatibleCompletionRequest.Message(
                   role: "tool",
@@ -146,13 +194,13 @@ public final class ChatSession {
 
             self.isReadingSource = false
           } else {
-            logger.info("User declined read_source")
+            logger.info("User declined source read")
             for tc in toolCalls {
               apiMessages.append(
                 OpenAICompatibleCompletionRequest.Message(
                   role: "tool",
                   content:
-                    "The user declined to share the source file content. Please answer based on the selected text only.",
+                    "The user declined to share the source content. Please answer based on the selected text only.",
                   toolCallId: tc.id
                 ))
             }
@@ -213,7 +261,51 @@ public final class ChatSession {
     error = nil
   }
 
-  // MARK: - Source file reading
+  // MARK: - Tool resolution
+
+  private func resolveTools() -> [ToolDefinition]? {
+    switch sourceKind {
+    case .file: [ChatSession.readSourceTool]
+    case .webPage: [ChatSession.readPageTool]
+    case nil: nil
+    }
+  }
+
+  private func executeToolCall(_ tc: ToolCall) async -> String {
+    switch tc.function.name {
+    case "read_source":
+      return readSourceLines(arguments: tc.function.arguments)
+    case "read_page":
+      return await readPageExcerpt(arguments: tc.function.arguments)
+    default:
+      return "Error: Unknown tool '\(tc.function.name)'."
+    }
+  }
+
+  // MARK: - Source content
+
+  /// Fetches and caches the full source content (file or browser page).
+  private func getSourceContent() async -> String? {
+    if sourceContentResolved { return cachedSourceContent }
+    sourceContentResolved = true
+
+    switch sourceKind {
+    case .file:
+      if let sourceURL {
+        cachedSourceContent = try? String(contentsOfFile: sourceURL, encoding: .utf8)
+      }
+    case .webPage:
+      if let sourceBundleID {
+        cachedSourceContent = await SourceContextService.readPageContent(bundleID: sourceBundleID)
+      }
+    case nil:
+      break
+    }
+
+    return cachedSourceContent
+  }
+
+  // MARK: - File source reading
 
   private struct SourceFileInfo {
     let totalLines: Int
@@ -292,24 +384,93 @@ public final class ChatSession {
     }
   }
 
+  // MARK: - Web page reading
+
+  private struct ReadPageArgs: Decodable {
+    let maxChars: Int?
+
+    enum CodingKeys: String, CodingKey {
+      case maxChars = "max_chars"
+    }
+  }
+
+  private func readPageExcerpt(arguments: String) async -> String {
+    guard let content = await getSourceContent() else {
+      return
+        "Error: Could not read page content. The browser may not support JavaScript execution via AppleScript."
+    }
+
+    let maxChars: Int
+    if let data = arguments.data(using: .utf8),
+      let args = try? JSONDecoder().decode(ReadPageArgs.self, from: data),
+      let mc = args.maxChars
+    {
+      maxChars = min(max(mc, 500), 20000)
+    } else {
+      maxChars = 5000
+    }
+
+    let totalChars = content.count
+
+    // Try to center around the selected text
+    let searchText = String(selectedText.prefix(200))
+    if !searchText.isEmpty, let range = content.range(of: searchText) {
+      let center = content.distance(from: content.startIndex, to: range.lowerBound)
+      let halfRange = maxChars / 2
+      let start = max(0, center - halfRange)
+      let effectiveEnd = min(totalChars, start + maxChars)
+
+      let startIdx = content.index(content.startIndex, offsetBy: start)
+      let endIdx = content.index(content.startIndex, offsetBy: effectiveEnd)
+      let excerpt = String(content[startIdx..<endIdx])
+
+      return
+        "Page content (\(totalChars) total chars, showing chars \(start)–\(effectiveEnd)):\n\(excerpt)"
+    }
+
+    // Fallback: return from start
+    let excerpt = String(content.prefix(maxChars))
+    return
+      "Page content (\(totalChars) total chars, showing first \(excerpt.count) chars):\n\(excerpt)"
+  }
+
   // MARK: - API message building
 
-  private func buildAPIMessages() -> [OpenAICompatibleCompletionRequest.Message] {
+  private func buildAPIMessages() async -> [OpenAICompatibleCompletionRequest.Message] {
     var apiMessages: [OpenAICompatibleCompletionRequest.Message] = []
 
+    let contextDescription: String
+    switch sourceKind {
+    case .webPage:
+      contextDescription = "from a web page"
+    case .file, nil:
+      contextDescription = ""
+    }
+    let contextSuffix = contextDescription.isEmpty ? "" : " \(contextDescription)"
     var systemPrompt =
-      "The user has selected the following text. Answer questions about it, or help transform it as requested.\n\n---\n\(selectedText)\n---"
+      "The user has selected the following text\(contextSuffix). Answer questions about it, or help transform it as requested.\n\n---\n\(selectedText)\n---"
+
     if let sourceURL {
       systemPrompt += "\n\nSource: \(sourceURL)"
-      if sourceIsFilePath, let info = resolveSourceInfo() {
-        systemPrompt += "\nFile has \(info.totalLines) lines."
-        if let line = info.selectionLine {
-          systemPrompt += " The selected text is around line \(line)."
+
+      switch sourceKind {
+      case .file:
+        if let info = resolveSourceInfo() {
+          systemPrompt += "\nFile has \(info.totalLines) lines."
+          if let line = info.selectionLine {
+            systemPrompt += " The selected text is around line \(line)."
+          }
+          systemPrompt +=
+            "\nUse the read_source tool with line_start and line_end to read specific lines. Start with a small range (~50 lines around the area of interest) and expand if needed."
         }
+      case .webPage:
         systemPrompt +=
-          "\nUse the read_source tool with line_start and line_end to read specific lines. Start with a small range (~50 lines around the area of interest) and expand if needed."
+          "\nIMPORTANT: You have a read_page tool to read the surrounding text content of this web page. When the user's question requires understanding the context around the selected text (e.g. what a pronoun refers to, what comes before/after, or the topic being discussed), you MUST call read_page first before answering. You can specify max_chars to control how much text is returned (default 5000)."
+      case nil:
+        break
       }
     }
+
     apiMessages.append(
       OpenAICompatibleCompletionRequest.Message(role: "system", content: systemPrompt))
 

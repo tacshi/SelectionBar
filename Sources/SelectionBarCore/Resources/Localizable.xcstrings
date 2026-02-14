@@ -577,6 +577,22 @@
         }
       }
     },
+    "AI wants to read the web page" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIがWebページの読み取りを要求しています"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 请求读取网页内容"
+          }
+        }
+      }
+    },
     "Allow" : {
       "localizations" : {
         "ja" : {
