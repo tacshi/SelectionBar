@@ -17,13 +17,15 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.3.4</string>
+	<string>0.4.0</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>12</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>SelectionBar needs permission to communicate with your web browser, Finder, and other apps to detect the current URL and source context.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SUEnableAutomaticChecks</key>
@@ -32,7 +34,5 @@
 	<string>https://raw.githubusercontent.com/tacshi/SelectionBar/main/releases/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>jX5CD6cObf1SqxQ5mkv+BOu3/n/mf6Y0Q0Sgbo4reWM=</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>SelectionBar needs permission to communicate with your web browser, Finder, and other apps to detect the current URL and source context.</string>
 </dict>
 </plist>
