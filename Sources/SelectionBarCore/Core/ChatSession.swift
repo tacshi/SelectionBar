@@ -13,6 +13,7 @@ public final class ChatSession {
   public private(set) var isStreaming = false
   public private(set) var isReadingSource = false
   public private(set) var pendingSourceRead = false
+  @ObservationIgnored
   public private(set) var currentStreamingContent = ""
   public var error: String?
 
@@ -39,6 +40,9 @@ public final class ChatSession {
   /// Cached source file info (computed once on first use).
   private var cachedSourceInfo: SourceFileInfo?
   private var sourceInfoResolved = false
+
+  /// Accumulated tool results from previous rounds, so the AI remembers what it already read.
+  private(set) var sourceReadHistory: [String] = []
 
   /// Cached source content (file or page text, fetched once).
   private var cachedSourceContent: String?
@@ -117,13 +121,18 @@ public final class ChatSession {
     )
   )
 
+  /// Optional callback invoked when streaming completes (success or error).
+  var onStreamingComplete: (() -> Void)?
+
   init(
     selectedText: String,
     sourceURL: String? = nil,
     sourceBundleID: String? = nil,
     client: SelectionBarOpenAIClient,
     context: OpenAICompatibleCompletionContext,
-    bytesLoader: SelectionBarOpenAIClient.BytesLoader? = nil
+    bytesLoader: SelectionBarOpenAIClient.BytesLoader? = nil,
+    restoredMessages: [ChatMessage] = [],
+    restoredSourceReadHistory: [String] = []
   ) {
     self.selectedText = selectedText
     self.sourceURL = sourceURL
@@ -131,6 +140,8 @@ public final class ChatSession {
     self.client = client
     self.context = context
     self.bytesLoader = bytesLoader
+    self.messages = restoredMessages
+    self.sourceReadHistory = restoredSourceReadHistory
   }
 
   public func sendMessage(_ text: String) {
@@ -206,6 +217,7 @@ public final class ChatSession {
             for tc in toolCalls {
               let result = await self.executeToolCall(tc)
               logger.info("\(tc.function.name) returned \(result.count) chars")
+              self.sourceReadHistory.append(result)
               apiMessages.append(
                 OpenAICompatibleCompletionRequest.Message(
                   role: "tool",
@@ -235,6 +247,7 @@ public final class ChatSession {
 
         self.isStreaming = false
         self.streamTask = nil
+        self.onStreamingComplete?()
       } catch {
         guard !Task.isCancelled else {
           self.isStreaming = false
@@ -252,6 +265,7 @@ public final class ChatSession {
         if self.messages[assistantIndex].content.isEmpty {
           self.messages.remove(at: assistantIndex)
         }
+        self.onStreamingComplete?()
       }
     }
   }
@@ -276,10 +290,34 @@ public final class ChatSession {
     pendingSourceRead = false
   }
 
+  public func retryLastMessage() {
+    guard !isStreaming else { return }
+    // Find the last user message and resend it
+    guard let lastUserMessage = messages.last(where: { $0.role == .user }) else { return }
+    let text = lastUserMessage.content
+    // Remove the failed user message so sendMessage re-appends it
+    if let idx = messages.lastIndex(where: { $0.id == lastUserMessage.id }) {
+      messages.remove(at: idx)
+    }
+    error = nil
+    sendMessage(text)
+  }
+
   public func reset() {
     cancelStreaming()
     messages.removeAll()
     currentStreamingContent = ""
+    sourceReadHistory.removeAll()
+    error = nil
+  }
+
+  public func restoreMessages(
+    _ restoredMessages: [ChatMessage], sourceReadHistory restoredHistory: [String] = []
+  ) {
+    cancelStreaming()
+    messages = restoredMessages
+    currentStreamingContent = ""
+    sourceReadHistory = restoredHistory
     error = nil
   }
 
@@ -577,10 +615,12 @@ public final class ChatSession {
     }
     let contextSuffix = contextDescription.isEmpty ? "" : " \(contextDescription)"
     var systemPrompt =
-      "The user has selected the following text\(contextSuffix). Answer questions about it, or help transform it as requested.\n\n---\n\(selectedText)\n---"
+      "The user has selected the following text\(contextSuffix). The conversation starts from this selected text — keep answers anchored to it. If you read additional source content, use it as supporting context for the selected text, not as the primary focus.\n\n---\n\(selectedText)\n---"
 
     if let sourceURL {
       systemPrompt += "\n\nSource: \(sourceURL)"
+
+      let hasReadHistory = !sourceReadHistory.isEmpty
 
       switch sourceKind {
       case .file:
@@ -591,22 +631,43 @@ public final class ChatSession {
             if let line = selectionLine {
               systemPrompt += " The selected text is around line \(line)."
             }
-            systemPrompt +=
-              "\nUse the read_source tool with line_start and line_end to read specific lines. Start with a small range (~50 lines around the area of interest) and expand if needed."
+            if hasReadHistory {
+              systemPrompt +=
+                "\nYou have already read parts of this file (shown below). You can use the read_source tool to read additional lines if needed, but do not re-read content you already have."
+            } else {
+              systemPrompt +=
+                "\nIf you need more context beyond the selected text, you can use the read_source tool with line_start and line_end to read specific lines. Only call it when the selected text is insufficient to answer the question."
+            }
           case .pdf(let totalPages, let selectionPage):
             systemPrompt += "\nPDF document has \(totalPages) pages."
             if let page = selectionPage {
               systemPrompt += " The selected text is on page \(page)."
             }
-            systemPrompt +=
-              "\nUse the read_pdf_pages tool with page_start and page_end to read specific pages."
+            if hasReadHistory {
+              systemPrompt +=
+                "\nYou have already read parts of this document (shown below). You can use the read_pdf_pages tool to read additional pages if needed, but do not re-read content you already have."
+            } else {
+              systemPrompt +=
+                "\nIf you need more context beyond the selected text, you can use the read_pdf_pages tool with page_start and page_end to read specific pages. Only call it when the selected text is insufficient to answer the question."
+            }
           }
         }
       case .webPage:
-        systemPrompt +=
-          "\nIMPORTANT: You have a read_page tool to read the surrounding text content of this web page. When the user's question requires understanding the context around the selected text (e.g. what a pronoun refers to, what comes before/after, or the topic being discussed), you MUST call read_page first before answering. You can specify max_chars to control how much text is returned (default 5000)."
+        if hasReadHistory {
+          systemPrompt +=
+            "\nYou have already read parts of this web page (shown below). You can use the read_page tool to read more if needed, but do not re-read content you already have."
+        } else {
+          systemPrompt +=
+            "\nYou have a read_page tool available to read the surrounding text content of this web page. Only use it when the user's question cannot be answered from the selected text alone — for example, when you need to understand what a pronoun refers to, what comes before/after the selection, or the broader topic being discussed. Do not call it if the selected text already provides enough context."
+        }
       case nil:
         break
+      }
+
+      if hasReadHistory {
+        systemPrompt += "\n\n--- Previously read content ---\n"
+        systemPrompt += sourceReadHistory.joined(separator: "\n\n")
+        systemPrompt += "\n--- End of previously read content ---"
       }
     }
 

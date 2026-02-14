@@ -6,15 +6,30 @@ struct ChatPanelView: View {
   let selectedText: String
   let sourceURL: String?
   let canApply: Bool
+  let showsSessionControls: Bool
+  let savedSessions: () -> [ChatSessionRecord]
+  let activeSessionID: () -> UUID?
+  let restoredMessageCount: () -> Int
   let onCopy: (String) -> Void
   let onApply: (String) -> Void
   let onTogglePin: (Bool) -> Void
+  let onNewSession: () -> Void
+  let onSelectSession: (UUID) -> Void
   let onDismiss: () -> Void
 
   @State private var inputText = ""
   @State private var isContextExpanded = false
   @State private var isPinned = true
   @FocusState private var isInputFocused: Bool
+
+  /// ID of the last restored message — used to place the session divider.
+  private var lastRestoredMessageId: UUID? {
+    let restoredCount = restoredMessageCount()
+    guard restoredCount > 0, session.messages.count >= restoredCount else {
+      return nil
+    }
+    return session.messages[restoredCount - 1].id
+  }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -63,12 +78,14 @@ struct ChatPanelView: View {
       .focusable(false)
       .help(
         isPinned
-          ? String(localized: "Unpin", bundle: .module)
-          : String(localized: "Pin on Top", bundle: .module))
+          ? String(localized: "Unpin", bundle: .localizedModule)
+          : String(localized: "Pin on Top", bundle: .localizedModule))
+
+      sessionControls
 
       Spacer()
 
-      Text("Chat", bundle: .module)
+      Text("Chat", bundle: .localizedModule)
         .font(.callout)
         .fontWeight(.medium)
 
@@ -83,10 +100,65 @@ struct ChatPanelView: View {
       }
       .buttonStyle(.plain)
       .focusable(false)
-      .help(String(localized: "Close", bundle: .module))
+      .help(String(localized: "Close", bundle: .localizedModule))
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
+  }
+
+  @ViewBuilder
+  private var sessionControls: some View {
+    if showsSessionControls {
+      let sessions = savedSessions()
+      if sessions.isEmpty {
+        Button {
+          onNewSession()
+        } label: {
+          Image(systemName: "plus.message")
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .help(String(localized: "New Session", bundle: .localizedModule))
+      } else {
+        Menu {
+          Button {
+            onNewSession()
+          } label: {
+            Label(
+              String(localized: "New Session", bundle: .localizedModule),
+              systemImage: "plus.message")
+          }
+
+          Divider()
+
+          ForEach(sessions) { savedSession in
+            Button {
+              onSelectSession(savedSession.id)
+            } label: {
+              let sessionLabel =
+                "\(savedSession.lastAccessedAt.formatted(date: .abbreviated, time: .shortened)) | \(savedSession.messages.count)"
+              if savedSession.id == activeSessionID() {
+                Label(sessionLabel, systemImage: "checkmark")
+              } else {
+                Text(sessionLabel)
+              }
+            }
+            .disabled(savedSession.id == activeSessionID())
+          }
+        } label: {
+          Image(systemName: "clock.arrow.circlepath")
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .focusable(false)
+        .disabled(session.isStreaming)
+      }
+    }
   }
 
   private var contextHeader: some View {
@@ -102,7 +174,7 @@ struct ChatPanelView: View {
             .foregroundStyle(.secondary)
             .frame(width: 16)
           VStack(alignment: .leading, spacing: 2) {
-            Text("Selected Text", bundle: .module)
+            Text("Selected Text", bundle: .localizedModule)
               .font(.callout)
               .fontWeight(.medium)
               .foregroundStyle(.secondary)
@@ -142,6 +214,10 @@ struct ChatPanelView: View {
           ForEach(session.messages) { message in
             chatMessageView(message)
               .id(message.id)
+
+            if message.id == lastRestoredMessageId {
+              sessionDivider
+            }
           }
 
           if session.pendingSourceRead {
@@ -152,20 +228,20 @@ struct ChatPanelView: View {
               Group {
                 switch session.sourceKind {
                 case .webPage:
-                  Text("AI wants to read the web page", bundle: .module)
+                  Text("AI wants to read the web page", bundle: .localizedModule)
                 case .file, nil:
-                  Text("AI wants to read the source file", bundle: .module)
+                  Text("AI wants to read the source file", bundle: .localizedModule)
                 }
               }
               .font(.caption)
               .foregroundStyle(.secondary)
               Spacer()
-              Button(String(localized: "Allow", bundle: .module)) {
+              Button(String(localized: "Allow", bundle: .localizedModule)) {
                 session.approveSourceRead()
               }
               .buttonStyle(.borderedProminent)
               .controlSize(.small)
-              Button(String(localized: "Skip", bundle: .module)) {
+              Button(String(localized: "Skip", bundle: .localizedModule)) {
                 session.denySourceRead()
               }
               .buttonStyle(.bordered)
@@ -179,7 +255,7 @@ struct ChatPanelView: View {
             HStack(spacing: 6) {
               ProgressView()
                 .controlSize(.small)
-              Text("Reading source...", bundle: .module)
+              Text("Reading source...", bundle: .localizedModule)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
@@ -187,14 +263,27 @@ struct ChatPanelView: View {
           }
 
           if let error = session.error {
-            Text(error)
-              .font(.caption)
-              .foregroundStyle(.red)
-              .padding(.horizontal, 12)
+            HStack(alignment: .top, spacing: 6) {
+              Text(error)
+                .font(.caption)
+                .foregroundStyle(.red)
+              Spacer()
+              Button {
+                session.retryLastMessage()
+              } label: {
+                Image(systemName: "arrow.clockwise")
+                  .font(.system(size: 12))
+              }
+              .buttonStyle(.plain)
+              .foregroundStyle(.secondary)
+              .help(String(localized: "Retry", bundle: .localizedModule))
+            }
+            .padding(.horizontal, 12)
           }
         }
         .padding(12)
       }
+      .defaultScrollAnchor(.bottom)
       .onChange(of: session.messages.count) { _, _ in
         if let lastId = session.messages.last?.id {
           withAnimation {
@@ -218,13 +307,23 @@ struct ChatPanelView: View {
           .background(Color.accentColor.opacity(0.15), in: .rect(cornerRadius: 10))
       }
     case .assistant:
+      let isActivelyStreaming =
+        session.isStreaming && message.id == session.messages.last?.id
       VStack(alignment: .leading, spacing: 4) {
-        Markdown(message.content)
-          .markdownTheme(.chatCompact)
-          .textSelection(.enabled)
-          .frame(maxWidth: .infinity, alignment: .leading)
+        if isActivelyStreaming {
+          // Use plain Text during streaming to avoid expensive Markdown re-parsing per token
+          Text(message.content)
+            .font(.callout)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+          Markdown(message.content)
+            .markdownTheme(.chatCompact)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
 
-        if !message.content.isEmpty && !session.isStreaming {
+        if !message.content.isEmpty && !isActivelyStreaming {
           HStack(spacing: 8) {
             Button {
               onCopy(message.content)
@@ -234,7 +333,7 @@ struct ChatPanelView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help(String(localized: "Copy Response", bundle: .module))
+            .help(String(localized: "Copy Response", bundle: .localizedModule))
 
             if canApply {
               Button {
@@ -245,7 +344,7 @@ struct ChatPanelView: View {
               }
               .buttonStyle(.plain)
               .foregroundStyle(.secondary)
-              .help(String(localized: "Apply Response", bundle: .module))
+              .help(String(localized: "Apply Response", bundle: .localizedModule))
             }
           }
         }
@@ -254,10 +353,26 @@ struct ChatPanelView: View {
     }
   }
 
+  private var sessionDivider: some View {
+    HStack(spacing: 8) {
+      Rectangle()
+        .fill(.tertiary)
+        .frame(height: 1)
+      Text("Session resumed", bundle: .localizedModule)
+        .font(.caption2)
+        .foregroundStyle(.tertiary)
+        .layoutPriority(1)
+      Rectangle()
+        .fill(.tertiary)
+        .frame(height: 1)
+    }
+    .padding(.vertical, 4)
+  }
+
   private var inputArea: some View {
     HStack(spacing: 8) {
       TextField(
-        String(localized: "Type a message...", bundle: .module),
+        String(localized: "Type a message...", bundle: .localizedModule),
         text: $inputText
       )
       .textFieldStyle(.plain)
@@ -278,7 +393,7 @@ struct ChatPanelView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.red)
-        .help(String(localized: "Stop", bundle: .module))
+        .help(String(localized: "Stop", bundle: .localizedModule))
       } else {
         Button {
           sendMessage()
@@ -292,7 +407,7 @@ struct ChatPanelView: View {
             ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.accentColor)
         )
         .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        .help(String(localized: "Send", bundle: .module))
+        .help(String(localized: "Send", bundle: .localizedModule))
       }
     }
     .padding(.horizontal, 12)

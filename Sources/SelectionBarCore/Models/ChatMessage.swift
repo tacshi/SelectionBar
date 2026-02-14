@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ChatMessage: Identifiable, Sendable {
+public struct ChatMessage: Identifiable, Sendable, Codable {
   public let id: UUID
   public let role: ChatMessageRole
   public var content: String
@@ -12,7 +12,7 @@ public struct ChatMessage: Identifiable, Sendable {
   }
 }
 
-public enum ChatMessageRole: String, Sendable {
+public enum ChatMessageRole: String, Sendable, Codable {
   case user
   case assistant
 }

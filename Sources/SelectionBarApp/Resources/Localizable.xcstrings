@@ -1673,6 +1673,66 @@
           "stringUnit" : { "state" : "translated", "value" : "选择TTS模型" }
         }
       }
+    },
+    "Chat Sessions" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "チャットセッション" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "聊天会话" }
+        }
+      }
+    },
+    "Session Limit" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "セッション上限" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "会话上限" }
+        }
+      }
+    },
+    "Clear All Sessions" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "すべてのセッションを削除" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "清除所有会话" }
+        }
+      }
+    },
+    "Clear All Sessions?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "すべてのセッションを削除しますか？" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "清除所有会话？" }
+        }
+      }
+    },
+    "Clear All" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "すべて削除" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "全部清除" }
+        }
+      }
+    },
+    "No saved sessions" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "保存されたセッションなし" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "无已保存的会话" }
+        }
+      }
     }
   },
   "version" : "1.0"
