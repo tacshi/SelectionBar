@@ -403,25 +403,12 @@ public final class ChatSession {
 
     let allLines = content.components(separatedBy: .newlines)
 
-    guard let data = arguments.data(using: .utf8),
-      let args = try? JSONDecoder().decode(ReadSourceArgs.self, from: data)
-    else {
+    guard let range = ChatSession.parseSourceLineRange(from: arguments) else {
       return "Error: Invalid arguments. Provide line_start and line_end as integers."
     }
 
-    let start = max(1, args.lineStart)
-    let end = min(allLines.count, args.lineEnd)
-
-    guard start <= end else {
-      return "Error: line_start (\(args.lineStart)) must be <= line_end (\(args.lineEnd))."
-    }
-
-    let slice = allLines[(start - 1)..<end]
-    let numbered = slice.enumerated().map { offset, line in
-      "\(start + offset):\(line)"
-    }.joined(separator: "\n")
-
-    return "Lines \(start)-\(end) of \(allLines.count):\n\(numbered)"
+    return ChatSession.formatSourceLines(
+      lineStart: range.start, lineEnd: range.end, allLines: allLines)
   }
 
   // MARK: - PDF reading
@@ -445,26 +432,16 @@ public final class ChatSession {
       return "Error: Could not open PDF document."
     }
 
-    guard let data = arguments.data(using: .utf8),
-      let args = try? JSONDecoder().decode(ReadPDFArgs.self, from: data)
-    else {
+    guard let range = ChatSession.parsePDFPageRange(from: arguments) else {
       return "Error: Invalid arguments. Provide page_start and page_end as integers."
     }
 
-    let start = max(1, args.pageStart)
-    let end = min(doc.pageCount, args.pageEnd)
-
-    guard start <= end else {
-      return "Error: page_start (\(args.pageStart)) must be <= page_end (\(args.pageEnd))."
-    }
-
-    var pages: [String] = []
-    for i in start...end {
-      let pageText = doc.page(at: i - 1)?.string ?? "(empty page)"
-      pages.append("--- Page \(i) ---\n\(pageText)")
-    }
-
-    return "Pages \(start)-\(end) of \(doc.pageCount):\n\(pages.joined(separator: "\n\n"))"
+    return ChatSession.formatPDFPages(
+      pageStart: range.start,
+      pageEnd: range.end,
+      totalPages: doc.pageCount,
+      pageTextProvider: { doc.page(at: $0 - 1)?.string }
+    )
   }
 
   // MARK: - Web page reading
@@ -483,19 +460,28 @@ public final class ChatSession {
         "Error: Could not read page content. The browser may not support JavaScript execution via AppleScript."
     }
 
-    let maxChars: Int
-    if let data = arguments.data(using: .utf8),
+    let maxChars = ChatSession.parseMaxChars(from: arguments)
+    return ChatSession.extractPageExcerpt(
+      content: content, selectedText: selectedText, maxChars: maxChars)
+  }
+
+  // MARK: - Testable static helpers
+
+  /// Parse `max_chars` from JSON arguments, defaulting to 5000 and clamping to [500, 20000].
+  static func parseMaxChars(from arguments: String) -> Int {
+    guard let data = arguments.data(using: .utf8),
       let args = try? JSONDecoder().decode(ReadPageArgs.self, from: data),
       let mc = args.maxChars
-    {
-      maxChars = min(max(mc, 500), 20000)
-    } else {
-      maxChars = 5000
+    else {
+      return 5000
     }
+    return min(max(mc, 500), 20_000)
+  }
 
+  /// Extract a page excerpt centered around the selected text, falling back to the start.
+  static func extractPageExcerpt(content: String, selectedText: String, maxChars: Int) -> String {
     let totalChars = content.count
 
-    // Try to center around the selected text
     let searchText = String(selectedText.prefix(200))
     if !searchText.isEmpty, let range = content.range(of: searchText) {
       let center = content.distance(from: content.startIndex, to: range.lowerBound)
@@ -515,6 +501,66 @@ public final class ChatSession {
     let excerpt = String(content.prefix(maxChars))
     return
       "Page content (\(totalChars) total chars, showing first \(excerpt.count) chars):\n\(excerpt)"
+  }
+
+  /// Parse `page_start` / `page_end` from JSON arguments.
+  static func parsePDFPageRange(from arguments: String) -> (start: Int, end: Int)? {
+    guard let data = arguments.data(using: .utf8),
+      let args = try? JSONDecoder().decode(ReadPDFArgs.self, from: data)
+    else {
+      return nil
+    }
+    return (start: args.pageStart, end: args.pageEnd)
+  }
+
+  /// Format PDF pages with clamping and separator output.
+  static func formatPDFPages(
+    pageStart: Int,
+    pageEnd: Int,
+    totalPages: Int,
+    pageTextProvider: (Int) -> String?
+  ) -> String {
+    let start = max(1, pageStart)
+    let end = min(totalPages, pageEnd)
+
+    guard start <= end else {
+      return "Error: page_start (\(pageStart)) must be <= page_end (\(pageEnd))."
+    }
+
+    var pages: [String] = []
+    for i in start...end {
+      let pageText = pageTextProvider(i) ?? "(empty page)"
+      pages.append("--- Page \(i) ---\n\(pageText)")
+    }
+
+    return "Pages \(start)-\(end) of \(totalPages):\n\(pages.joined(separator: "\n\n"))"
+  }
+
+  /// Parse `line_start` / `line_end` from JSON arguments.
+  static func parseSourceLineRange(from arguments: String) -> (start: Int, end: Int)? {
+    guard let data = arguments.data(using: .utf8),
+      let args = try? JSONDecoder().decode(ReadSourceArgs.self, from: data)
+    else {
+      return nil
+    }
+    return (start: args.lineStart, end: args.lineEnd)
+  }
+
+  /// Format source lines with clamping and numbered output.
+  static func formatSourceLines(lineStart: Int, lineEnd: Int, allLines: [String]) -> String {
+    let start = max(1, lineStart)
+    let end = min(allLines.count, lineEnd)
+
+    guard start <= end else {
+      return "Error: line_start (\(lineStart)) must be <= line_end (\(lineEnd))."
+    }
+
+    let slice = allLines[(start - 1)..<end]
+    let numbered = slice.enumerated().map { offset, line in
+      "\(start + offset):\(line)"
+    }.joined(separator: "\n")
+
+    return "Lines \(start)-\(end) of \(allLines.count):\n\(numbered)"
   }
 
   // MARK: - API message building
