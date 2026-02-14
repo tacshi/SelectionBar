@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.4.1</title>
+            <pubDate>Sat, 14 Feb 2026 15:12:53 +1300</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>0.4.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.4.1</h2><ul><li>Refactor ChatSession methods for parsing and formatting source lines and PDF pages</li><li>Add PDF support to ChatSession for reading pages and content</li><li>Update README.md to enhance feature descriptions and clarify capabilities</li><li>Refactor file reading logic to support both text files and PDFs</li><li>Enhance ChatSession to support reading from web pages and files</li><li>Implement chat functionality with OpenAI integration (#11)</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.4.1/SelectionBar-0.4.1.dmg" length="6199127" type="application/octet-stream" sparkle:edSignature="ftgPcHK581BLdqyDA6h2wNARISE5M+O9Q0kbXgaBgv1PJs4hJwGhvy/Jw0WLy5yBU+KCoTHE1zjToZimcJHmCA=="/>
+        </item>
+        <item>
             <title>0.4.0</title>
             <pubDate>Sat, 14 Feb 2026 13:15:05 +1300</pubDate>
             <sparkle:version>12</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.3.4</h2><ul><li>Fix the bug that selection bar doesn't work in WeChat</li><li>Allow clipboard fallback without text context (#9)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.3.4/SelectionBar-0.3.4.dmg" length="4515596" type="application/octet-stream" sparkle:edSignature="2FO89kzhPGnCdKk7pg6aoNsM5OJ1kOqkr4f3WAUR+35ySUjvDo4eajqzC2RAUe/S25CM/Kfc9SEWMDa0EQa8BA=="/>
-        </item>
-        <item>
-            <title>0.3.3</title>
-            <pubDate>Fri, 13 Feb 2026 10:32:43 +1300</pubDate>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>0.3.3</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.3.3</h2><ul><li>Allow clipboard fallback without text context</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.3.3/SelectionBar-0.3.3.dmg" length="4506811" type="application/octet-stream" sparkle:edSignature="jElWWq5OLCug9eM32zTqS/xTV6q+hpYVXysoCJgeZNjiC0eu7SJ45wLsFKEWAJNLySb+oXSbhITt/vdmyVnoAg=="/>
         </item>
     </channel>
 </rss>
