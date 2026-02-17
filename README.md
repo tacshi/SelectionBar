@@ -14,6 +14,7 @@ A macOS menu bar app that provides a floating toolbar on text selection for quic
 Search selected text with 7 built-in engines:
 
 - Google, Bing, DuckDuckGo, Baidu, Sogou, 360 Search, Yandex
+- Custom URL scheme or URL template using `{{query}}` (for example `myapp` or `https://example.com/search?q={{query}}`)
 
 ### Word Lookup
 

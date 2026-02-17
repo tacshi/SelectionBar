@@ -185,11 +185,14 @@ public final class SelectionBarActionHandler {
     let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !query.isEmpty else { return false }
 
-    guard let url = settings.selectionBarSearchEngine.searchURL(for: query) else {
-      return false
+    let urls = settings.selectionBarSearchEngine.searchURLCandidates(
+      for: query,
+      customConfiguration: settings.selectionBarSearchCustomScheme
+    )
+    for url in urls where NSWorkspace.shared.open(url) {
+      return true
     }
-
-    return NSWorkspace.shared.open(url)
+    return false
   }
 
   /// Returns a normalized URL when text can be interpreted as a web URL.

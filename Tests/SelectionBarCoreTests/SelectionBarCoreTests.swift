@@ -29,6 +29,58 @@ struct SelectionBarCoreTests {
     }
   }
 
+  @Test("custom search URL template replaces {{query}} with encoded text")
+  func customSearchURLTemplate() {
+    let query = "hello world"
+    let candidates = SelectionBarSearchEngine.custom.searchURLCandidates(
+      for: query,
+      customConfiguration: "https://example.com/search?q={{query}}"
+    )
+
+    #expect(candidates.count == 1)
+    #expect(candidates.first?.absoluteString == "https://example.com/search?q=hello%20world")
+  }
+
+  @Test("custom search scheme generates ordered fallback candidates")
+  func customSearchSchemeCandidates() {
+    let query = "hello world"
+    let candidates = SelectionBarSearchEngine.custom.searchURLCandidates(
+      for: query,
+      customConfiguration: "myapp"
+    )
+    let urls = candidates.map(\.absoluteString)
+    #expect(
+      urls
+        == [
+          "myapp://search?query=hello%20world",
+          "myapp://search?q=hello%20world",
+          "myapp://lookup?word=hello%20world",
+          "myapp://dict?word=hello%20world",
+          "myapp://hello%20world",
+        ]
+    )
+  }
+
+  @Test("custom search configuration validation handles valid and invalid inputs")
+  func customSearchConfigurationValidation() {
+    #expect(!SelectionBarSearchEngine.custom.isConfigurationValid(customConfiguration: ""))
+    #expect(
+      !SelectionBarSearchEngine.custom.isConfigurationValid(customConfiguration: "bad scheme"))
+    #expect(SelectionBarSearchEngine.custom.isConfigurationValid(customConfiguration: "myapp"))
+    #expect(
+      SelectionBarSearchEngine.custom.isConfigurationValid(
+        customConfiguration: "https://example.com/search?q={{query}}")
+    )
+    #expect(
+      !SelectionBarSearchEngine.custom.isConfigurationValid(
+        customConfiguration: "example.com/search?q={{query}}")
+    )
+
+    #expect(
+      SelectionBarSearchEngine.google.isConfigurationValid(customConfiguration: "")
+    )
+  }
+
   @Test("urlToOpen accepts explicit http and https URLs")
   func urlToOpenExplicitSchemes() {
     let action = SelectionBarActionHandler()

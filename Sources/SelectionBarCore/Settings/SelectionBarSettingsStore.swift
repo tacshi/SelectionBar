@@ -82,6 +82,10 @@ public final class SelectionBarSettingsStore {
     didSet { persistIfNeeded() }
   }
 
+  public var selectionBarSearchCustomScheme: String {
+    didSet { persistIfNeeded() }
+  }
+
   public var selectionBarSpeakEnabled: Bool {
     didSet { persistIfNeeded() }
   }
@@ -241,6 +245,7 @@ public final class SelectionBarSettingsStore {
     selectionBarLookupProvider = .systemDictionary
     selectionBarLookupCustomScheme = ""
     selectionBarSearchEngine = .google
+    selectionBarSearchCustomScheme = ""
     selectionBarSpeakEnabled = true
     selectionBarSpeakVoiceIdentifier = ""
     selectionBarSpeakProviderId = SelectionBarSpeakSystemProvider.apple.rawValue
@@ -646,6 +651,7 @@ public final class SelectionBarSettingsStore {
       selectionBarLookupCustomScheme: selectionBarLookupCustomScheme,
       selectionBarLookupCustomApp: nil,
       selectionBarSearchEngine: selectionBarSearchEngine.rawValue,
+      selectionBarSearchCustomScheme: selectionBarSearchCustomScheme,
       selectionBarSpeakEnabled: selectionBarSpeakEnabled,
       selectionBarSpeakVoiceIdentifier: selectionBarSpeakVoiceIdentifier,
       selectionBarSpeakProviderId: selectionBarSpeakProviderId,
@@ -698,6 +704,7 @@ public final class SelectionBarSettingsStore {
       selectionBarSearchEngine =
         SelectionBarSearchEngine(rawValue: settings.selectionBarSearchEngine ?? "")
         ?? .google
+      selectionBarSearchCustomScheme = settings.selectionBarSearchCustomScheme ?? ""
       selectionBarSpeakEnabled = settings.selectionBarSpeakEnabled ?? true
       selectionBarSpeakVoiceIdentifier = settings.selectionBarSpeakVoiceIdentifier ?? ""
       selectionBarSpeakProviderId =
@@ -751,6 +758,7 @@ private struct StoredSettings: Codable {
   let selectionBarLookupCustomScheme: String?
   let selectionBarLookupCustomApp: IgnoredApp?
   let selectionBarSearchEngine: String?
+  let selectionBarSearchCustomScheme: String?
   let selectionBarSpeakEnabled: Bool?
   let selectionBarSpeakVoiceIdentifier: String?
   let selectionBarSpeakProviderId: String?

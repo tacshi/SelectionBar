@@ -90,6 +90,16 @@ private struct ActionsBuiltInSettingsContent: View {
           Text("Bing").tag(SelectionBarSearchEngine.bing)
           Text("Yandex").tag(SelectionBarSearchEngine.yandex)
           Text("DuckDuckGo").tag(SelectionBarSearchEngine.duckDuckGo)
+          Text("Custom").tag(SelectionBarSearchEngine.custom)
+        }
+
+        if settings.selectionBarSearchEngine == .custom {
+          TextField("Custom Search", text: $settings.selectionBarSearchCustomScheme)
+            .textFieldStyle(.roundedBorder)
+
+          Text("Enter a URL scheme (e.g. myapp) or a full URL with {{query}}.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
       } header: {
         Label("Web Search", systemImage: "magnifyingglass")
