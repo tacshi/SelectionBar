@@ -115,6 +115,10 @@ public final class SelectionBarCoordinator {
         false
       }
 
+    let showSearch = settingsStore.selectionBarSearchEngine.isConfigurationValid(
+      customConfiguration: settingsStore.selectionBarSearchCustomScheme
+    )
+
     let showLookup: Bool
     if settingsStore.selectionBarLookupEnabled {
       switch settingsStore.selectionBarLookupProvider {
@@ -145,7 +149,7 @@ public final class SelectionBarCoordinator {
       processingActionId: processingActionId,
       errorActionId: errorActionId,
       showCut: showCut,
-      showSearch: true,
+      showSearch: showSearch,
       showOpenURL: showOpenURL,
       showLookup: showLookup,
       showTranslate: showTranslate,

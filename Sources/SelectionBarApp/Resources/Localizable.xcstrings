@@ -383,33 +383,23 @@
         }
       }
     },
-    "Custom URL Scheme" : {
+    "Custom Search" : {
       "localizations" : {
         "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "カスタムURLスキーム" }
+          "stringUnit" : { "state" : "translated", "value" : "カスタム検索" }
         },
         "zh-Hans" : {
-          "stringUnit" : { "state" : "translated", "value" : "自定义URL Scheme" }
+          "stringUnit" : { "state" : "translated", "value" : "自定义搜索" }
         }
       }
     },
-    "URL Scheme" : {
+    "Enter a URL scheme (e.g. myapp) or a full URL with {{query}}." : {
       "localizations" : {
         "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "URLスキーム" }
+          "stringUnit" : { "state" : "translated", "value" : "URLスキーム（例: myapp）または{{query}}を含む完全なURLを入力してください。" }
         },
         "zh-Hans" : {
-          "stringUnit" : { "state" : "translated", "value" : "URL Scheme" }
-        }
-      }
-    },
-    "Enter a scheme like eudic, or a URL template with {{query}}." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "eudicなどのスキーム、または{{query}}を含むURLテンプレートを入力してください。" }
-        },
-        "zh-Hans" : {
-          "stringUnit" : { "state" : "translated", "value" : "输入如eudic的scheme，或包含{{query}}的URL模板。" }
+          "stringUnit" : { "state" : "translated", "value" : "输入URL Scheme（如myapp）或包含{{query}}的完整URL。" }
         }
       }
     },

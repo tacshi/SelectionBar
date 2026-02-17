@@ -122,6 +122,32 @@ struct SelectionBarSettingsStoreTests {
     #expect(store.customActions[0].isEnabled == false)
   }
 
+  @Test("custom web search engine and custom scheme persist across reload")
+  func customWebSearchSettingsPersist() {
+    let suite = "SelectionBarCoreTests.Search.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    defer { defaults.removePersistentDomain(forName: suite) }
+
+    let keychain = InMemoryKeychain()
+    let store = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+
+    store.selectionBarSearchEngine = .custom
+    store.selectionBarSearchCustomScheme = "myapp"
+
+    let reloaded = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+    #expect(reloaded.selectionBarSearchEngine == .custom)
+    #expect(reloaded.selectionBarSearchCustomScheme == "myapp")
+  }
+
   @Test("do-not-disturb activation settings default, notify, and persist")
   func doNotDisturbActivationSettingsLifecycle() {
     let suite = "SelectionBarCoreTests.DND.\(UUID().uuidString)"
