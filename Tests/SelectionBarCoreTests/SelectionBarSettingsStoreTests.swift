@@ -356,4 +356,54 @@ struct SelectionBarSettingsStoreTests {
     #expect(reloaded.selectionBarDoNotDisturbEnabled == true)
     #expect(reloaded.selectionBarActivationModifier == .shift)
   }
+
+  @Test("clipboard fallback included apps default and persist")
+  func clipboardFallbackIncludedAppsDefaultAndPersist() {
+    let originalResolver = SelectionBarSettingsStore.appInstallationResolver
+    SelectionBarSettingsStore.appInstallationResolver = { bundleID in
+      bundleID == "com.tencent.xinWeChat"
+    }
+    defer {
+      SelectionBarSettingsStore.appInstallationResolver = originalResolver
+    }
+
+    let suite = "SelectionBarCoreTests.ClipboardFallbackApps.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    defer { defaults.removePersistentDomain(forName: suite) }
+
+    let keychain = InMemoryKeychain()
+    let store = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+
+    #expect(
+      Set(store.selectionBarClipboardFallbackIncludedApps.map(\.id))
+        == ["com.tencent.xinWeChat"]
+    )
+
+    var callbackCount = 0
+    store.onClipboardFallbackIncludedAppsChanged = {
+      callbackCount += 1
+    }
+
+    store.selectionBarClipboardFallbackIncludedApps.append(
+      IgnoredApp(id: "com.example.ChatApp", name: "ChatApp")
+    )
+
+    #expect(callbackCount == 1)
+
+    let reloaded = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+    #expect(
+      Set(reloaded.selectionBarClipboardFallbackIncludedApps.map(\.id))
+        == ["com.tencent.xinWeChat", "com.example.ChatApp"]
+    )
+  }
+
 }

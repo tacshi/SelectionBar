@@ -42,6 +42,7 @@ public final class SelectionBarCoordinator {
     }
 
     updateIgnoredApps()
+    updateClipboardFallbackIncludedApps()
     updateActivationRequirement()
 
     if settingsStore.selectionBarEnabled {
@@ -56,6 +57,7 @@ public final class SelectionBarCoordinator {
   /// Called when the enabled setting changes.
   public func updateEnabled() {
     updateIgnoredApps()
+    updateClipboardFallbackIncludedApps()
     updateActivationRequirement()
 
     if settingsStore.selectionBarEnabled {
@@ -72,6 +74,12 @@ public final class SelectionBarCoordinator {
   /// Sync ignored apps from settings to monitor.
   public func updateIgnoredApps() {
     monitor.ignoredBundleIDs = Set(settingsStore.selectionBarIgnoredApps.map(\.id))
+  }
+
+  /// Sync clipboard-fallback included apps from settings to monitor.
+  public func updateClipboardFallbackIncludedApps() {
+    monitor.clipboardFallbackIncludedBundleIDs = Set(
+      settingsStore.selectionBarClipboardFallbackIncludedApps.map(\.id))
   }
 
   /// Sync activation gating settings to monitor.

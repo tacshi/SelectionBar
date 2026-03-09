@@ -369,6 +369,38 @@
         }
       }
     },
+    "Included Apps": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "含めるアプリ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "包含的应用"
+          }
+        }
+      }
+    },
+    "No included apps": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "含めるアプリなし"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有包含的应用"
+          }
+        }
+      }
+    },
     "Remove": {
       "localizations": {
         "ja": {
@@ -413,6 +445,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "当这些应用在前台时，选择栏不会显示。"
+          }
+        }
+      }
+    },
+    "Use this for apps where text selection works with Cmd+C but Accessibility does not expose selected text directly. SelectionBar will allow a stricter clipboard fallback for these apps. Known apps such as WeChat and Telegram are only prefilled when they are installed.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキスト選択は Cmd+C でコピーできるものの、アクセシビリティでは選択テキストが直接取得できないアプリ向けです。これらのアプリでは、SelectionBar がより厳格なクリップボードフォールバックを許可します。WeChat や Telegram などの既知のアプリは、インストールされている場合のみ事前入力されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用于那些文本选择可通过 Cmd+C 复制，但辅助功能不会直接暴露所选文本的应用。对于这些应用，SelectionBar 会启用更严格的剪贴板回退。像 WeChat 和 Telegram 这样的已知应用仅会在已安装时预填。"
           }
         }
       }
@@ -2849,6 +2897,102 @@
         }
       }
     },
+    "Shortcut": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷键"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷键"
+          }
+        }
+      }
+    },
+    "Press Shortcut": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショートカットを押してください"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按下快捷键"
+          }
+        }
+      }
+    },
+    "Record Shortcut": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショートカットを記録"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录制快捷键"
+          }
+        }
+      }
+    },
+    "App Overrides": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用覆盖"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用覆盖"
+          }
+        }
+      }
+    },
+    "No app overrides configured": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用覆盖未配置"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未配置应用覆盖"
+          }
+        }
+      }
+    },
+    "Add App Override": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加应用覆盖"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加应用覆盖"
+          }
+        }
+      }
+    },
     "Will send: %@": {
       "localizations": {
         "ja": {
@@ -2861,6 +3005,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "将发送：%@"
+          }
+        }
+      }
+    },
+    "Use per-app shortcuts when apps require different bindings.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用在不同情况下需要不同绑定时，使用按应用区分的快捷键。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当不同应用需要不同绑定时，使用按应用区分的快捷键。"
           }
         }
       }
