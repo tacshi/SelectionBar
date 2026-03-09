@@ -1,7 +1,10 @@
+import AppKit
 import SwiftUI
 
 /// Horizontal floating button bar for built-in text actions.
 struct SelectionBarView: View {
+  @Environment(\.colorScheme) private var colorScheme
+
   let actions: [CustomActionConfig]
   let processingActionId: UUID?
   let errorActionId: UUID?
@@ -26,8 +29,11 @@ struct SelectionBarView: View {
   let onChatSelected: () -> Void
   let onActionSelected: (CustomActionConfig) -> Void
 
+  private let barCornerRadius: CGFloat = 16
+  private let controlCornerRadius: CGFloat = 10
+
   var body: some View {
-    HStack {
+    HStack(spacing: 6) {
       actionButton(
         title: String(localized: "Copy", bundle: .localizedModule),
         systemImage: "doc.on.doc", action: onCopySelected
@@ -68,12 +74,11 @@ struct SelectionBarView: View {
             .frame(width: 18, height: 18)
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-          isTranslateError ? Color.red.opacity(0.2) : Color.primary.opacity(0.08),
-          in: .rect(cornerRadius: 6)
-        )
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background {
+          controlBackground(isError: isTranslateError)
+        }
         .foregroundStyle(isTranslateError ? Color.red : Color.primary)
         .overlay {
           if isTranslating {
@@ -98,12 +103,11 @@ struct SelectionBarView: View {
             .frame(width: 18, height: 18)
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-          isSpeaking ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.08),
-          in: .rect(cornerRadius: 6)
-        )
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background {
+          controlBackground(isAccent: isSpeaking)
+        }
         .foregroundStyle(isSpeaking ? Color.accentColor : Color.primary)
         .help(speakTitle)
         .accessibilityLabel(Text(speakTitle))
@@ -119,9 +123,10 @@ struct SelectionBarView: View {
       }
 
       if !actions.isEmpty {
-        Divider()
-          .frame(height: 18)
-          .padding(.horizontal, 2)
+        Rectangle()
+          .fill(Color(nsColor: .separatorColor))
+          .frame(width: 1, height: 18)
+          .padding(.horizontal, 4)
       }
 
       ForEach(actions) { action in
@@ -137,24 +142,48 @@ struct SelectionBarView: View {
           }
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(buttonBackground(for: action), in: .rect(cornerRadius: 6))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background {
+          controlBackground(isError: errorActionId == action.id)
+        }
         .foregroundStyle(buttonForeground(for: action))
         .help(actionHelpText(for: action))
         .disabled(isBusy)
         .accessibilityLabel(Text(action.localizedName))
       }
     }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 6)
-    .background(
-      Color(nsColor: .windowBackgroundColor),
-      in: .rect(cornerRadius: 10)
-    )
+    .padding(.horizontal, 10)
+    .padding(.vertical, 8)
+    .background {
+      barBackground
+    }
     .overlay {
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .strokeBorder(.primary.opacity(0.06), lineWidth: 1)
+      barShape
+        .strokeBorder(
+          LinearGradient(
+            colors: [
+              .white.opacity(colorScheme == .dark ? 0.22 : 0.62),
+              .white.opacity(colorScheme == .dark ? 0.05 : 0.14),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+          ),
+          lineWidth: 1
+        )
+    }
+    .overlay {
+      barShape
+        .fill(
+          LinearGradient(
+            colors: [
+              .white.opacity(colorScheme == .dark ? 0.12 : 0.26),
+              .clear,
+            ],
+            startPoint: .top,
+            endPoint: .center
+          )
+        )
     }
   }
 
@@ -169,20 +198,55 @@ struct SelectionBarView: View {
         .frame(width: 18, height: 18)
     }
     .buttonStyle(.plain)
-    .padding(.horizontal, 8)
-    .padding(.vertical, 6)
-    .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 6))
+    .padding(.horizontal, 10)
+    .padding(.vertical, 7)
+    .background {
+      controlBackground()
+    }
     .foregroundStyle(.primary)
     .help(title)
     .accessibilityLabel(Text(title))
     .disabled(isBusy)
   }
 
-  private func buttonBackground(for action: CustomActionConfig) -> Color {
-    if errorActionId == action.id {
-      return .red.opacity(0.2)
+  private var barShape: RoundedRectangle {
+    RoundedRectangle(cornerRadius: barCornerRadius, style: .continuous)
+  }
+
+  @ViewBuilder
+  private var barBackground: some View {
+    if #available(macOS 26.0, *) {
+      Color.clear
+        .glassEffect(.regular, in: barShape)
+    } else {
+      FloatingBarMaterialBackground(cornerRadius: barCornerRadius)
+        .overlay {
+          barShape
+            .fill(
+              LinearGradient(
+                colors: [
+                  .white.opacity(colorScheme == .dark ? 0.05 : 0.18),
+                  .clear,
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+              )
+            )
+        }
     }
-    return .primary.opacity(0.08)
+  }
+
+  @ViewBuilder
+  private func controlBackground(
+    isAccent: Bool = false,
+    isError: Bool = false
+  ) -> some View {
+    RoundedRectangle(cornerRadius: controlCornerRadius, style: .continuous)
+      .fill(controlFillColor(isAccent: isAccent, isError: isError))
+      .overlay {
+        RoundedRectangle(cornerRadius: controlCornerRadius, style: .continuous)
+          .strokeBorder(controlStrokeColor(isAccent: isAccent, isError: isError), lineWidth: 0.75)
+      }
   }
 
   private func buttonForeground(for action: CustomActionConfig) -> Color {
@@ -206,5 +270,52 @@ struct SelectionBarView: View {
     Image(systemName: action.effectiveIcon.resolvedValue)
       .font(.system(size: 14, weight: .medium))
       .frame(width: 18, height: 18)
+  }
+
+  private func controlFillColor(isAccent: Bool, isError: Bool) -> Color {
+    if isError {
+      return .red.opacity(colorScheme == .dark ? 0.24 : 0.18)
+    }
+    if isAccent {
+      return .accentColor.opacity(colorScheme == .dark ? 0.22 : 0.16)
+    }
+    return colorScheme == .dark
+      ? .white.opacity(0.08)
+      : .white.opacity(0.28)
+  }
+
+  private func controlStrokeColor(isAccent: Bool, isError: Bool) -> Color {
+    if isError {
+      return .red.opacity(colorScheme == .dark ? 0.4 : 0.26)
+    }
+    if isAccent {
+      return .accentColor.opacity(colorScheme == .dark ? 0.34 : 0.24)
+    }
+    return colorScheme == .dark
+      ? .white.opacity(0.12)
+      : .white.opacity(0.52)
+  }
+}
+
+private struct FloatingBarMaterialBackground: NSViewRepresentable {
+  let cornerRadius: CGFloat
+
+  func makeNSView(context: Context) -> NSVisualEffectView {
+    let view = NSVisualEffectView()
+    configure(view)
+    return view
+  }
+
+  func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+    configure(nsView)
+  }
+
+  private func configure(_ view: NSVisualEffectView) {
+    view.material = .hudWindow
+    view.blendingMode = .behindWindow
+    view.state = .active
+    view.wantsLayer = true
+    view.layer?.cornerRadius = cornerRadius
+    view.layer?.masksToBounds = true
   }
 }
