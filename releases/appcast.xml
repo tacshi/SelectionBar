@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.5.2</title>
+            <pubDate>Tue, 10 Mar 2026 01:35:02 +0800</pubDate>
+            <sparkle:version>17</sparkle:version>
+            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.5.2</h2><ul><li>Add glass-style floating selection bar (#17)</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.5.2/SelectionBar-0.5.2.dmg" length="6693313" type="application/octet-stream" sparkle:edSignature="A4a1cTHAfPvHfj06fRugrJnHvVKdkBSU58ivhBLdPsEo5iXbDlHzr/QzidVFaGLWYvyA6B3C52Fp6hmelLFJBQ=="/>
+        </item>
+        <item>
             <title>0.5.1</title>
             <pubDate>Tue, 10 Mar 2026 00:52:31 +0800</pubDate>
             <sparkle:version>16</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.4.3</h2><ul><li>Add custom URL scheme support for web search engine</li><li>Implement chat session persistence with JSON storage (#13)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.4.3/SelectionBar-0.4.3.dmg" length="6368552" type="application/octet-stream" sparkle:edSignature="n0qiqg4dswc+mUSX3HxCkEKcoQyaLqrStqjteV1FimeHPncclUeiPDqpeFBwk8EgN4tEPdhreWW66ij8CCIPBw=="/>
-        </item>
-        <item>
-            <title>0.4.2</title>
-            <pubDate>Sun, 15 Feb 2026 07:41:00 +0800</pubDate>
-            <sparkle:version>14</sparkle:version>
-            <sparkle:shortVersionString>0.4.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.4.2</h2><ul><li>Implement chat session persistence with JSON storage</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.4.2/SelectionBar-0.4.2.dmg" length="6359294" type="application/octet-stream" sparkle:edSignature="cjTIJJeq6wOAaUKsDfvMpOEJBKgrdQDXXaQEaFa6bCqhODId0UzJaJuh1Q3bl+bh+4y0n/WCqwQRw1z6wPt9AA=="/>
         </item>
     </channel>
 </rss>
