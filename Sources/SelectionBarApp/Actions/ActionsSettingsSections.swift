@@ -571,7 +571,7 @@ private struct ActionsCustomSettingsContent: View {
                 mode: .custom,
                 config: CustomActionConfig(
                   id: UUID(),
-                  name: template.name,
+                  name: template.localizedName,
                   prompt: CustomActionConfig.defaultPromptTemplate,
                   modelProvider: "",
                   modelId: "",
@@ -588,7 +588,7 @@ private struct ActionsCustomSettingsContent: View {
             } label: {
               HStack(spacing: 8) {
                 ActionIconGlyph(icon: template.effectiveIcon, tint: .primary, size: 13)
-                Text(template.name)
+                Text(template.localizedName)
               }
             }
           }
