@@ -1,6 +1,6 @@
 # SelectionBar
 
-A macOS menu bar app that provides a floating toolbar on text selection for quick actions — copy, search, translate, speak, chat with AI, and run custom LLM/JavaScript processing.
+A macOS menu bar app that provides a floating toolbar on text selection for quick actions — copy, search, translate, speak, chat with AI, and run custom LLM/JavaScript/key-binding actions.
 
 ## Features
 
@@ -56,6 +56,14 @@ Each action can output to a result window or edit text inline.
 8 starter templates with offline, instant execution:
 
 - Trim Whitespace, Title Case, URL Toolkit, JWT Decode, Format JSON, Convert Timestamps, Clean Up Escapes, Wrap as Quote
+
+### Key Binding Actions
+
+Create shortcut actions in **Actions > Built-in > Key Bindings** to trigger app commands directly (for example `cmd+b` for Bold).
+
+- Add multiple shortcut actions with custom names and icons
+- Configure per-app shortcut overrides by bundle ID
+- Built-in starters: Bold, Italic, Underline
 
 ### Do Not Disturb
 

@@ -32,6 +32,7 @@ public struct CustomActionIcon: Codable, Equatable, Sendable, Hashable {
 public enum CustomActionKind: String, Codable, CaseIterable, Sendable, Hashable {
   case javascript
   case llm
+  case keyBinding
 
   public var displayName: String {
     switch self {
@@ -39,6 +40,8 @@ public enum CustomActionKind: String, Codable, CaseIterable, Sendable, Hashable 
       String(localized: "JavaScript", bundle: .localizedModule)
     case .llm:
       String(localized: "LLM", bundle: .localizedModule)
+    case .keyBinding:
+      String(localized: "Key Binding", bundle: .localizedModule)
     }
   }
 }
@@ -54,6 +57,20 @@ public enum CustomActionOutputMode: String, Codable, CaseIterable, Sendable, Has
     case .inplace:
       String(localized: "Inplace Edit", bundle: .localizedModule)
     }
+  }
+}
+
+public struct CustomActionKeyBindingOverride: Codable, Equatable, Sendable, Hashable, Identifiable {
+  public var bundleID: String
+  public var appName: String
+  public var keyBinding: String
+
+  public var id: String { bundleID }
+
+  public init(bundleID: String, appName: String, keyBinding: String) {
+    self.bundleID = bundleID
+    self.appName = appName
+    self.keyBinding = keyBinding
   }
 }
 
@@ -74,6 +91,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
   public var kind: CustomActionKind
   public var outputMode: CustomActionOutputMode
   public var script: String
+  public var keyBinding: String
+  public var keyBindingOverrides: [CustomActionKeyBindingOverride]
   public var isEnabled: Bool
   public var isBuiltIn: Bool
   public var templateId: String?
@@ -89,6 +108,9 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     case "summary": return String(localized: "Summarize", bundle: .localizedModule)
     case "bullet-points": return String(localized: "Bulletize", bundle: .localizedModule)
     case "email-draft": return String(localized: "Draft Email", bundle: .localizedModule)
+    case "kb-bold": return String(localized: "Bold", bundle: .localizedModule)
+    case "kb-italic": return String(localized: "Italic", bundle: .localizedModule)
+    case "kb-underline": return String(localized: "Underline", bundle: .localizedModule)
     default: return name
     }
   }
@@ -102,6 +124,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     kind: CustomActionKind = .javascript,
     outputMode: CustomActionOutputMode = .resultWindow,
     script: String = Self.defaultJavaScriptTemplate,
+    keyBinding: String = "",
+    keyBindingOverrides: [CustomActionKeyBindingOverride] = [],
     isEnabled: Bool = false,
     isBuiltIn: Bool = false,
     templateId: String? = nil,
@@ -115,6 +139,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     self.kind = kind
     self.outputMode = outputMode
     self.script = script
+    self.keyBinding = keyBinding
+    self.keyBindingOverrides = keyBindingOverrides
     self.isEnabled = isEnabled
     self.isBuiltIn = isBuiltIn
     self.templateId = templateId
@@ -130,6 +156,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     case kind
     case outputMode
     case script
+    case keyBinding
+    case keyBindingOverrides
     case isEnabled
     case isBuiltIn
     case templateId
@@ -157,6 +185,11 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     }
     script =
       try container.decodeIfPresent(String.self, forKey: .script) ?? Self.defaultJavaScriptTemplate
+    keyBinding = try container.decodeIfPresent(String.self, forKey: .keyBinding) ?? ""
+    keyBindingOverrides =
+      try container.decodeIfPresent(
+        [CustomActionKeyBindingOverride].self, forKey: .keyBindingOverrides)
+      ?? []
     isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
     isBuiltIn = try container.decodeIfPresent(Bool.self, forKey: .isBuiltIn) ?? false
     templateId = try container.decodeIfPresent(String.self, forKey: .templateId)
@@ -173,6 +206,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     try container.encode(kind.rawValue, forKey: .kind)
     try container.encode(outputMode.rawValue, forKey: .outputMode)
     try container.encode(script, forKey: .script)
+    try container.encode(keyBinding, forKey: .keyBinding)
+    try container.encode(keyBindingOverrides, forKey: .keyBindingOverrides)
     try container.encode(isEnabled, forKey: .isEnabled)
     try container.encode(isBuiltIn, forKey: .isBuiltIn)
     try container.encode(templateId, forKey: .templateId)
@@ -201,7 +236,16 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
       return "clock.arrow.circlepath"
     case "js-clean-escapes":
       return "eraser.xmark"
+    case "kb-bold":
+      return "bold"
+    case "kb-italic":
+      return "italic"
+    case "kb-underline":
+      return "underline"
     default:
+      if kind == .keyBinding {
+        return "keyboard"
+      }
       return "sparkles"
     }
   }
@@ -211,6 +255,21 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
       return icon
     }
     return CustomActionIcon(value: defaultIconSFSymbolName)
+  }
+
+  public func resolvedKeyBinding(for bundleID: String?) -> String {
+    guard kind == .keyBinding else { return keyBinding }
+    guard
+      let bundleID = bundleID?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !bundleID.isEmpty
+    else {
+      return keyBinding
+    }
+    guard let override = keyBindingOverrides.first(where: { $0.bundleID == bundleID }) else {
+      return keyBinding
+    }
+    let overrideKeyBinding = override.keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
+    return overrideKeyBinding.isEmpty ? keyBinding : overrideKeyBinding
   }
 
 }

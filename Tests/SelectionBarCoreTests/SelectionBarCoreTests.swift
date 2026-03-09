@@ -1,3 +1,4 @@
+import Carbon.HIToolbox
 import Foundation
 import SelectionBarCore
 import Testing
@@ -162,6 +163,95 @@ struct SelectionBarCoreTests {
     let encoded = try JSONEncoder().encode(original)
     let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
     #expect(decoded == original)
+  }
+
+  @Test("key-binding custom action roundtrips through Codable")
+  func customActionKeyBindingRoundTrip() throws {
+    let original = CustomActionConfig(
+      id: UUID(),
+      name: "Bold Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      outputMode: .resultWindow,
+      script: CustomActionConfig.defaultJavaScriptTemplate,
+      keyBinding: "cmd+shift+b",
+      keyBindingOverrides: [
+        CustomActionKeyBindingOverride(
+          bundleID: "com.apple.TextEdit",
+          appName: "TextEdit",
+          keyBinding: "cmd+b"
+        ),
+        CustomActionKeyBindingOverride(
+          bundleID: "com.microsoft.Word",
+          appName: "Microsoft Word",
+          keyBinding: "cmd+shift+b"
+        ),
+      ],
+      isEnabled: true,
+      isBuiltIn: false,
+      templateId: nil,
+      icon: CustomActionIcon(value: "bold")
+    )
+
+    let encoded = try JSONEncoder().encode(original)
+    let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
+    #expect(decoded == original)
+  }
+
+  @Test("key-binding action resolves per-app override before default shortcut")
+  func keyBindingOverrideResolution() {
+    let action = CustomActionConfig(
+      id: UUID(),
+      name: "Bold",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      outputMode: .resultWindow,
+      script: CustomActionConfig.defaultJavaScriptTemplate,
+      keyBinding: "cmd+b",
+      keyBindingOverrides: [
+        CustomActionKeyBindingOverride(
+          bundleID: "com.microsoft.Word",
+          appName: "Microsoft Word",
+          keyBinding: "cmd+shift+b"
+        )
+      ],
+      isEnabled: true
+    )
+
+    #expect(action.resolvedKeyBinding(for: "com.microsoft.Word") == "cmd+shift+b")
+    #expect(action.resolvedKeyBinding(for: "com.apple.TextEdit") == "cmd+b")
+    #expect(action.resolvedKeyBinding(for: nil) == "cmd+b")
+  }
+
+  @Test("keyboard shortcut parser normalizes valid bindings and rejects invalid input")
+  func keyboardShortcutParserValidation() {
+    let parsed = SelectionBarKeyboardShortcutParser.parse(" cmd + shift + b ")
+    #expect(parsed?.canonicalString == "cmd+shift+b")
+    #expect(parsed?.displayString == "Cmd + Shift + B")
+
+    #expect(SelectionBarKeyboardShortcutParser.parse("b") == nil)
+    #expect(SelectionBarKeyboardShortcutParser.parse("cmd+") == nil)
+    #expect(SelectionBarKeyboardShortcutParser.parse("cmd+unknown") == nil)
+  }
+
+  @Test("keyboard shortcut parser builds shortcuts from key codes and modifier flags")
+  func keyboardShortcutParserFromKeyCodeAndFlags() {
+    let shortcut = SelectionBarKeyboardShortcutParser.parse(
+      keyCode: CGKeyCode(kVK_ANSI_B),
+      flags: [.maskCommand, .maskShift]
+    )
+    #expect(shortcut?.canonicalString == "cmd+shift+b")
+    #expect(shortcut?.displayString == "Cmd + Shift + B")
+
+    let withoutModifier = SelectionBarKeyboardShortcutParser.parse(
+      keyCode: CGKeyCode(kVK_ANSI_B),
+      flags: []
+    )
+    #expect(withoutModifier == nil)
   }
 
   @Test("javascript runner returns transformed text")
@@ -398,6 +488,38 @@ struct SelectionBarCoreTests {
     )
     #expect(store.llmActionEnablementIssue(missingModel) == .missingModel)
     #expect(store.canEnableCustomAction(missingModel) == false)
+  }
+
+  @Test("cannot enable key-binding action with invalid shortcut")
+  func keyBindingActionRequiresValidShortcut() {
+    let defaultsSuite = "SelectionBarCoreTests.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: defaultsSuite)!
+    defer { defaults.removePersistentDomain(forName: defaultsSuite) }
+
+    let store = SelectionBarSettingsStore(
+      defaults: defaults, storageKey: "test.settings", keychain: InMemoryKeychain())
+
+    let invalidShortcut = CustomActionConfig(
+      name: "Invalid Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+",
+      isEnabled: false
+    )
+    #expect(store.canEnableCustomAction(invalidShortcut) == false)
+
+    let validShortcut = CustomActionConfig(
+      name: "Bold Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+b",
+      isEnabled: false
+    )
+    #expect(store.canEnableCustomAction(validShortcut) == true)
   }
 
   @Test("reconcile disables invalid enabled LLM action")

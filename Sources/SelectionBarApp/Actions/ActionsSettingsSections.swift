@@ -6,14 +6,31 @@ private enum ActionsTab: Hashable {
   case custom
 }
 
+private enum ActionEditorDestination: Hashable {
+  case customActions
+  case builtInKeyBindingActions
+}
+
+private struct ActionsEditorItem: Identifiable {
+  let destination: ActionEditorDestination
+  let mode: ActionEditorMode
+  let config: CustomActionConfig
+
+  var id: UUID { config.id }
+}
+
 struct ActionsSettingsSections: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
 
   @State private var selectedTab: ActionsTab? = .builtIn
-  @State private var editingConfig: CustomActionConfig?
+  @State private var editingAction: ActionsEditorItem?
 
   private var llmTemplates: [CustomActionConfig] {
     CustomActionConfig.createAllBuiltInTemplates()
+  }
+
+  private var keyBindingTemplates: [CustomActionConfig] {
+    CustomActionConfig.createKeyBindingStarterTemplates()
   }
 
   private var javaScriptTemplates: [CustomActionConfig] {
@@ -37,35 +54,62 @@ struct ActionsSettingsSections: View {
       Group {
         switch selectedTab {
         case .builtIn:
-          ActionsBuiltInSettingsContent(settingsStore: settingsStore)
+          ActionsBuiltInSettingsContent(
+            settingsStore: settingsStore,
+            editingAction: $editingAction,
+            keyBindingTemplates: keyBindingTemplates
+          )
         case .custom:
           ActionsCustomSettingsContent(
             settingsStore: settingsStore,
-            editingConfig: $editingConfig,
+            editingAction: $editingAction,
             llmTemplates: llmTemplates,
             javaScriptTemplates: javaScriptTemplates
           )
         case .none:
-          ActionsBuiltInSettingsContent(settingsStore: settingsStore)
+          ActionsBuiltInSettingsContent(
+            settingsStore: settingsStore,
+            editingAction: $editingAction,
+            keyBindingTemplates: keyBindingTemplates
+          )
         }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    .sheet(item: $editingConfig) { config in
+    .sheet(item: $editingAction) { item in
       ActionsCustomActionEditorView(
         settingsStore: settingsStore,
-        config: config,
+        mode: item.mode,
+        config: item.config,
         onSave: { newConfig in
-          if let existingIndex = settingsStore.customActions.firstIndex(where: {
-            $0.id == newConfig.id
-          }) {
-            settingsStore.customActions[existingIndex] = newConfig
-          } else {
-            settingsStore.customActions.append(newConfig)
+          switch item.destination {
+          case .customActions:
+            if let existingIndex = settingsStore.customActions.firstIndex(where: {
+              $0.id == newConfig.id
+            }) {
+              settingsStore.customActions[existingIndex] = newConfig
+            } else {
+              settingsStore.customActions.append(newConfig)
+            }
+          case .builtInKeyBindingActions:
+            var normalized = newConfig
+            normalized.kind = .keyBinding
+            normalized.outputMode = .resultWindow
+            normalized.modelProvider = ""
+            normalized.modelId = ""
+            normalized.script = CustomActionConfig.defaultJavaScriptTemplate
+
+            if let existingIndex = settingsStore.builtInKeyBindingActions.firstIndex(where: {
+              $0.id == normalized.id
+            }) {
+              settingsStore.builtInKeyBindingActions[existingIndex] = normalized
+            } else {
+              settingsStore.builtInKeyBindingActions.append(normalized)
+            }
           }
-          editingConfig = nil
+          editingAction = nil
         },
-        onCancel: { editingConfig = nil }
+        onCancel: { editingAction = nil }
       )
     }
   }
@@ -73,6 +117,8 @@ struct ActionsSettingsSections: View {
 
 private struct ActionsBuiltInSettingsContent: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
+  @Binding var editingAction: ActionsEditorItem?
+  let keyBindingTemplates: [CustomActionConfig]
 
   var body: some View {
     @Bindable var settings = settingsStore
@@ -165,6 +211,8 @@ private struct ActionsBuiltInSettingsContent: View {
         Text(
           "Translate supports app providers and LLM providers. Target applies to LLM providers.")
       }
+
+      builtInKeyBindingsSection(settings: settings)
 
       Section {
         Toggle("Enable Speak", isOn: $settings.selectionBarSpeakEnabled)
@@ -272,6 +320,7 @@ private struct ActionsBuiltInSettingsContent: View {
     .onAppear {
       settings.ensureValidSelectionBarTranslationProvider()
       settings.ensureValidSelectionBarSpeakProvider()
+      settings.reconcileActionsAvailabilityIfNeeded()
     }
     .onChange(of: settings.customLLMProviders) { _, _ in
       settings.ensureValidSelectionBarTranslationProvider()
@@ -282,6 +331,123 @@ private struct ActionsBuiltInSettingsContent: View {
     }
     .onChange(of: settings.availableOpenRouterModels) { _, _ in
       settings.ensureValidSelectionBarTranslationProvider()
+    }
+  }
+
+  @ViewBuilder
+  private func builtInKeyBindingsSection(settings: SelectionBarSettingsStore) -> some View {
+    Section {
+      if settings.builtInKeyBindingActions.isEmpty {
+        Text("No key bindings configured")
+          .foregroundStyle(.secondary)
+      } else {
+        List {
+          ForEach(settings.builtInKeyBindingActions) { config in
+            let canEnable = settings.canEnableCustomAction(config)
+            ActionsActionListRow(
+              config: config,
+              canEnable: canEnable,
+              enablementIssue: nil,
+              onEdit: {
+                editingAction = ActionsEditorItem(
+                  destination: .builtInKeyBindingActions,
+                  mode: .builtInKeyBinding,
+                  config: config
+                )
+              },
+              onDelete: {
+                settings.builtInKeyBindingActions.removeAll { $0.id == config.id }
+              },
+              onToggle: { enabled in
+                if let index = settings.builtInKeyBindingActions.firstIndex(where: {
+                  $0.id == config.id
+                }) {
+                  if enabled
+                    && !settings.canEnableCustomAction(settings.builtInKeyBindingActions[index])
+                  {
+                    editingAction = ActionsEditorItem(
+                      destination: .builtInKeyBindingActions,
+                      mode: .builtInKeyBinding,
+                      config: settings.builtInKeyBindingActions[index]
+                    )
+                    return
+                  }
+                  settings.builtInKeyBindingActions[index].isEnabled = enabled
+                }
+              }
+            )
+          }
+          .onMove { indices, newOffset in
+            settings.builtInKeyBindingActions.move(fromOffsets: indices, toOffset: newOffset)
+          }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .frame(minHeight: 120)
+      }
+
+      Menu {
+        Button {
+          editingAction = ActionsEditorItem(
+            destination: .builtInKeyBindingActions,
+            mode: .builtInKeyBinding,
+            config: CustomActionConfig(
+              id: UUID(),
+              name: "",
+              prompt: CustomActionConfig.defaultPromptTemplate,
+              modelProvider: "",
+              modelId: "",
+              kind: .keyBinding,
+              outputMode: .resultWindow,
+              script: CustomActionConfig.defaultJavaScriptTemplate,
+              keyBinding: "",
+              isEnabled: false,
+              isBuiltIn: true,
+              templateId: nil,
+              icon: nil
+            )
+          )
+        } label: {
+          Label("Key Binding", systemImage: "keyboard")
+        }
+
+        Divider()
+
+        ForEach(keyBindingTemplates) { template in
+          Button {
+            editingAction = ActionsEditorItem(
+              destination: .builtInKeyBindingActions,
+              mode: .builtInKeyBinding,
+              config: CustomActionConfig(
+                id: UUID(),
+                name: template.localizedName,
+                prompt: CustomActionConfig.defaultPromptTemplate,
+                modelProvider: "",
+                modelId: "",
+                kind: .keyBinding,
+                outputMode: .resultWindow,
+                script: CustomActionConfig.defaultJavaScriptTemplate,
+                keyBinding: template.keyBinding,
+                isEnabled: false,
+                isBuiltIn: true,
+                templateId: nil,
+                icon: template.effectiveIcon
+              )
+            )
+          } label: {
+            HStack(spacing: 8) {
+              ActionIconGlyph(icon: template.effectiveIcon, tint: .primary, size: 13)
+              Text(template.localizedName)
+            }
+          }
+        }
+      } label: {
+        Label("Add Key Binding", systemImage: "plus.circle")
+      }
+    } header: {
+      Label("Key Bindings", systemImage: "keyboard")
+    } footer: {
+      Text("Enabled key bindings appear before custom actions in Selection Bar.")
     }
   }
 
@@ -316,7 +482,7 @@ private struct ActionsBuiltInSettingsContent: View {
 
 private struct ActionsCustomSettingsContent: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
-  @Binding var editingConfig: CustomActionConfig?
+  @Binding var editingAction: ActionsEditorItem?
   let llmTemplates: [CustomActionConfig]
   let javaScriptTemplates: [CustomActionConfig]
 
@@ -335,7 +501,13 @@ private struct ActionsCustomSettingsContent: View {
                 config: config,
                 canEnable: canEnable,
                 enablementIssue: enablementIssue,
-                onEdit: { editingConfig = config },
+                onEdit: {
+                  editingAction = ActionsEditorItem(
+                    destination: .customActions,
+                    mode: .custom,
+                    config: config
+                  )
+                },
                 onDelete: {
                   settingsStore.customActions.removeAll { $0.id == config.id }
                 },
@@ -346,7 +518,11 @@ private struct ActionsCustomSettingsContent: View {
                     if enabled
                       && !settingsStore.canEnableCustomAction(settingsStore.customActions[index])
                     {
-                      editingConfig = settingsStore.customActions[index]
+                      editingAction = ActionsEditorItem(
+                        destination: .customActions,
+                        mode: .custom,
+                        config: settingsStore.customActions[index]
+                      )
                       return
                     }
                     settingsStore.customActions[index].isEnabled = enabled
@@ -365,41 +541,49 @@ private struct ActionsCustomSettingsContent: View {
 
         Menu {
           Button {
-            editingConfig = CustomActionConfig(
-              id: UUID(),
-              name: "",
-              prompt: CustomActionConfig.defaultPromptTemplate,
-              modelProvider: "",
-              modelId: "",
-              kind: .javascript,
-              outputMode: .resultWindow,
-              script: CustomActionConfig.defaultJavaScriptTemplate,
-              isEnabled: false,
-              isBuiltIn: false,
-              templateId: nil,
-              icon: nil
+            editingAction = ActionsEditorItem(
+              destination: .customActions,
+              mode: .custom,
+              config: CustomActionConfig(
+                id: UUID(),
+                name: "",
+                prompt: CustomActionConfig.defaultPromptTemplate,
+                modelProvider: "",
+                modelId: "",
+                kind: .javascript,
+                outputMode: .resultWindow,
+                script: CustomActionConfig.defaultJavaScriptTemplate,
+                keyBinding: "",
+                isEnabled: false,
+                isBuiltIn: false,
+                templateId: nil,
+                icon: nil
+              )
             )
           } label: {
             Label("Custom", systemImage: "square.and.pencil")
           }
 
-          Divider()
-
           ForEach(javaScriptTemplates) { template in
             Button {
-              editingConfig = CustomActionConfig(
-                id: UUID(),
-                name: template.name,
-                prompt: CustomActionConfig.defaultPromptTemplate,
-                modelProvider: "",
-                modelId: "",
-                kind: .javascript,
-                outputMode: template.outputMode,
-                script: template.script,
-                isEnabled: false,
-                isBuiltIn: false,
-                templateId: nil,
-                icon: template.effectiveIcon
+              editingAction = ActionsEditorItem(
+                destination: .customActions,
+                mode: .custom,
+                config: CustomActionConfig(
+                  id: UUID(),
+                  name: template.name,
+                  prompt: CustomActionConfig.defaultPromptTemplate,
+                  modelProvider: "",
+                  modelId: "",
+                  kind: .javascript,
+                  outputMode: template.outputMode,
+                  script: template.script,
+                  keyBinding: "",
+                  isEnabled: false,
+                  isBuiltIn: false,
+                  templateId: nil,
+                  icon: template.effectiveIcon
+                )
               )
             } label: {
               HStack(spacing: 8) {
@@ -413,19 +597,24 @@ private struct ActionsCustomSettingsContent: View {
 
           ForEach(llmTemplates) { template in
             Button {
-              editingConfig = CustomActionConfig(
-                id: UUID(),
-                name: template.name,
-                prompt: template.prompt,
-                modelProvider: template.modelProvider,
-                modelId: template.modelId,
-                kind: .llm,
-                outputMode: .resultWindow,
-                script: CustomActionConfig.defaultJavaScriptTemplate,
-                isEnabled: false,
-                isBuiltIn: false,
-                templateId: nil,
-                icon: template.effectiveIcon
+              editingAction = ActionsEditorItem(
+                destination: .customActions,
+                mode: .custom,
+                config: CustomActionConfig(
+                  id: UUID(),
+                  name: template.localizedName,
+                  prompt: template.prompt,
+                  modelProvider: template.modelProvider,
+                  modelId: template.modelId,
+                  kind: .llm,
+                  outputMode: .resultWindow,
+                  script: CustomActionConfig.defaultJavaScriptTemplate,
+                  keyBinding: "",
+                  isEnabled: false,
+                  isBuiltIn: false,
+                  templateId: nil,
+                  icon: template.effectiveIcon
+                )
               )
             } label: {
               HStack(spacing: 8) {
@@ -446,7 +635,7 @@ private struct ActionsCustomSettingsContent: View {
     .formStyle(.grouped)
     .padding()
     .onAppear {
-      settingsStore.reconcileCustomActionsAvailabilityIfNeeded()
+      settingsStore.reconcileActionsAvailabilityIfNeeded()
     }
   }
 }
@@ -561,6 +750,11 @@ private struct ActionsActionRow: View {
     if config.kind == .llm, !isEnabled, enablementIssue != nil {
       return .red
     }
+    if config.kind == .keyBinding,
+      SelectionBarKeyboardShortcutParser.parse(config.keyBinding) == nil
+    {
+      return .red
+    }
     return .secondary
   }
 
@@ -585,6 +779,12 @@ private struct ActionsActionRow: View {
       case .resultWindow:
         return String(localized: "JavaScript • Result Window")
       }
+    case .keyBinding:
+      if let shortcut = SelectionBarKeyboardShortcutParser.parse(config.keyBinding) {
+        let format = String(localized: "Key Binding • %@")
+        return String(format: format, shortcut.displayString)
+      }
+      return String(localized: "Key Binding • Invalid Shortcut")
     }
   }
 

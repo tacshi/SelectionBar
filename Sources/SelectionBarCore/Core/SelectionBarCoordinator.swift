@@ -81,9 +81,9 @@ public final class SelectionBarCoordinator {
   }
 
   private func handleTextSelected(text: String, at location: NSPoint) {
-    let enabledActions = settingsStore.customActions.filter(\.isEnabled)
+    let enabledActions = settingsStore.orderedEnabledSelectionBarActions
     logger.info(
-      "Showing selection bar near (\(location.x, privacy: .public), \(location.y, privacy: .public)) with \(enabledActions.count, privacy: .public) custom actions"
+      "Showing selection bar near (\(location.x, privacy: .public), \(location.y, privacy: .public)) with \(enabledActions.count, privacy: .public) enabled actions"
     )
 
     dismiss()
@@ -141,7 +141,7 @@ public final class SelectionBarCoordinator {
       settingsStore.selectionBarChatEnabled
       && !settingsStore.availableChatProviders().isEmpty
     let showCut = monitor.isFocusedElementEditable()
-    let enabledActions = settingsStore.customActions.filter(\.isEnabled)
+    let enabledActions = settingsStore.orderedEnabledSelectionBarActions
     let isBusy = processingActionId != nil || isTranslating
 
     return SelectionBarView(
@@ -299,6 +299,11 @@ public final class SelectionBarCoordinator {
 
     logger.info("Custom action selected: \(action.localizedName, privacy: .public)")
 
+    if action.kind == .keyBinding {
+      handleKeyBindingAction(action)
+      return
+    }
+
     actionTask?.cancel()
     autoDismissTask?.cancel()
 
@@ -337,6 +342,33 @@ public final class SelectionBarCoordinator {
         guard !Task.isCancelled else { return }
         logger.error("Custom action failed: \(error.localizedDescription, privacy: .public)")
         self.showActionError(for: action.id)
+      }
+    }
+  }
+
+  private func handleKeyBindingAction(_ action: CustomActionConfig) {
+    let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+    let resolvedKeyBinding = action.resolvedKeyBinding(for: frontmostBundleID)
+
+    guard let shortcut = actionHandler.keyboardShortcut(for: action, bundleID: frontmostBundleID)
+    else {
+      logger.error(
+        "Invalid keyboard shortcut action: \(resolvedKeyBinding, privacy: .public) bundle: \(frontmostBundleID ?? "nil", privacy: .public)"
+      )
+      showActionError(for: action.id)
+      return
+    }
+
+    dismiss()
+
+    Task { [weak self] in
+      try? await Task.sleep(for: .milliseconds(80))
+      guard let self else { return }
+      let didTrigger = self.actionHandler.triggerKeyboardShortcut(shortcut)
+      if !didTrigger {
+        logger.error(
+          "Failed to trigger keyboard shortcut action: \(shortcut.canonicalString, privacy: .public)"
+        )
       }
     }
   }

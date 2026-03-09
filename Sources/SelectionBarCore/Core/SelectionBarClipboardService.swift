@@ -37,41 +37,50 @@ final class SelectionBarClipboardService {
     simulateCut()
   }
 
+  @discardableResult
+  func triggerKeyboardShortcut(_ shortcut: SelectionBarKeyboardShortcut) -> Bool {
+    simulateKeyboardShortcut(
+      keyCode: shortcut.keyCode,
+      flags: shortcut.eventFlags,
+      actionName: shortcut.canonicalString
+    )
+  }
+
   private func simulatePaste() {
-    // Use .privateState to avoid inheriting hardware modifier state and
-    // prevent corrupting the system's global modifier tracking.
-    let source = CGEventSource(stateID: .privateState)
-
-    // Key code 9 = 'V'
-    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
-      let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false)
-    else {
-      logger.error("Failed to create CGEvent for paste simulation")
-      return
-    }
-
-    keyDown.flags = .maskCommand
-    keyUp.flags = .maskCommand
-
-    keyDown.post(tap: .cghidEventTap)
-    keyUp.post(tap: .cghidEventTap)
+    _ = simulateKeyboardShortcut(
+      keyCode: 9,
+      flags: .maskCommand,
+      actionName: "paste"
+    )
   }
 
   private func simulateCut() -> Bool {
+    simulateKeyboardShortcut(
+      keyCode: 7,
+      flags: .maskCommand,
+      actionName: "cut"
+    )
+  }
+
+  @discardableResult
+  private func simulateKeyboardShortcut(
+    keyCode: CGKeyCode,
+    flags: CGEventFlags,
+    actionName: String
+  ) -> Bool {
     // Use .privateState to avoid inheriting hardware modifier state and
     // prevent corrupting the system's global modifier tracking.
     let source = CGEventSource(stateID: .privateState)
 
-    // Key code 7 = 'X'
-    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 7, keyDown: true),
-      let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 7, keyDown: false)
+    guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
+      let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
     else {
-      logger.error("Failed to create CGEvent for cut simulation")
+      logger.error("Failed to create CGEvent for \(actionName, privacy: .public)")
       return false
     }
 
-    keyDown.flags = .maskCommand
-    keyUp.flags = .maskCommand
+    keyDown.flags = flags
+    keyUp.flags = flags
 
     keyDown.post(tap: .cghidEventTap)
     keyUp.post(tap: .cghidEventTap)

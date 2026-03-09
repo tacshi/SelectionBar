@@ -141,7 +141,7 @@ struct SelectionBarView: View {
         .padding(.vertical, 6)
         .background(buttonBackground(for: action), in: .rect(cornerRadius: 6))
         .foregroundStyle(buttonForeground(for: action))
-        .help(action.localizedName)
+        .help(actionHelpText(for: action))
         .disabled(isBusy)
         .accessibilityLabel(Text(action.localizedName))
       }
@@ -190,6 +190,15 @@ struct SelectionBarView: View {
       return .red
     }
     return .primary
+  }
+
+  private func actionHelpText(for action: CustomActionConfig) -> String {
+    guard action.kind == .keyBinding,
+      let shortcut = SelectionBarKeyboardShortcutParser.parse(action.keyBinding)
+    else {
+      return action.localizedName
+    }
+    return "\(action.localizedName) (\(shortcut.displayString))"
   }
 
   @ViewBuilder
