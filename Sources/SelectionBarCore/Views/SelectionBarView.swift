@@ -124,7 +124,7 @@ struct SelectionBarView: View {
 
       if !actions.isEmpty {
         Rectangle()
-          .fill(.white.opacity(colorScheme == .dark ? 0.12 : 0.35))
+          .fill(Color(nsColor: .separatorColor))
           .frame(width: 1, height: 18)
           .padding(.horizontal, 4)
       }
@@ -184,7 +184,6 @@ struct SelectionBarView: View {
             endPoint: .center
           )
         )
-        .clipShape(barShape)
     }
   }
 
