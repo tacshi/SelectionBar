@@ -7,7 +7,9 @@ private let logger = Logger(
   subsystem: "com.selectionbar", category: "SelectionMonitorAccessibility")
 
 @MainActor
-final class SelectionMonitorAccessibility {
+final class SelectionMonitorAccessibility: SelectionMonitorAccessibilityProviding {
+  private let focusedWindowChromeHeight: CGFloat = 40
+
   @discardableResult
   func checkAccessibilityPermission(promptIfNeeded: Bool) -> Bool {
     let trusted = AXIsProcessTrusted()
@@ -40,30 +42,12 @@ final class SelectionMonitorAccessibility {
   }
 
   func isTextContext(at screenPoint: NSPoint) -> Bool {
-    guard AXIsProcessTrusted() else { return false }
-    let systemWide = AXUIElementCreateSystemWide()
-    var element: AXUIElement?
-    let result = AXUIElementCopyElementAtPosition(
-      systemWide,
-      Float(screenPoint.x),
-      Float(screenPoint.y),
-      &element
-    )
-    guard result == .success, let element else { return false }
-    return isTextContextInHierarchy(startingAt: element)
+    guard let element = element(at: screenPoint) else { return false }
+    return isTextContextInHierarchy(startingAt: element, allowWindowFallback: false)
   }
 
   func isCurrentProcessElement(at screenPoint: NSPoint) -> Bool {
-    guard AXIsProcessTrusted() else { return false }
-    let systemWide = AXUIElementCreateSystemWide()
-    var element: AXUIElement?
-    let result = AXUIElementCopyElementAtPosition(
-      systemWide,
-      Float(screenPoint.x),
-      Float(screenPoint.y),
-      &element
-    )
-    guard result == .success, let element else { return false }
+    guard let element = element(at: screenPoint) else { return false }
     return isOwnedByCurrentProcess(element)
   }
 
@@ -74,10 +58,31 @@ final class SelectionMonitorAccessibility {
 
   func isFocusedTextContext() -> Bool {
     guard let focused = focusedElement() else { return false }
-    return isTextContextInHierarchy(startingAt: focused)
+    return isTextContextInHierarchy(startingAt: focused, allowWindowFallback: true)
+  }
+
+  func hasFocusedTextSelection() -> Bool {
+    guard let focused = focusedElement() else { return false }
+    return hasTextSelectionInHierarchy(startingAt: focused)
+  }
+
+  func hasTextSelection(at screenPoint: NSPoint) -> Bool {
+    guard let element = element(at: screenPoint) else { return false }
+    return hasTextSelectionInHierarchy(startingAt: element)
+  }
+
+  func isPointLikelyInFocusedWindowChrome(at screenPoint: NSPoint, forPID pid: pid_t) -> Bool {
+    guard let frame = focusedWindowFrame(forPID: pid) else { return false }
+    let accessibilityPoint = accessibilityScreenPoint(from: screenPoint)
+    guard frame.contains(accessibilityPoint) else { return false }
+    return accessibilityPoint.y <= frame.minY + focusedWindowChromeHeight
   }
 
   func focusedWindowOrigin(forPID pid: pid_t) -> CGPoint? {
+    focusedWindowFrame(forPID: pid)?.origin
+  }
+
+  private func focusedWindowFrame(forPID pid: pid_t) -> CGRect? {
     let appElement = AXUIElementCreateApplication(pid)
     var focusedWindowValue: CFTypeRef?
     let focusedWindowResult = AXUIElementCopyAttributeValue(
@@ -93,25 +98,19 @@ final class SelectionMonitorAccessibility {
     }
 
     let focusedWindow = unsafeDowncast(focusedWindowValue, to: AXUIElement.self)
-    var positionValue: CFTypeRef?
-    let positionResult = AXUIElementCopyAttributeValue(
-      focusedWindow,
-      kAXPositionAttribute as CFString,
-      &positionValue
-    )
-    guard positionResult == .success,
-      let positionValue,
-      CFGetTypeID(positionValue) == AXValueGetTypeID()
+    guard
+      let origin = cgPointValue(
+        from: focusedWindow,
+        attribute: kAXPositionAttribute as CFString
+      ),
+      let size = cgSizeValue(
+        from: focusedWindow,
+        attribute: kAXSizeAttribute as CFString
+      )
     else {
       return nil
     }
-
-    let positionAXValue = unsafeDowncast(positionValue, to: AXValue.self)
-    guard AXValueGetType(positionAXValue) == .cgPoint else { return nil }
-
-    var point = CGPoint.zero
-    guard AXValueGetValue(positionAXValue, .cgPoint, &point) else { return nil }
-    return point
+    return CGRect(origin: origin, size: size)
   }
 
   private func focusedElement() -> AXUIElement? {
@@ -196,17 +195,51 @@ final class SelectionMonitorAccessibility {
     return pid == ProcessInfo.processInfo.processIdentifier
   }
 
-  private func isTextContextInHierarchy(startingAt element: AXUIElement) -> Bool {
+  private func element(at screenPoint: NSPoint) -> AXUIElement? {
+    guard AXIsProcessTrusted() else { return nil }
+
+    let systemWide = AXUIElementCreateSystemWide()
+    var element: AXUIElement?
+    let result = AXUIElementCopyElementAtPosition(
+      systemWide,
+      Float(screenPoint.x),
+      Float(screenPoint.y),
+      &element
+    )
+    guard result == .success, let element else { return nil }
+    return element
+  }
+
+  private func accessibilityScreenPoint(from screenPoint: NSPoint) -> CGPoint {
+    let menuBarScreenMaxY =
+      NSScreen.screens.first?.frame.maxY
+      ?? NSScreen.main?.frame.maxY
+      ?? 0
+    return CGPoint(x: screenPoint.x, y: menuBarScreenMaxY - screenPoint.y)
+  }
+
+  private func isTextContextInHierarchy(startingAt element: AXUIElement, allowWindowFallback: Bool)
+    -> Bool
+  {
     // When the deepest element at a position is the window itself, the app
     // doesn't expose its content via Accessibility (e.g. GPU-rendered editors
     // like Zed). Treat as potentially text-capable so the clipboard fallback
     // can attempt a synthetic Cmd+C.
-    if elementRole(element) == kAXWindowRole as String {
+    if allowWindowFallback, elementRole(element) == kAXWindowRole as String {
       return true
     }
 
     for candidate in elementAndAncestors(startingAt: element) {
       if isEditable(candidate) || isTextContextElement(candidate) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private func hasTextSelectionInHierarchy(startingAt element: AXUIElement) -> Bool {
+    for candidate in elementAndAncestors(startingAt: element) {
+      if hasTextSelection(candidate) {
         return true
       }
     }
@@ -264,6 +297,31 @@ final class SelectionMonitorAccessibility {
     return roleValue as? String
   }
 
+  private func hasTextSelection(_ element: AXUIElement) -> Bool {
+    if let text = selectedText(from: element)?
+      .trimmingCharacters(in: .whitespacesAndNewlines),
+      !text.isEmpty
+    {
+      return true
+    }
+
+    if let range = selectedTextRange(from: element), range.length > 0 {
+      return true
+    }
+
+    if selectedTextRanges(from: element).contains(where: { $0.length > 0 }) {
+      return true
+    }
+
+    if let markerRangeLength = selectedTextMarkerRangeLength(from: element),
+      markerRangeLength > 0
+    {
+      return true
+    }
+
+    return false
+  }
+
   private func isTextContextElement(_ element: AXUIElement) -> Bool {
     var roleValue: AnyObject?
     guard
@@ -304,5 +362,109 @@ final class SelectionMonitorAccessibility {
     }
 
     return false
+  }
+
+  private func selectedTextRange(from element: AXUIElement) -> CFRange? {
+    guard
+      let value = attributeValue(
+        of: element,
+        attribute: kAXSelectedTextRangeAttribute as CFString
+      )
+    else {
+      return nil
+    }
+
+    return cfRange(from: value)
+  }
+
+  private func selectedTextRanges(from element: AXUIElement) -> [CFRange] {
+    guard
+      let value = attributeValue(
+        of: element,
+        attribute: kAXSelectedTextRangesAttribute as CFString
+      ),
+      let ranges = value as? [Any]
+    else {
+      return []
+    }
+
+    return ranges.compactMap { item in
+      cfRange(from: item as CFTypeRef)
+    }
+  }
+
+  private func selectedTextMarkerRangeLength(from element: AXUIElement) -> Int? {
+    guard
+      let markerRange = attributeValue(
+        of: element,
+        attribute: kAXSelectedTextMarkerRangeAttribute as CFString
+      ),
+      CFGetTypeID(markerRange) == AXTextMarkerRangeGetTypeID()
+    else {
+      return nil
+    }
+
+    var lengthValue: CFTypeRef?
+    let result = AXUIElementCopyParameterizedAttributeValue(
+      element,
+      kAXLengthForTextMarkerRangeParameterizedAttribute as CFString,
+      markerRange,
+      &lengthValue
+    )
+    guard result == .success,
+      let lengthValue,
+      CFGetTypeID(lengthValue) == CFNumberGetTypeID()
+    else {
+      return nil
+    }
+
+    var length = 0
+    let number = unsafeDowncast(lengthValue, to: CFNumber.self)
+    guard CFNumberGetValue(number, .intType, &length) else {
+      return nil
+    }
+    return max(length, 0)
+  }
+
+  private func attributeValue(of element: AXUIElement, attribute: CFString) -> CFTypeRef? {
+    var value: CFTypeRef?
+    let result = AXUIElementCopyAttributeValue(element, attribute, &value)
+    guard result == .success, let value else { return nil }
+    return value
+  }
+
+  private func cgPointValue(from element: AXUIElement, attribute: CFString) -> CGPoint? {
+    guard let value = attributeValue(of: element, attribute: attribute) else { return nil }
+    guard CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+
+    let axValue = unsafeDowncast(value, to: AXValue.self)
+    guard AXValueGetType(axValue) == .cgPoint else { return nil }
+
+    var point = CGPoint.zero
+    guard AXValueGetValue(axValue, .cgPoint, &point) else { return nil }
+    return point
+  }
+
+  private func cgSizeValue(from element: AXUIElement, attribute: CFString) -> CGSize? {
+    guard let value = attributeValue(of: element, attribute: attribute) else { return nil }
+    guard CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+
+    let axValue = unsafeDowncast(value, to: AXValue.self)
+    guard AXValueGetType(axValue) == .cgSize else { return nil }
+
+    var size = CGSize.zero
+    guard AXValueGetValue(axValue, .cgSize, &size) else { return nil }
+    return size
+  }
+
+  private func cfRange(from value: CFTypeRef) -> CFRange? {
+    guard CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+
+    let axValue = unsafeDowncast(value, to: AXValue.self)
+    guard AXValueGetType(axValue) == .cfRange else { return nil }
+
+    var range = CFRange()
+    guard AXValueGetValue(axValue, .cfRange, &range) else { return nil }
+    return range
   }
 }

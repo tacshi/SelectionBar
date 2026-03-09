@@ -46,6 +46,7 @@ private struct SelectionBarGeneralSettingsTab: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
   @State private var launchAtLogin = LaunchAtLoginManager.isEnabled
   @State private var showIgnoredAppPicker = false
+  @State private var showClipboardFallbackIncludedAppPicker = false
   @State private var showRestartAlert = false
 
   var body: some View {
@@ -132,14 +133,69 @@ private struct SelectionBarGeneralSettingsTab: View {
       } footer: {
         Text("The selection bar won't appear when these apps are in the foreground.")
       }
+
+      Section {
+        if settings.selectionBarClipboardFallbackIncludedApps.isEmpty {
+          Text("No included apps")
+            .foregroundStyle(.secondary)
+        } else {
+          ForEach(settings.selectionBarClipboardFallbackIncludedApps) { app in
+            HStack {
+              AppIconView(bundleID: app.id)
+                .frame(width: 20, height: 20)
+              Text(app.name)
+              Spacer()
+              Text(app.id)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+              Button(
+                "Remove", systemImage: "minus.circle.fill",
+                action: {
+                  settings.selectionBarClipboardFallbackIncludedApps.removeAll { $0.id == app.id }
+                }
+              )
+              .labelStyle(.iconOnly)
+              .buttonStyle(.plain)
+              .foregroundStyle(.red)
+              .help("Remove")
+            }
+          }
+        }
+
+        Button(
+          "Add Application", systemImage: "plus.circle",
+          action: {
+            showClipboardFallbackIncludedAppPicker = true
+          })
+      } header: {
+        Label("Included Apps", systemImage: "text.badge.plus")
+      } footer: {
+        Text(
+          "Use this for apps where text selection works with Cmd+C but Accessibility does not expose selected text directly. SelectionBar will allow a stricter clipboard fallback for these apps. Known apps such as WeChat and Telegram are only prefilled when they are installed."
+        )
+      }
     }
     .formStyle(.grouped)
     .padding()
     .sheet(isPresented: $showIgnoredAppPicker) {
       AppPickerSheet(
-        existingBundleIDs: Set(settings.selectionBarIgnoredApps.map(\.id)),
+        existingBundleIDs: Set(
+          settings.selectionBarIgnoredApps.map(\.id)
+            + settings.selectionBarClipboardFallbackIncludedApps.map(\.id)
+        ),
         onAppsSelected: { newApps in
           settings.selectionBarIgnoredApps.append(contentsOf: newApps)
+        }
+      )
+    }
+    .sheet(isPresented: $showClipboardFallbackIncludedAppPicker) {
+      AppPickerSheet(
+        existingBundleIDs: Set(
+          settings.selectionBarClipboardFallbackIncludedApps.map(\.id)
+            + settings.selectionBarIgnoredApps.map(\.id)
+        ),
+        onAppsSelected: { newApps in
+          settings.selectionBarClipboardFallbackIncludedApps.append(contentsOf: newApps)
         }
       )
     }

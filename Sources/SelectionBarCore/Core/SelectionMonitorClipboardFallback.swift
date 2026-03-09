@@ -9,7 +9,7 @@ private let logger = Logger(
 )
 
 @MainActor
-final class SelectionMonitorClipboardFallback {
+final class SelectionMonitorClipboardFallback: SelectionMonitorClipboardFallbackProviding {
   func selectedTextByCopyCommand() async -> String? {
     let pasteboard = NSPasteboard.general
 

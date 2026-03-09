@@ -111,6 +111,17 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     case "kb-bold": return String(localized: "Bold", bundle: .localizedModule)
     case "kb-italic": return String(localized: "Italic", bundle: .localizedModule)
     case "kb-underline": return String(localized: "Underline", bundle: .localizedModule)
+    case "js-trim-normalize":
+      return String(localized: "Trim + Normalize Whitespace", bundle: .localizedModule)
+    case "js-title-case": return String(localized: "Title Case", bundle: .localizedModule)
+    case "js-url-toolkit": return String(localized: "URL Toolkit", bundle: .localizedModule)
+    case "js-jwt-decode": return String(localized: "JWT Decode", bundle: .localizedModule)
+    case "js-format-json": return String(localized: "Format JSON", bundle: .localizedModule)
+    case "js-convert-timestamps":
+      return String(localized: "Convert Timestamps", bundle: .localizedModule)
+    case "js-clean-escapes":
+      return String(localized: "Clean Up Escapes", bundle: .localizedModule)
+    case "js-wrap-quote": return String(localized: "Wrap as Quote", bundle: .localizedModule)
     default: return name
     }
   }

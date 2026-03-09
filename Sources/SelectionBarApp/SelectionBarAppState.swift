@@ -18,6 +18,9 @@ final class SelectionBarAppState {
     settingsStore.onIgnoredAppsChanged = { [weak self] in
       self?.coordinator.updateIgnoredApps()
     }
+    settingsStore.onClipboardFallbackIncludedAppsChanged = { [weak self] in
+      self?.coordinator.updateClipboardFallbackIncludedApps()
+    }
     settingsStore.onActivationRequirementChanged = { [weak self] in
       self?.coordinator.updateActivationRequirement()
     }

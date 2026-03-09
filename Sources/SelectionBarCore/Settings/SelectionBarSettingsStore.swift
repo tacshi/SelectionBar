@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -19,6 +20,13 @@ public final class SelectionBarSettingsStore {
   private var persistenceSuppressionDepth = 0
 
   public static let defaultIgnoredApps: [IgnoredApp] = []
+  public static let defaultClipboardFallbackIncludedAppCandidates: [IgnoredApp] = [
+    IgnoredApp(id: "com.tencent.xinWeChat", name: "WeChat"),
+    IgnoredApp(id: "ru.keepcoder.Telegram", name: "Telegram"),
+  ]
+  static var appInstallationResolver: @MainActor (String) -> Bool = { bundleID in
+    NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
+  }
   public static let defaultOpenAIModel = "gpt-4o-mini"
   public static let defaultOpenRouterModel = "openai/gpt-4o-mini"
 
@@ -29,6 +37,10 @@ public final class SelectionBarSettingsStore {
   /// Callback triggered when ignored apps change.
   @ObservationIgnored
   public var onIgnoredAppsChanged: (() -> Void)?
+
+  /// Callback triggered when clipboard-fallback included apps change.
+  @ObservationIgnored
+  public var onClipboardFallbackIncludedAppsChanged: (() -> Void)?
 
   /// Callback triggered when activation gating mode changes.
   @ObservationIgnored
@@ -42,6 +54,12 @@ public final class SelectionBarSettingsStore {
 
   /// Cached API key availability for custom providers by ID.
   public private(set) var customProviderAPIKeyConfiguredByID: [UUID: Bool]
+
+  public static var defaultClipboardFallbackIncludedApps: [IgnoredApp] {
+    defaultClipboardFallbackIncludedAppCandidates.filter { candidate in
+      appInstallationResolver(candidate.id)
+    }
+  }
 
   public var selectionBarEnabled: Bool {
     didSet {
@@ -146,6 +164,13 @@ public final class SelectionBarSettingsStore {
     didSet {
       persistIfNeeded()
       onIgnoredAppsChanged?()
+    }
+  }
+
+  public var selectionBarClipboardFallbackIncludedApps: [IgnoredApp] {
+    didSet {
+      persistIfNeeded()
+      onClipboardFallbackIncludedAppsChanged?()
     }
   }
 
@@ -273,6 +298,7 @@ public final class SelectionBarSettingsStore {
     selectionBarTranslationEnabled = true
     selectionBarTranslationProviderId = SelectionBarTranslationAppProvider.bob.rawValue
     selectionBarIgnoredApps = Self.defaultIgnoredApps
+    selectionBarClipboardFallbackIncludedApps = Self.defaultClipboardFallbackIncludedApps
     openAIModel = Self.defaultOpenAIModel
     openAITranslationModel = ""
     availableOpenAIModels = []
@@ -738,6 +764,7 @@ public final class SelectionBarSettingsStore {
       selectionBarTranslationEnabled: selectionBarTranslationEnabled,
       selectionBarTranslationProviderId: selectionBarTranslationProviderId,
       selectionBarIgnoredApps: selectionBarIgnoredApps,
+      selectionBarClipboardFallbackIncludedApps: selectionBarClipboardFallbackIncludedApps,
       openAIModel: openAIModel,
       openAITranslationModel: openAITranslationModel,
       availableOpenAIModels: availableOpenAIModels,
@@ -795,6 +822,9 @@ public final class SelectionBarSettingsStore {
         settings.selectionBarTranslationProviderId
         ?? SelectionBarTranslationAppProvider.bob.rawValue
       selectionBarIgnoredApps = settings.selectionBarIgnoredApps ?? Self.defaultIgnoredApps
+      selectionBarClipboardFallbackIncludedApps =
+        settings.selectionBarClipboardFallbackIncludedApps
+        ?? Self.defaultClipboardFallbackIncludedApps
       openAIModel = settings.openAIModel ?? Self.defaultOpenAIModel
       openAITranslationModel = settings.openAITranslationModel ?? ""
       availableOpenAIModels = settings.availableOpenAIModels ?? []
@@ -845,6 +875,7 @@ private struct StoredSettings: Codable {
   let selectionBarTranslationEnabled: Bool?
   let selectionBarTranslationProviderId: String?
   let selectionBarIgnoredApps: [IgnoredApp]?
+  let selectionBarClipboardFallbackIncludedApps: [IgnoredApp]?
   let openAIModel: String?
   let openAITranslationModel: String?
   let availableOpenAIModels: [String]?

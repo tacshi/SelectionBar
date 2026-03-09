@@ -5,6 +5,27 @@ import os.log
 
 private let logger = Logger(subsystem: "com.selectionbar", category: "SelectionMonitor")
 
+@MainActor
+protocol SelectionMonitorAccessibilityProviding: AnyObject {
+  @discardableResult
+  func checkAccessibilityPermission(promptIfNeeded: Bool) -> Bool
+  func isFocusedElementEditable() -> Bool
+  func selectedTextFromFocusedHierarchy() -> String?
+  func hasFocusedTextSelection() -> Bool
+  func hasTextSelection(at screenPoint: NSPoint) -> Bool
+  func isPointLikelyInFocusedWindowChrome(at screenPoint: NSPoint, forPID pid: pid_t) -> Bool
+  func isTextContext(at screenPoint: NSPoint) -> Bool
+  func isCurrentProcessElement(at screenPoint: NSPoint) -> Bool
+  func isFocusedElementOwnedByCurrentProcess() -> Bool
+  func isFocusedTextContext() -> Bool
+  func focusedWindowOrigin(forPID pid: pid_t) -> CGPoint?
+}
+
+@MainActor
+protocol SelectionMonitorClipboardFallbackProviding: AnyObject {
+  func selectedTextByCopyCommand() async -> String?
+}
+
 /// Monitors global text selection and reports selected text via callback.
 /// Uses Accessibility API to query selected text.
 @MainActor
@@ -36,8 +57,8 @@ public final class SelectionMonitor {
   nonisolated(unsafe) private var mouseDownMonitor: Any?
   nonisolated(unsafe) private var keyDownMonitor: Any?
   nonisolated(unsafe) private var appSwitchObserver: NSObjectProtocol?
-  private let accessibility = SelectionMonitorAccessibility()
-  private let clipboardFallback = SelectionMonitorClipboardFallback()
+  private let accessibility: SelectionMonitorAccessibilityProviding
+  private let clipboardFallback: SelectionMonitorClipboardFallbackProviding
 
   private var debounceTask: Task<Void, Never>?
   private var isEnabled = false
@@ -61,9 +82,24 @@ public final class SelectionMonitor {
     "com.apple.appkit.xpc.openAndSavePanelService",
   ]
 
+  /// Apps that should opt into clipboard fallback when they expose text
+  /// selection only globally rather than through detailed AX text nodes.
+  public var clipboardFallbackIncludedBundleIDs: Set<String> = []
+
   // MARK: - Lifecycle
 
-  public init() {}
+  public init() {
+    accessibility = SelectionMonitorAccessibility()
+    clipboardFallback = SelectionMonitorClipboardFallback()
+  }
+
+  init(
+    accessibility: SelectionMonitorAccessibilityProviding,
+    clipboardFallback: SelectionMonitorClipboardFallbackProviding
+  ) {
+    self.accessibility = accessibility
+    self.clipboardFallback = clipboardFallback
+  }
 
   deinit {
     if let monitor = mouseUpMonitor {
@@ -287,7 +323,10 @@ public final class SelectionMonitor {
         at: mouseLocation,
         isSelectionGesture: isSelectionGesture,
         isMultiClickGesture: isMultiClickGesture,
-        didMoveWindow: didMoveWindow
+        didMoveWindow: didMoveWindow,
+        allowFocusedTextContextFallback: false,
+        frontmostBundleID: frontApp.bundleIdentifier,
+        frontmostPID: frontApp.processIdentifier
       )
     }
   }
@@ -339,7 +378,10 @@ public final class SelectionMonitor {
         at: mouseLocation,
         isSelectionGesture: true,
         isMultiClickGesture: true,
-        didMoveWindow: false
+        didMoveWindow: false,
+        allowFocusedTextContextFallback: true,
+        frontmostBundleID: frontApp.bundleIdentifier,
+        frontmostPID: frontApp.processIdentifier
       )
     }
   }
@@ -348,7 +390,10 @@ public final class SelectionMonitor {
     at mouseLocation: NSPoint,
     isSelectionGesture: Bool,
     isMultiClickGesture: Bool,
-    didMoveWindow: Bool
+    didMoveWindow: Bool,
+    allowFocusedTextContextFallback: Bool,
+    frontmostBundleID: String?,
+    frontmostPID: pid_t
   ) async {
     guard isEnabled else { return }
 
@@ -375,19 +420,18 @@ public final class SelectionMonitor {
       return
     }
 
-    // Avoid synthetic Cmd+C on non-text drag gestures.
-    // Dragging windows/titlebars in many apps would otherwise produce system beeps.
-    if !isMultiClickGesture {
-      if didMoveWindow {
-        logger.debug(
-          "Skipping clipboard fallback: focused window moved during drag gesture")
-        return
-      }
-      // Text-context detection relies on the same AX tree that already
-      // failed to return selected text (Strategy 1). Apps like WeChat,
-      // WhatsApp, and Telegram often don't expose text context reliably,
-      // so we don't gate the clipboard fallback on it — the didMoveWindow
-      // check and drag threshold are sufficient to filter false positives.
+    guard
+      shouldAttemptClipboardFallback(
+        at: mouseLocation,
+        isSelectionGesture: isSelectionGesture,
+        isMultiClickGesture: isMultiClickGesture,
+        didMoveWindow: didMoveWindow,
+        allowFocusedTextContextFallback: allowFocusedTextContextFallback,
+        frontmostBundleID: frontmostBundleID,
+        frontmostPID: frontmostPID
+      )
+    else {
+      return
     }
 
     logger.debug("AX query failed, trying clipboard fallback")
@@ -395,6 +439,57 @@ public final class SelectionMonitor {
       logger.info("Clipboard selected text (\(text.count) chars)")
       onTextSelected?(text, mouseLocation)
     }
+  }
+
+  func shouldAttemptClipboardFallback(
+    at mouseLocation: NSPoint,
+    isSelectionGesture: Bool,
+    isMultiClickGesture: Bool,
+    didMoveWindow: Bool,
+    allowFocusedTextContextFallback: Bool,
+    frontmostBundleID: String? = nil,
+    frontmostPID: pid_t = 0
+  ) -> Bool {
+    guard isSelectionGesture else {
+      return false
+    }
+
+    // Preserve the existing window-drag safeguard for drag selections.
+    if !isMultiClickGesture && didMoveWindow {
+      logger.debug("Skipping clipboard fallback: focused window moved during drag gesture")
+      return false
+    }
+
+    // Only synthesize Cmd+C when AX still exposes an active selection or a
+    // text hit target. This avoids false positives from generic drags such as
+    // window/titlebar movement while keeping keyboard selection support.
+    if accessibility.hasFocusedTextSelection() || accessibility.hasTextSelection(at: mouseLocation)
+    {
+      return true
+    }
+
+    if allowFocusedTextContextFallback && accessibility.isFocusedTextContext() {
+      logger.debug("Allowing clipboard fallback in focused text context")
+      return true
+    }
+
+    if accessibility.isTextContext(at: mouseLocation) {
+      logger.debug("Allowing clipboard fallback in text hit-test context")
+      return true
+    }
+
+    if clipboardFallbackIncludedBundleIDs.contains(frontmostBundleID ?? "") {
+      if accessibility.isPointLikelyInFocusedWindowChrome(at: mouseLocation, forPID: frontmostPID) {
+        logger.debug(
+          "Skipping clipboard fallback in window-only AX app: pointer is in focused window chrome")
+        return false
+      }
+      logger.debug("Allowing clipboard fallback in window-only AX app")
+      return true
+    }
+
+    logger.debug("Skipping clipboard fallback: no AX text selection or text context")
+    return false
   }
 
   /// Query selected text via Accessibility API (fast, non-invasive, works for native apps).
