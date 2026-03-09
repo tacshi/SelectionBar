@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.5.1</title>
+            <pubDate>Tue, 10 Mar 2026 00:52:31 +0800</pubDate>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.5.1</h2><ul><li>Add configurable clipboard fallback apps (#16)</li><li>Add built-in key binding actions (#15)</li><li>Add custom URL scheme support for web search engine (#14)</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.5.1/SelectionBar-0.5.1.dmg" length="6665403" type="application/octet-stream" sparkle:edSignature="aIJurfmkV4SuMD4pSEZ2+a5V9tBNI82IsO/Ld3tlBA9fzFYBAyWRXAUSwyGFEWmWzNcCh7s+06jxnCVjSl2vCw=="/>
+        </item>
+        <item>
             <title>0.4.3</title>
             <pubDate>Tue, 17 Feb 2026 16:41:46 +0800</pubDate>
             <sparkle:version>15</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.4.2</h2><ul><li>Implement chat session persistence with JSON storage</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.4.2/SelectionBar-0.4.2.dmg" length="6359294" type="application/octet-stream" sparkle:edSignature="cjTIJJeq6wOAaUKsDfvMpOEJBKgrdQDXXaQEaFa6bCqhODId0UzJaJuh1Q3bl+bh+4y0n/WCqwQRw1z6wPt9AA=="/>
-        </item>
-        <item>
-            <title>0.4.1</title>
-            <pubDate>Sat, 14 Feb 2026 15:12:53 +1300</pubDate>
-            <sparkle:version>13</sparkle:version>
-            <sparkle:shortVersionString>0.4.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.4.1</h2><ul><li>Refactor ChatSession methods for parsing and formatting source lines and PDF pages</li><li>Add PDF support to ChatSession for reading pages and content</li><li>Update README.md to enhance feature descriptions and clarify capabilities</li><li>Refactor file reading logic to support both text files and PDFs</li><li>Enhance ChatSession to support reading from web pages and files</li><li>Implement chat functionality with OpenAI integration (#11)</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.4.1/SelectionBar-0.4.1.dmg" length="6199127" type="application/octet-stream" sparkle:edSignature="ftgPcHK581BLdqyDA6h2wNARISE5M+O9Q0kbXgaBgv1PJs4hJwGhvy/Jw0WLy5yBU+KCoTHE1zjToZimcJHmCA=="/>
         </item>
     </channel>
 </rss>
