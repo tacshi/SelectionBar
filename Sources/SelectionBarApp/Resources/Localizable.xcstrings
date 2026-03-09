@@ -2902,7 +2902,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "快捷键"
+            "value": "ショートカット"
           }
         },
         "zh-Hans": {
@@ -2950,7 +2950,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "应用覆盖"
+            "value": "アプリ別設定"
           }
         },
         "zh-Hans": {
@@ -2966,7 +2966,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "应用覆盖未配置"
+            "value": "アプリ別設定はありません"
           }
         },
         "zh-Hans": {
@@ -2982,7 +2982,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加应用覆盖"
+            "value": "アプリ別設定を追加"
           }
         },
         "zh-Hans": {
@@ -3014,7 +3014,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "应用在不同情况下需要不同绑定时，使用按应用区分的快捷键。"
+            "value": "アプリごとに異なるショートカットが必要な場合は、アプリ別ショートカットを使用します。"
           }
         },
         "zh-Hans": {
