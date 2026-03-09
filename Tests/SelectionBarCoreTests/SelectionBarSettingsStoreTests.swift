@@ -171,8 +171,8 @@ struct SelectionBarSettingsStoreTests {
     #expect(store.builtInKeyBindingActions[0].isEnabled == false)
   }
 
-  @Test("settings payload missing built-in key bindings is ignored")
-  func legacyPayloadWithoutBuiltInKeyBindingsIsIgnored() {
+  @Test("legacy settings payload without built-in key bindings preserves existing values")
+  func legacyPayloadWithoutBuiltInKeyBindingsPreservesSettings() {
     let suite = "SelectionBarCoreTests.StrictSettings.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
     defaults.removePersistentDomain(forName: suite)
@@ -192,7 +192,7 @@ struct SelectionBarSettingsStoreTests {
       keychain: InMemoryKeychain()
     )
 
-    #expect(store.selectionBarEnabled == false)
+    #expect(store.selectionBarEnabled == true)
     #expect(store.customActions.isEmpty)
     #expect(store.builtInKeyBindingActions.isEmpty)
   }

@@ -806,7 +806,8 @@ public final class SelectionBarSettingsStore {
         ?? TranslationLanguageCatalog.defaultTargetLanguage
       customLLMProviders = settings.customLLMProviders ?? []
       customActions = (settings.customActions ?? []).filter { $0.kind != .keyBinding }
-      builtInKeyBindingActions = settings.builtInKeyBindingActions.filter { $0.kind == .keyBinding }
+      builtInKeyBindingActions =
+        (settings.builtInKeyBindingActions ?? []).filter { $0.kind == .keyBinding }
     }
   }
 
@@ -853,5 +854,5 @@ private struct StoredSettings: Codable {
   let selectionBarTranslationTargetLanguage: String?
   let customLLMProviders: [CustomLLMProvider]?
   let customActions: [CustomActionConfig]?
-  let builtInKeyBindingActions: [CustomActionConfig]
+  let builtInKeyBindingActions: [CustomActionConfig]?
 }
