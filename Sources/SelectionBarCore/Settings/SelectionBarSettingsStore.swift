@@ -14,7 +14,7 @@ public final class SelectionBarSettingsStore {
   private let storageKey: String
   private let keychain: any KeychainServiceProtocol
   @ObservationIgnored
-  private var isReconcilingCustomActions = false
+  private var isReconcilingActions = false
   @ObservationIgnored
   private var persistenceSuppressionDepth = 0
 
@@ -190,7 +190,7 @@ public final class SelectionBarSettingsStore {
   /// Custom OpenAI-compatible providers.
   public var customLLMProviders: [CustomLLMProvider] {
     didSet {
-      if reconcileCustomActionsAvailabilityIfNeeded(checkProviderAvailability: false) {
+      if reconcileActionsAvailabilityIfNeeded(checkProviderAvailability: false) {
         return
       }
       persistIfNeeded()
@@ -218,11 +218,25 @@ public final class SelectionBarSettingsStore {
   /// Configurable text actions.
   public var customActions: [CustomActionConfig] {
     didSet {
-      if isReconcilingCustomActions {
+      if isReconcilingActions {
         persistIfNeeded()
         return
       }
-      if reconcileCustomActionsAvailabilityIfNeeded(checkProviderAvailability: false) {
+      if reconcileActionsAvailabilityIfNeeded(checkProviderAvailability: false) {
+        return
+      }
+      persistIfNeeded()
+    }
+  }
+
+  /// Built-in key-binding actions shown in the Built-in tab.
+  public var builtInKeyBindingActions: [CustomActionConfig] {
+    didSet {
+      if isReconcilingActions {
+        persistIfNeeded()
+        return
+      }
+      if reconcileActionsAvailabilityIfNeeded(checkProviderAvailability: false) {
         return
       }
       persistIfNeeded()
@@ -268,6 +282,7 @@ public final class SelectionBarSettingsStore {
     selectionBarTranslationTargetLanguage = TranslationLanguageCatalog.defaultTargetLanguage
     customLLMProviders = []
     customActions = []
+    builtInKeyBindingActions = []
     appLanguage = defaults.string(forKey: "SelectionBar_AppLanguageOverride") ?? ""
     openAIAPIKeyConfigured = false
     openRouterAPIKeyConfigured = false
@@ -281,7 +296,14 @@ public final class SelectionBarSettingsStore {
     ensureValidSelectionBarTranslationTargetLanguage()
     ensureValidSelectionBarSpeakProvider()
     ensureValidChatProvider()
-    _ = reconcileCustomActionsAvailabilityIfNeeded(checkProviderAvailability: false)
+    _ = reconcileActionsAvailabilityIfNeeded(checkProviderAvailability: false)
+  }
+
+  /// Enabled actions in toolbar order: key bindings first, then custom LLM/JS actions.
+  public var orderedEnabledSelectionBarActions: [CustomActionConfig] {
+    let keyBindings = builtInKeyBindingActions.filter(\.isEnabled)
+    let custom = customActions.filter { $0.isEnabled && $0.kind != .keyBinding }
+    return keyBindings + custom
   }
 
   public func availableSelectionBarTranslationProviders() -> [SelectionBarTranslationProviderOption]
@@ -475,7 +497,7 @@ public final class SelectionBarSettingsStore {
       ensureValidSelectionBarTranslationProvider()
       ensureValidSelectionBarSpeakProvider()
       ensureValidChatProvider()
-      _ = reconcileCustomActionsAvailabilityIfNeeded()
+      _ = reconcileActionsAvailabilityIfNeeded()
     }
     persistIfNeeded()
   }
@@ -499,7 +521,7 @@ public final class SelectionBarSettingsStore {
       ensureValidSelectionBarTranslationProvider()
       ensureValidSelectionBarSpeakProvider()
       ensureValidChatProvider()
-      _ = reconcileCustomActionsAvailabilityIfNeeded()
+      _ = reconcileActionsAvailabilityIfNeeded()
     }
     persistIfNeeded()
   }
@@ -514,7 +536,7 @@ public final class SelectionBarSettingsStore {
       ensureValidSelectionBarTranslationProvider()
       ensureValidSelectionBarSpeakProvider()
       ensureValidChatProvider()
-      _ = reconcileCustomActionsAvailabilityIfNeeded()
+      _ = reconcileActionsAvailabilityIfNeeded()
     }
     persistIfNeeded()
   }
@@ -526,7 +548,7 @@ public final class SelectionBarSettingsStore {
       ensureValidSelectionBarTranslationProvider()
       ensureValidSelectionBarSpeakProvider()
       ensureValidChatProvider()
-      _ = reconcileCustomActionsAvailabilityIfNeeded()
+      _ = reconcileActionsAvailabilityIfNeeded()
     }
     persistIfNeeded()
   }
@@ -541,6 +563,8 @@ public final class SelectionBarSettingsStore {
       return true
     case .llm:
       return llmActionEnablementIssue(action) == nil
+    case .keyBinding:
+      return isValidKeyBindingAction(action)
     }
   }
 
@@ -558,41 +582,79 @@ public final class SelectionBarSettingsStore {
     return nil
   }
 
-  /// Reconcile custom actions: migrate legacy icons and optionally disable
-  /// LLM actions whose provider is no longer available.
+  /// Reconcile all configurable actions:
+  /// - custom actions: migrate legacy JS icons and disable invalid enabled LLM actions
+  /// - built-in key bindings: disable invalid enabled shortcuts
   ///
   /// - Parameter checkProviderAvailability: When `true`, enabled LLM actions
   ///   whose provider API key is missing will be disabled. Pass `false` on
   ///   startup / load to avoid false negatives caused by Keychain being
-  ///   inaccessible after ad-hoc re-signing.  Structural issues (missing
-  ///   provider or model) are always checked regardless of this flag.
+  ///   inaccessible after ad-hoc re-signing. Structural issues (missing
+  ///   provider/model, invalid shortcuts) are always checked regardless of this flag.
   @discardableResult
-  public func reconcileCustomActionsAvailabilityIfNeeded(
+  public func reconcileActionsAvailabilityIfNeeded(
     checkProviderAvailability: Bool = true
   ) -> Bool {
     let cleanEscapesTemplate = CustomActionConfig.createJavaScriptCleanEscapesTemplate()
-    let reconciled = customActions.map { action in
+    let reconciledCustomActions = customActions.map { action in
       var updated = migrateLegacyCleanEscapesIconIfNeeded(
         action,
         cleanEscapesTemplate: cleanEscapesTemplate
       )
-      guard updated.isEnabled, updated.kind == .llm else { return updated }
-      if let issue = llmActionEnablementIssue(updated) {
-        // Always disable for structural issues (missing provider / model).
-        // Only disable for provider-unavailable when explicitly requested,
-        // because Keychain may be inaccessible after ad-hoc re-signing.
-        let isStructuralIssue = issue != .providerUnavailable
-        if isStructuralIssue || checkProviderAvailability {
+      guard updated.isEnabled else { return updated }
+
+      switch updated.kind {
+      case .javascript:
+        return updated
+      case .keyBinding:
+        if !isValidKeyBindingAction(updated) {
           updated.isEnabled = false
         }
+        return updated
+      case .llm:
+        if let issue = llmActionEnablementIssue(updated) {
+          // Always disable for structural issues (missing provider / model).
+          // Only disable for provider-unavailable when explicitly requested,
+          // because Keychain may be inaccessible after ad-hoc re-signing.
+          let isStructuralIssue = issue != .providerUnavailable
+          if isStructuralIssue || checkProviderAvailability {
+            updated.isEnabled = false
+          }
+        }
+        return updated
       }
+    }
+
+    let reconciledBuiltInKeyBindingActions = builtInKeyBindingActions.map { action in
+      var updated = action
+
+      if updated.kind != .keyBinding {
+        updated.kind = .keyBinding
+        updated.outputMode = .resultWindow
+        updated.modelProvider = ""
+        updated.modelId = ""
+        updated.script = CustomActionConfig.defaultJavaScriptTemplate
+      }
+
+      if updated.isEnabled && !isValidKeyBindingAction(updated) {
+        updated.isEnabled = false
+      }
+
       return updated
     }
 
-    guard reconciled != customActions else { return false }
-    isReconcilingCustomActions = true
-    customActions = reconciled
-    isReconcilingCustomActions = false
+    guard
+      reconciledCustomActions != customActions
+        || reconciledBuiltInKeyBindingActions != builtInKeyBindingActions
+    else { return false }
+
+    isReconcilingActions = true
+    withPersistenceSuppressed {
+      customActions = reconciledCustomActions
+      builtInKeyBindingActions = reconciledBuiltInKeyBindingActions
+    }
+    isReconcilingActions = false
+    persistIfNeeded()
     return true
   }
 
@@ -617,6 +679,18 @@ public final class SelectionBarSettingsStore {
   private func isAPIKeyConfiguredInKeychain(_ key: String) -> Bool {
     let value = keychain.readString(key: key) ?? ""
     return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  private func isValidKeyBindingAction(_ action: CustomActionConfig) -> Bool {
+    guard SelectionBarKeyboardShortcutParser.parse(action.keyBinding) != nil else { return false }
+    for override in action.keyBindingOverrides {
+      let bundleID = override.bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+      let keyBinding = override.keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !bundleID.isEmpty, SelectionBarKeyboardShortcutParser.parse(keyBinding) != nil else {
+        return false
+      }
+    }
+    return true
   }
 
   private func migrateLegacyCleanEscapesIconIfNeeded(
@@ -649,7 +723,6 @@ public final class SelectionBarSettingsStore {
       selectionBarLookupEnabled: selectionBarLookupEnabled,
       selectionBarLookupProvider: selectionBarLookupProvider.rawValue,
       selectionBarLookupCustomScheme: selectionBarLookupCustomScheme,
-      selectionBarLookupCustomApp: nil,
       selectionBarSearchEngine: selectionBarSearchEngine.rawValue,
       selectionBarSearchCustomScheme: selectionBarSearchCustomScheme,
       selectionBarSpeakEnabled: selectionBarSpeakEnabled,
@@ -672,9 +745,9 @@ public final class SelectionBarSettingsStore {
       openRouterTranslationModel: openRouterTranslationModel,
       availableOpenRouterModels: availableOpenRouterModels,
       selectionBarTranslationTargetLanguage: selectionBarTranslationTargetLanguage,
-      deepLTargetLanguage: selectionBarTranslationTargetLanguage,
       customLLMProviders: customLLMProviders,
-      customActions: customActions
+      customActions: customActions,
+      builtInKeyBindingActions: builtInKeyBindingActions
     )
 
     if let encoded = try? JSONEncoder().encode(data) {
@@ -730,10 +803,11 @@ public final class SelectionBarSettingsStore {
       availableOpenRouterModels = settings.availableOpenRouterModels ?? []
       selectionBarTranslationTargetLanguage =
         settings.selectionBarTranslationTargetLanguage
-        ?? settings.deepLTargetLanguage
         ?? TranslationLanguageCatalog.defaultTargetLanguage
       customLLMProviders = settings.customLLMProviders ?? []
-      customActions = settings.customActions ?? []
+      customActions = (settings.customActions ?? []).filter { $0.kind != .keyBinding }
+      builtInKeyBindingActions =
+        (settings.builtInKeyBindingActions ?? []).filter { $0.kind == .keyBinding }
     }
   }
 
@@ -756,7 +830,6 @@ private struct StoredSettings: Codable {
   let selectionBarLookupEnabled: Bool?
   let selectionBarLookupProvider: String?
   let selectionBarLookupCustomScheme: String?
-  let selectionBarLookupCustomApp: IgnoredApp?
   let selectionBarSearchEngine: String?
   let selectionBarSearchCustomScheme: String?
   let selectionBarSpeakEnabled: Bool?
@@ -779,7 +852,7 @@ private struct StoredSettings: Codable {
   let openRouterTranslationModel: String?
   let availableOpenRouterModels: [String]?
   let selectionBarTranslationTargetLanguage: String?
-  let deepLTargetLanguage: String?
   let customLLMProviders: [CustomLLMProvider]?
   let customActions: [CustomActionConfig]?
+  let builtInKeyBindingActions: [CustomActionConfig]?
 }

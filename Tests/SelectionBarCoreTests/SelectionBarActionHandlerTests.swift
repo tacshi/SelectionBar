@@ -90,4 +90,30 @@ struct SelectionBarActionHandlerTests {
       Issue.record("Unexpected error: \(error)")
     }
   }
+
+  @Test("Key binding with invalid shortcut maps to SelectionBarError")
+  func keyBindingInvalidShortcutErrorMapping() async {
+    let handler = SelectionBarActionHandler()
+    let keychain = InMemoryKeychain()
+    let store = makeStore(keychain: keychain)
+
+    let action = CustomActionConfig(
+      name: "Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+",
+      isEnabled: false
+    )
+
+    do {
+      _ = try await handler.process(text: "hello", action: action, settings: store)
+      Issue.record("Expected invalidKeyboardShortcut error")
+    } catch let error as SelectionBarError {
+      #expect(error == .invalidKeyboardShortcut("cmd+"))
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+  }
 }

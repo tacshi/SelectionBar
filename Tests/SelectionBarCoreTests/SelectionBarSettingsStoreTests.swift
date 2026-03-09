@@ -122,6 +122,179 @@ struct SelectionBarSettingsStoreTests {
     #expect(store.customActions[0].isEnabled == false)
   }
 
+  @Test("enabled built-in key-binding action is disabled when shortcut is invalid")
+  func reconcileDisablesEnabledBuiltInKeyBindingActionWhenShortcutIsInvalid() {
+    let keychain = InMemoryKeychain()
+    let store = makeStore(keychain: keychain)
+
+    let action = CustomActionConfig(
+      name: "Broken Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+",
+      isEnabled: true
+    )
+
+    store.builtInKeyBindingActions = [action]
+
+    #expect(store.builtInKeyBindingActions.count == 1)
+    #expect(store.builtInKeyBindingActions[0].isEnabled == false)
+  }
+
+  @Test("enabled built-in key-binding action is disabled when app override shortcut is invalid")
+  func reconcileDisablesEnabledBuiltInKeyBindingWhenOverrideShortcutIsInvalid() {
+    let keychain = InMemoryKeychain()
+    let store = makeStore(keychain: keychain)
+
+    let action = CustomActionConfig(
+      name: "Bold Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+b",
+      keyBindingOverrides: [
+        CustomActionKeyBindingOverride(
+          bundleID: "com.microsoft.Word",
+          appName: "Microsoft Word",
+          keyBinding: "cmd+"
+        )
+      ],
+      isEnabled: true
+    )
+
+    store.builtInKeyBindingActions = [action]
+
+    #expect(store.builtInKeyBindingActions.count == 1)
+    #expect(store.builtInKeyBindingActions[0].isEnabled == false)
+  }
+
+  @Test("legacy settings payload without built-in key bindings preserves existing values")
+  func legacyPayloadWithoutBuiltInKeyBindingsPreservesSettings() {
+    let suite = "SelectionBarCoreTests.StrictSettings.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    defer { defaults.removePersistentDomain(forName: suite) }
+
+    let legacyJSON = """
+      {
+        "selectionBarEnabled": true,
+        "customActions": []
+      }
+      """
+    defaults.set(Data(legacyJSON.utf8), forKey: "test.settings")
+
+    let store = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: InMemoryKeychain()
+    )
+
+    #expect(store.selectionBarEnabled == true)
+    #expect(store.customActions.isEmpty)
+    #expect(store.builtInKeyBindingActions.isEmpty)
+  }
+
+  @Test("built-in key bindings persist across reload")
+  func builtInKeyBindingsPersistAcrossReload() {
+    let suite = "SelectionBarCoreTests.BuiltInKeys.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    defer { defaults.removePersistentDomain(forName: suite) }
+
+    let keychain = InMemoryKeychain()
+    let store = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+
+    let action = CustomActionConfig(
+      id: UUID(),
+      name: "Italic Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      outputMode: .resultWindow,
+      script: CustomActionConfig.defaultJavaScriptTemplate,
+      keyBinding: "cmd+i",
+      keyBindingOverrides: [
+        CustomActionKeyBindingOverride(
+          bundleID: "com.microsoft.Word",
+          appName: "Microsoft Word",
+          keyBinding: "cmd+shift+i"
+        )
+      ],
+      isEnabled: true,
+      isBuiltIn: true,
+      templateId: nil,
+      icon: CustomActionIcon(value: "italic")
+    )
+    store.builtInKeyBindingActions = [action]
+
+    let reloaded = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+    #expect(reloaded.builtInKeyBindingActions == [action])
+  }
+
+  @Test("ordered enabled actions prioritize built-in key bindings")
+  func orderedEnabledActionsPrioritizeBuiltInKeyBindings() {
+    let keychain = InMemoryKeychain()
+    let store = makeStore(keychain: keychain)
+
+    let keyBindingAction = CustomActionConfig(
+      id: UUID(),
+      name: "Bold Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+b",
+      isEnabled: true
+    )
+    let llmAction = CustomActionConfig(
+      id: UUID(),
+      name: "Summarize",
+      prompt: "{{TEXT}}",
+      modelProvider: "openai",
+      modelId: "gpt-4o-mini",
+      kind: .llm,
+      isEnabled: true
+    )
+    let jsAction = CustomActionConfig(
+      id: UUID(),
+      name: "Title Case",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .javascript,
+      script: "function transform(input) { return input; }",
+      isEnabled: true
+    )
+    let strayCustomKeyBinding = CustomActionConfig(
+      id: UUID(),
+      name: "Legacy Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+u",
+      isEnabled: true
+    )
+
+    store.builtInKeyBindingActions = [keyBindingAction]
+    store.customActions = [llmAction, jsAction, strayCustomKeyBinding]
+
+    let ordered = store.orderedEnabledSelectionBarActions
+    #expect(ordered.map(\.id) == [keyBindingAction.id, llmAction.id, jsAction.id])
+  }
+
   @Test("custom web search engine and custom scheme persist across reload")
   func customWebSearchSettingsPersist() {
     let suite = "SelectionBarCoreTests.Search.\(UUID().uuidString)"

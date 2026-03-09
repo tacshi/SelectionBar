@@ -133,6 +133,14 @@ public final class SelectionBarActionHandler {
       } catch let error as SelectionBarJavaScriptRunnerError {
         throw mapJavaScriptError(error)
       }
+    case .keyBinding:
+      guard let shortcut = keyboardShortcut(for: action) else {
+        throw SelectionBarError.invalidKeyboardShortcut(action.keyBinding)
+      }
+      guard triggerKeyboardShortcut(shortcut) else {
+        throw SelectionBarError.keyboardShortcutDispatchFailed(shortcut.canonicalString)
+      }
+      return text
     }
   }
 
@@ -221,6 +229,21 @@ public final class SelectionBarActionHandler {
   @discardableResult
   public func cutSelection() -> Bool {
     clipboardService.cutSelection()
+  }
+
+  /// Parse a key-binding action into an executable shortcut.
+  public func keyboardShortcut(
+    for action: CustomActionConfig,
+    bundleID: String? = nil
+  ) -> SelectionBarKeyboardShortcut? {
+    guard action.kind == .keyBinding else { return nil }
+    return SelectionBarKeyboardShortcutParser.parse(action.resolvedKeyBinding(for: bundleID))
+  }
+
+  /// Trigger a keyboard shortcut in the currently focused app.
+  @discardableResult
+  public func triggerKeyboardShortcut(_ shortcut: SelectionBarKeyboardShortcut) -> Bool {
+    clipboardService.triggerKeyboardShortcut(shortcut)
   }
 
   private func buildPrompt(template: String, text: String) -> String {
@@ -350,6 +373,8 @@ public enum SelectionBarError: LocalizedError, Sendable, Equatable {
   case javaScriptInvalidReturnType
   case javaScriptRuntimeError(String)
   case javaScriptTimeout
+  case invalidKeyboardShortcut(String)
+  case keyboardShortcutDispatchFailed(String)
 
   public var errorDescription: String? {
     switch self {
@@ -376,6 +401,10 @@ public enum SelectionBarError: LocalizedError, Sendable, Equatable {
       return "JavaScript runtime error: \(message)"
     case .javaScriptTimeout:
       return "JavaScript action timed out."
+    case .invalidKeyboardShortcut(let shortcut):
+      return "Invalid keyboard shortcut: '\(shortcut)'."
+    case .keyboardShortcutDispatchFailed(let shortcut):
+      return "Failed to trigger keyboard shortcut '\(shortcut)'."
     }
   }
 }

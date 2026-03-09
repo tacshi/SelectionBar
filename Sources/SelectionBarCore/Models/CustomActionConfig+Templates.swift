@@ -179,6 +179,59 @@ extension CustomActionConfig {
     )
   }
 
+  public static func createKeyBindingStarterTemplates() -> [CustomActionConfig] {
+    [
+      createBoldKeyBindingTemplate(),
+      createItalicKeyBindingTemplate(),
+      createUnderlineKeyBindingTemplate(),
+    ]
+  }
+
+  public static func createBoldKeyBindingTemplate() -> CustomActionConfig {
+    CustomActionConfig(
+      name: "Bold",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      outputMode: .resultWindow,
+      keyBinding: "cmd+b",
+      isEnabled: false,
+      isBuiltIn: true,
+      templateId: "kb-bold",
+      icon: CustomActionIcon(value: "bold")
+    )
+  }
+
+  public static func createItalicKeyBindingTemplate() -> CustomActionConfig {
+    CustomActionConfig(
+      name: "Italic",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      outputMode: .resultWindow,
+      keyBinding: "cmd+i",
+      isEnabled: false,
+      isBuiltIn: true,
+      templateId: "kb-italic",
+      icon: CustomActionIcon(value: "italic")
+    )
+  }
+
+  public static func createUnderlineKeyBindingTemplate() -> CustomActionConfig {
+    CustomActionConfig(
+      name: "Underline",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      outputMode: .resultWindow,
+      keyBinding: "cmd+u",
+      isEnabled: false,
+      isBuiltIn: true,
+      templateId: "kb-underline",
+      icon: CustomActionIcon(value: "underline")
+    )
+  }
+
   public static func createJavaScriptStarterTemplates() -> [CustomActionConfig] {
     [
       createJavaScriptTrimNormalizeTemplate(),
