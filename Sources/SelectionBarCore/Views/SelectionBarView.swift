@@ -157,6 +157,7 @@ struct SelectionBarView: View {
     .padding(.vertical, 8)
     .background {
       barBackground
+        .allowsHitTesting(false)
     }
     .overlay {
       barShape
@@ -171,6 +172,7 @@ struct SelectionBarView: View {
           ),
           lineWidth: 1
         )
+        .allowsHitTesting(false)
     }
     .overlay {
       barShape
@@ -184,6 +186,7 @@ struct SelectionBarView: View {
             endPoint: .center
           )
         )
+        .allowsHitTesting(false)
     }
   }
 
@@ -300,13 +303,13 @@ struct SelectionBarView: View {
 private struct FloatingBarMaterialBackground: NSViewRepresentable {
   let cornerRadius: CGFloat
 
-  func makeNSView(context: Context) -> NSVisualEffectView {
-    let view = NSVisualEffectView()
+  func makeNSView(context: Context) -> PassthroughVisualEffectView {
+    let view = PassthroughVisualEffectView()
     configure(view)
     return view
   }
 
-  func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+  func updateNSView(_ nsView: PassthroughVisualEffectView, context: Context) {
     configure(nsView)
   }
 
@@ -317,5 +320,11 @@ private struct FloatingBarMaterialBackground: NSViewRepresentable {
     view.wantsLayer = true
     view.layer?.cornerRadius = cornerRadius
     view.layer?.masksToBounds = true
+  }
+}
+
+private final class PassthroughVisualEffectView: NSVisualEffectView {
+  override func hitTest(_ point: NSPoint) -> NSView? {
+    nil
   }
 }
