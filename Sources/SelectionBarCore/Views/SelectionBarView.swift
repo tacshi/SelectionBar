@@ -325,6 +325,7 @@ private struct FloatingBarMaterialBackground: NSViewRepresentable {
 
 private final class PassthroughVisualEffectView: NSVisualEffectView {
   override func hitTest(_ point: NSPoint) -> NSView? {
-    nil
+    let hitView = super.hitTest(point)
+    return hitView === self ? nil : hitView
   }
 }
