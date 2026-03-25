@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.6.0</title>
+            <pubDate>Wed, 25 Mar 2026 19:34:17 +1300</pubDate>
+            <sparkle:version>19</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.6.0</h2><ul><li>Bug fixes and improvements</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.6.0/SelectionBar-0.6.0.dmg" length="6809576" type="application/octet-stream" sparkle:edSignature="xe/W57fW+QPDZL8jnsB1w4qq98JuDuaaHOVt9qRO98yfEb3iHitr99EUYLNQMs1DStQkO0qbZwBpyffT5cACBA=="/>
+        </item>
+        <item>
             <title>0.5.3</title>
             <pubDate>Tue, 10 Mar 2026 13:52:49 +0800</pubDate>
             <sparkle:version>18</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.5.2</h2><ul><li>Add glass-style floating selection bar (#17)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.5.2/SelectionBar-0.5.2.dmg" length="6693313" type="application/octet-stream" sparkle:edSignature="A4a1cTHAfPvHfj06fRugrJnHvVKdkBSU58ivhBLdPsEo5iXbDlHzr/QzidVFaGLWYvyA6B3C52Fp6hmelLFJBQ=="/>
-        </item>
-        <item>
-            <title>0.5.1</title>
-            <pubDate>Tue, 10 Mar 2026 00:52:31 +0800</pubDate>
-            <sparkle:version>16</sparkle:version>
-            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.5.1</h2><ul><li>Add configurable clipboard fallback apps (#16)</li><li>Add built-in key binding actions (#15)</li><li>Add custom URL scheme support for web search engine (#14)</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.5.1/SelectionBar-0.5.1.dmg" length="6665403" type="application/octet-stream" sparkle:edSignature="aIJurfmkV4SuMD4pSEZ2+a5V9tBNI82IsO/Ld3tlBA9fzFYBAyWRXAUSwyGFEWmWzNcCh7s+06jxnCVjSl2vCw=="/>
         </item>
     </channel>
 </rss>
