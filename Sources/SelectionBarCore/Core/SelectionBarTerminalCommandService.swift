@@ -161,7 +161,8 @@ struct SelectionBarTerminalCommandService {
   typealias CleanupScheduler = ([URL]) -> Void
 
   nonisolated private static let loginShellResolutionTimeout: DispatchTimeInterval = .seconds(2)
-  nonisolated private static let loginShellTerminationGracePeriod: DispatchTimeInterval = .milliseconds(200)
+  nonisolated private static let loginShellTerminationGracePeriod: DispatchTimeInterval =
+    .milliseconds(200)
 
   private let homeDirectoryProvider: () -> URL
   private let environmentProvider: () -> [String: String]
@@ -797,7 +798,8 @@ struct SelectionBarTerminalCommandService {
     "'\(value.replacingOccurrences(of: "'", with: "'\"'\"'"))'"
   }
 
-  nonisolated private static let defaultPATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  nonisolated private static let defaultPATH =
+    "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
   private static let terminalAppleScript = """
     on run argv
