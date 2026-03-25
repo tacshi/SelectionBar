@@ -11,6 +11,9 @@ struct SelectionBarView: View {
   let showCut: Bool
   let showSearch: Bool
   let showOpenURL: Bool
+  let showRunCommand: Bool
+  let isRunningCommand: Bool
+  let isRunCommandError: Bool
   let showLookup: Bool
   let showTranslate: Bool
   let isTranslating: Bool
@@ -21,6 +24,7 @@ struct SelectionBarView: View {
   let isBusy: Bool
   let onSearchSelected: () -> Void
   let onOpenURLSelected: () -> Void
+  let onRunCommandSelected: () -> Void
   let onCopySelected: () -> Void
   let onCutSelected: () -> Void
   let onLookupSelected: () -> Void
@@ -57,6 +61,31 @@ struct SelectionBarView: View {
           title: String(localized: "Open URL", bundle: .localizedModule),
           systemImage: "link", action: onOpenURLSelected
         )
+      }
+
+      if showRunCommand {
+        let title = String(localized: "Run Command", bundle: .localizedModule)
+        Button(action: onRunCommandSelected) {
+          if isRunningCommand {
+            ProgressView()
+              .controlSize(.small)
+              .frame(width: 18, height: 18)
+          } else {
+            Image(systemName: "terminal")
+              .font(.system(size: 14, weight: .medium))
+              .frame(width: 18, height: 18)
+          }
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background {
+          controlBackground(isError: isRunCommandError)
+        }
+        .foregroundStyle(isRunCommandError ? Color.red : Color.primary)
+        .help(title)
+        .accessibilityLabel(Text(title))
+        .disabled(isBusy)
       }
 
       if showLookup {

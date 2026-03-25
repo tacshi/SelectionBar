@@ -1,6 +1,16 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+protocol SelectionBarWindowPresenting: AnyObject {
+  var currentOrigin: NSPoint? { get }
+  var isVisible: Bool { get }
+  func showNear(point: NSPoint)
+  func show(atOrigin origin: NSPoint)
+  func update(anyContentView: AnyView)
+  func dismiss()
+}
+
 /// NSHostingView with a truly transparent backing layer.
 private final class TransparentHostingView<Content: View>: NSHostingView<Content> {
   override var isOpaque: Bool { false }
@@ -143,8 +153,17 @@ public class SelectionBarWindowController: NSWindowController {
     _ = sizeToFitContent()
   }
 
+  func update(anyContentView: AnyView) {
+    hostingView.rootView = anyContentView
+    _ = sizeToFitContent()
+  }
+
   public var currentOrigin: NSPoint? {
     window?.frame.origin
+  }
+
+  var isVisible: Bool {
+    window?.isVisible ?? false
   }
 
   public func dismiss() {
@@ -195,3 +214,5 @@ public class SelectionBarWindowController: NSWindowController {
     return clamped
   }
 }
+
+extension SelectionBarWindowController: SelectionBarWindowPresenting {}

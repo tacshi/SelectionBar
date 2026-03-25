@@ -116,4 +116,39 @@ struct SelectionBarActionHandlerTests {
       Issue.record("Unexpected error: \(error)")
     }
   }
+
+  @Test("run command uses configured terminal selection")
+  func runCommandUsesConfiguredTerminalSelection() async throws {
+    let keychain = InMemoryKeychain()
+    let store = makeStore(keychain: keychain)
+    store.selectionBarTerminalApp = .ghostty
+
+    var launchedText: String?
+
+    let terminalService = SelectionBarTerminalCommandService(
+      homeDirectoryProvider: { FileManager.default.temporaryDirectory },
+      environmentProvider: { ["PATH": "/usr/bin"] },
+      appURLResolver: { _, _ in
+        FileManager.default.temporaryDirectory.appendingPathComponent("Ghostty.app")
+      },
+      appleScriptRunner: { request in
+        launchedText = request.arguments.first
+      },
+      processRunner: { _ in },
+      fileWriter: { _ in },
+      urlOpener: { _ in true }
+    )
+
+    let handler = SelectionBarActionHandler(
+      openAIClient: SelectionBarOpenAIClient(),
+      lookupService: SelectionBarLookupService(),
+      clipboardService: SelectionBarClipboardService(),
+      terminalCommandService: terminalService
+    )
+
+    try await handler.runCommand(text: "/usr/bin/git status", settings: store)
+
+    #expect(launchedText == "/usr/bin/git status")
+    #expect(handler.canRunCommand(text: "/usr/bin/git status", settings: store))
+  }
 }
