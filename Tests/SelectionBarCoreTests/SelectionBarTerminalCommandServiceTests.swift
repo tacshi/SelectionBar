@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import Testing
 
 @testable import SelectionBarCore
@@ -7,7 +8,7 @@ import Testing
 @MainActor
 struct SelectionBarTerminalCommandServiceTests {
   @Test("detection skips env assignments and resolves PATH executables")
-  func detectionSkipsEnvironmentAssignments() throws {
+  func detectionSkipsEnvironmentAssignments() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -15,36 +16,43 @@ struct SelectionBarTerminalCommandServiceTests {
     let service = makeService(pathEntries: [tempDirectory.path], homeDirectory: tempDirectory)
 
     #expect(service.firstRunnableToken(from: "FOO=1 BAR=2 git status") == "git")
-    #expect(service.canRunCommand(text: "FOO=1 BAR=2 git status"))
+    let canRunCommand = await service.canRunCommand(text: "FOO=1 BAR=2 git status")
+    #expect(canRunCommand)
   }
 
   @Test("detection rejects shell builtins relative paths and empty input")
-  func detectionRejectsBuiltinsRelativePathsAndEmptyInput() throws {
+  func detectionRejectsBuiltinsRelativePathsAndEmptyInput() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
     _ = try makeExecutable(named: "git", in: tempDirectory)
     let service = makeService(pathEntries: [tempDirectory.path], homeDirectory: tempDirectory)
 
-    #expect(!service.canRunCommand(text: "cd /tmp"))
-    #expect(!service.canRunCommand(text: "./script.sh"))
-    #expect(!service.canRunCommand(text: "scripts/run"))
-    #expect(!service.canRunCommand(text: "   "))
+    let rejectsBuiltin = await service.canRunCommand(text: "cd /tmp")
+    let rejectsRelativeScript = await service.canRunCommand(text: "./script.sh")
+    let rejectsRelativePath = await service.canRunCommand(text: "scripts/run")
+    let rejectsWhitespace = await service.canRunCommand(text: "   ")
+
+    #expect(!rejectsBuiltin)
+    #expect(!rejectsRelativeScript)
+    #expect(!rejectsRelativePath)
+    #expect(!rejectsWhitespace)
   }
 
   @Test("detection accepts absolute executable paths")
-  func detectionAcceptsAbsoluteExecutablePaths() throws {
+  func detectionAcceptsAbsoluteExecutablePaths() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
     let executableURL = try makeExecutable(named: "custom-tool", in: tempDirectory)
     let service = makeService(pathEntries: [], homeDirectory: tempDirectory)
 
-    #expect(service.canRunCommand(text: "\(executableURL.path) --version"))
+    let canRunCommand = await service.canRunCommand(text: "\(executableURL.path) --version")
+    #expect(canRunCommand)
   }
 
   @Test("detection falls back to login shell command resolution for user-installed tools")
-  func detectionFallsBackToLoginShellResolution() throws {
+  func detectionFallsBackToLoginShellResolution() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -58,11 +66,12 @@ struct SelectionBarTerminalCommandServiceTests {
     )
 
     #expect(service.firstRunnableToken(from: "bun create next-app@latest my-app --yes") == "bun")
-    #expect(service.canRunCommand(text: "bun create next-app@latest my-app --yes"))
+    let canRunCommand = await service.canRunCommand(text: "bun create next-app@latest my-app --yes")
+    #expect(canRunCommand)
   }
 
   @Test("multi-line selection uses first runnable line and preserves full command in launch plan")
-  func multilineSelectionDetectionAndLaunchPlan() throws {
+  func multilineSelectionDetectionAndLaunchPlan() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -76,14 +85,14 @@ struct SelectionBarTerminalCommandServiceTests {
     )
 
     let input = "\n\nFOO=1 git status\nprintf 'done'\n"
-    let plan = try service.makeLaunchPlan(text: input, terminalApp: .alacritty)
+    let plan = try await service.makeLaunchPlan(text: input, terminalApp: .alacritty)
 
     #expect(service.firstRunnableToken(from: input) == "git")
     #expect(plan.processRequest?.arguments.last == "FOO=1 git status\nprintf 'done'")
   }
 
   @Test("terminal launch plan uses AppleScript do script with command argument")
-  func terminalAppleScriptLaunchPlan() throws {
+  func terminalAppleScriptLaunchPlan() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -95,7 +104,7 @@ struct SelectionBarTerminalCommandServiceTests {
       appURLs: [.terminal: appURL]
     )
 
-    let plan = try service.makeLaunchPlan(text: "git status", terminalApp: .terminal)
+    let plan = try await service.makeLaunchPlan(text: "git status", terminalApp: .terminal)
     let source = plan.appleScriptRequest?.source ?? ""
 
     #expect(source.contains("do script theCommand in front window"))
@@ -105,7 +114,7 @@ struct SelectionBarTerminalCommandServiceTests {
   }
 
   @Test("iTerm2 launch plan prefers new tabs in an existing window")
-  func iTerm2AppleScriptLaunchPlan() throws {
+  func iTerm2AppleScriptLaunchPlan() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -117,7 +126,7 @@ struct SelectionBarTerminalCommandServiceTests {
       appURLs: [.iterm2: appURL]
     )
 
-    let plan = try service.makeLaunchPlan(text: "git status", terminalApp: .iterm2)
+    let plan = try await service.makeLaunchPlan(text: "git status", terminalApp: .iterm2)
     let source = plan.appleScriptRequest?.source ?? ""
 
     #expect(source.contains("create tab with default profile command theCommand"))
@@ -126,7 +135,7 @@ struct SelectionBarTerminalCommandServiceTests {
   }
 
   @Test("ghostty launch plan prefers new tabs in an existing window")
-  func ghosttyAppleScriptLaunchPlan() throws {
+  func ghosttyAppleScriptLaunchPlan() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -138,7 +147,7 @@ struct SelectionBarTerminalCommandServiceTests {
       appURLs: [.ghostty: appURL]
     )
 
-    let plan = try service.makeLaunchPlan(text: "git status", terminalApp: .ghostty)
+    let plan = try await service.makeLaunchPlan(text: "git status", terminalApp: .ghostty)
     let source = plan.appleScriptRequest?.source ?? ""
 
     #expect(source.contains("new tab in front window with configuration cfg"))
@@ -146,7 +155,7 @@ struct SelectionBarTerminalCommandServiceTests {
   }
 
   @Test("warp launch plan writes temporary config and opens launch URI")
-  func warpLaunchPlan() throws {
+  func warpLaunchPlan() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -158,7 +167,7 @@ struct SelectionBarTerminalCommandServiceTests {
       appURLs: [.warp: appURL]
     )
 
-    let plan = try service.makeLaunchPlan(text: "git status", terminalApp: .warp)
+    let plan = try await service.makeLaunchPlan(text: "git status", terminalApp: .warp)
 
     #expect(plan.fileWrites.count == 1)
     #expect(
@@ -173,7 +182,7 @@ struct SelectionBarTerminalCommandServiceTests {
   }
 
   @Test("kitty launch plan uses embedded executable and home directory")
-  func kittyLaunchPlan() throws {
+  func kittyLaunchPlan() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -185,7 +194,7 @@ struct SelectionBarTerminalCommandServiceTests {
       appURLs: [.kitty: appURL]
     )
 
-    let plan = try service.makeLaunchPlan(text: "git status", terminalApp: .kitty)
+    let plan = try await service.makeLaunchPlan(text: "git status", terminalApp: .kitty)
 
     #expect(plan.processRequest?.executableURL.lastPathComponent == "kitty")
     #expect(
@@ -193,7 +202,7 @@ struct SelectionBarTerminalCommandServiceTests {
   }
 
   @Test("wezterm launch plan prefers embedded wezterm CLI")
-  func wezTermLaunchPlan() throws {
+  func wezTermLaunchPlan() async throws {
     let tempDirectory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -209,7 +218,7 @@ struct SelectionBarTerminalCommandServiceTests {
       appURLs: [.wezterm: appURL]
     )
 
-    let plan = try service.makeLaunchPlan(text: "git status", terminalApp: .wezterm)
+    let plan = try await service.makeLaunchPlan(text: "git status", terminalApp: .wezterm)
 
     #expect(plan.processRequest?.executableURL.lastPathComponent == "wezterm")
     #expect(plan.processRequest?.arguments.prefix(3) == ["start", "--cwd", tempDirectory.path])

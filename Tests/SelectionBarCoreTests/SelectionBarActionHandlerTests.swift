@@ -149,6 +149,30 @@ struct SelectionBarActionHandlerTests {
     try await handler.runCommand(text: "/usr/bin/git status", settings: store)
 
     #expect(launchedText == "/usr/bin/git status")
-    #expect(handler.canRunCommand(text: "/usr/bin/git status", settings: store))
+    let canRunCommand = await handler.canRunCommand(text: "/usr/bin/git status", settings: store)
+    #expect(canRunCommand)
+  }
+
+  @Test("run command visibility requires an available terminal app")
+  func runCommandVisibilityRequiresAvailableTerminalApp() async {
+    let keychain = InMemoryKeychain()
+    let store = makeStore(keychain: keychain)
+    store.selectionBarTerminalApp = .ghostty
+
+    let terminalService = SelectionBarTerminalCommandService(
+      homeDirectoryProvider: { FileManager.default.temporaryDirectory },
+      environmentProvider: { ["PATH": "/usr/bin"] },
+      appURLResolver: { _, _ in nil }
+    )
+
+    let handler = SelectionBarActionHandler(
+      openAIClient: SelectionBarOpenAIClient(),
+      lookupService: SelectionBarLookupService(),
+      clipboardService: SelectionBarClipboardService(),
+      terminalCommandService: terminalService
+    )
+
+    let canRunCommand = await handler.canRunCommand(text: "/usr/bin/git status", settings: store)
+    #expect(!canRunCommand)
   }
 }

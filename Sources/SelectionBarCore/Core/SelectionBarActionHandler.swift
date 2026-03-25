@@ -219,26 +219,16 @@ public final class SelectionBarActionHandler {
     lookupService.openURL(text: text)
   }
 
-  public func canRunCommand(text: String, settings: SelectionBarSettingsStore) -> Bool {
-    let _ = settings
-    return terminalCommandService.canRunCommand(text: text)
+  public func canRunCommand(text: String, settings: SelectionBarSettingsStore) async -> Bool {
+    guard let terminalApp = resolvedTerminalApp(from: settings) else { return false }
+    return await terminalCommandService.canRunCommand(text: text, terminalApp: terminalApp)
   }
 
   public func runCommand(
     text: String,
     settings: SelectionBarSettingsStore
   ) async throws {
-    let availableTerminalApps = settings.availableSelectionBarTerminalApps()
-    let terminalApp: SelectionBarTerminalApp
-    if availableTerminalApps.contains(settings.selectionBarTerminalApp) {
-      terminalApp = settings.selectionBarTerminalApp
-    } else if availableTerminalApps.contains(.terminal) {
-      terminalApp = .terminal
-    } else if let fallback = availableTerminalApps.first {
-      terminalApp = fallback
-    } else {
-      terminalApp = settings.selectionBarTerminalApp
-    }
+    let terminalApp = resolvedTerminalApp(from: settings) ?? settings.selectionBarTerminalApp
 
     try await terminalCommandService.launchCommand(
       text: text,
@@ -250,6 +240,19 @@ public final class SelectionBarActionHandler {
   /// Uses clipboard + Cmd+V, then restores the original clipboard contents.
   public func replaceSelectedText(with text: String) async {
     await clipboardService.replaceSelectedText(with: text)
+  }
+
+  private func resolvedTerminalApp(
+    from settings: SelectionBarSettingsStore
+  ) -> SelectionBarTerminalApp? {
+    let availableTerminalApps = settings.availableSelectionBarTerminalApps()
+    if availableTerminalApps.contains(settings.selectionBarTerminalApp) {
+      return settings.selectionBarTerminalApp
+    }
+    if availableTerminalApps.contains(.terminal) {
+      return .terminal
+    }
+    return availableTerminalApps.first
   }
 
   /// Copies text to the clipboard.

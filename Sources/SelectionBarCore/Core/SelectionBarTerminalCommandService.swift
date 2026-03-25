@@ -1,5 +1,6 @@
 import AppKit
 import Darwin
+import Dispatch
 import Foundation
 
 public enum SelectionBarTerminalApp: String, CaseIterable, Codable, Sendable {
@@ -153,11 +154,14 @@ public enum SelectionBarTerminalCommandServiceError: LocalizedError, Sendable, E
 @MainActor
 struct SelectionBarTerminalCommandService {
   typealias AppURLResolver = (SelectionBarTerminalApp, URL) -> URL?
-  typealias LoginShellCommandResolver = (String, String) -> URL?
+  typealias LoginShellCommandResolver = @Sendable (String, String) -> URL?
   typealias AppleScriptRunner = (SelectionBarTerminalAppleScriptRequest) async throws -> Void
   typealias ProcessRunner = (SelectionBarTerminalProcessRequest) throws -> Void
   typealias FileWriter = (SelectionBarTerminalFileWriteRequest) throws -> Void
   typealias CleanupScheduler = ([URL]) -> Void
+
+  nonisolated private static let loginShellResolutionTimeout: DispatchTimeInterval = .seconds(2)
+  nonisolated private static let loginShellTerminationGracePeriod: DispatchTimeInterval = .milliseconds(200)
 
   private let homeDirectoryProvider: () -> URL
   private let environmentProvider: () -> [String: String]
@@ -223,17 +227,19 @@ struct SelectionBarTerminalCommandService {
   func canRunCommand(
     text: String,
     terminalApp: SelectionBarTerminalApp? = nil
-  ) -> Bool {
-    guard runnableExecutableURL(from: text) != nil else { return false }
-    guard let terminalApp else { return true }
-    return appURL(for: terminalApp) != nil
+  ) async -> Bool {
+    guard let terminalApp else {
+      return await runnableExecutableURL(from: text) != nil
+    }
+    guard appURL(for: terminalApp) != nil else { return false }
+    return await runnableExecutableURL(from: text) != nil
   }
 
   func launchCommand(
     text: String,
     terminalApp: SelectionBarTerminalApp
   ) async throws {
-    let plan = try makeLaunchPlan(text: text, terminalApp: terminalApp)
+    let plan = try await makeLaunchPlan(text: text, terminalApp: terminalApp)
 
     for request in plan.fileWrites {
       try fileWriter(request)
@@ -259,18 +265,18 @@ struct SelectionBarTerminalCommandService {
   func makeLaunchPlan(
     text: String,
     terminalApp: SelectionBarTerminalApp
-  ) throws -> SelectionBarTerminalLaunchPlan {
+  ) async throws -> SelectionBarTerminalLaunchPlan {
     let command = preparedCommandText(from: text)
     guard !command.isEmpty else {
       throw SelectionBarTerminalCommandServiceError.emptySelection
-    }
-    guard runnableExecutableURL(from: command) != nil else {
-      throw SelectionBarTerminalCommandServiceError.commandNotRunnable
     }
 
     let homeDirectory = homeDirectoryProvider()
     guard let appURL = appURLResolver(terminalApp, homeDirectory) else {
       throw SelectionBarTerminalCommandServiceError.terminalUnavailable(terminalApp)
+    }
+    guard await runnableExecutableURL(from: command) != nil else {
+      throw SelectionBarTerminalCommandServiceError.commandNotRunnable
     }
 
     switch terminalApp {
@@ -322,6 +328,9 @@ struct SelectionBarTerminalCommandService {
         homeDirectory: homeDirectory.path,
         command: warpCommand
       )
+      guard let launchURL = Self.warpLaunchURL(for: configURL) else {
+        throw SelectionBarTerminalCommandServiceError.failedToOpenLaunchURL
+      }
       return SelectionBarTerminalLaunchPlan(
         fileWrites: [
           SelectionBarTerminalFileWriteRequest(
@@ -329,7 +338,7 @@ struct SelectionBarTerminalCommandService {
             contents: yaml
           )
         ],
-        openURL: Self.warpLaunchURL(for: configURL),
+        openURL: launchURL,
         cleanupURLs: [configURL]
       )
 
@@ -359,13 +368,22 @@ struct SelectionBarTerminalCommandService {
     }
   }
 
-  func runnableExecutableURL(from text: String) -> URL? {
-    guard let token = firstRunnableToken(from: text) else { return nil }
-    return resolveExecutable(token: token, environment: environmentProvider())
+  private func runnableExecutableURL(from text: String) async -> URL? {
+    let environment = environmentProvider()
+    let shellPath = loginShellPath()
+    let resolver = loginShellCommandResolver
+    return await Task.detached(priority: .userInitiated) {
+      Self.runnableExecutableURL(
+        from: text,
+        environment: environment,
+        shellPath: shellPath,
+        loginShellCommandResolver: resolver
+      )
+    }.value
   }
 
   func firstRunnableToken(from text: String) -> String? {
-    let firstLine = firstNonEmptyLine(in: text)
+    let firstLine = Self.firstNonEmptyLine(in: text)
     let tokens = Self.shellTokens(in: firstLine)
     guard !tokens.isEmpty else { return nil }
 
@@ -383,8 +401,8 @@ struct SelectionBarTerminalCommandService {
     text.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  private func firstNonEmptyLine(in text: String) -> String {
-    let trimmed = preparedCommandText(from: text)
+  nonisolated private static func firstNonEmptyLine(in text: String) -> String {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     for line in trimmed.split(separator: "\n", omittingEmptySubsequences: false) {
       let candidate = String(line).trimmingCharacters(in: .whitespacesAndNewlines)
       if !candidate.isEmpty {
@@ -394,9 +412,41 @@ struct SelectionBarTerminalCommandService {
     return ""
   }
 
-  private func resolveExecutable(
+  nonisolated private static func runnableExecutableURL(
+    from text: String,
+    environment: [String: String],
+    shellPath: String,
+    loginShellCommandResolver: LoginShellCommandResolver
+  ) -> URL? {
+    guard let token = firstRunnableToken(in: text) else { return nil }
+    return resolveExecutable(
+      token: token,
+      environment: environment,
+      shellPath: shellPath,
+      loginShellCommandResolver: loginShellCommandResolver
+    )
+  }
+
+  nonisolated private static func firstRunnableToken(in text: String) -> String? {
+    let firstLine = firstNonEmptyLine(in: text)
+    let tokens = shellTokens(in: firstLine)
+    guard !tokens.isEmpty else { return nil }
+
+    for token in tokens {
+      if isEnvironmentAssignment(token) {
+        continue
+      }
+      let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+      return trimmed.isEmpty ? nil : trimmed
+    }
+    return nil
+  }
+
+  nonisolated private static func resolveExecutable(
     token: String,
-    environment: [String: String]
+    environment: [String: String],
+    shellPath: String,
+    loginShellCommandResolver: LoginShellCommandResolver
   ) -> URL? {
     guard !token.isEmpty else { return nil }
 
@@ -418,7 +468,7 @@ struct SelectionBarTerminalCommandService {
       }
     }
 
-    return loginShellCommandResolver(token, loginShellPath())
+    return loginShellCommandResolver(token, shellPath)
   }
 
   private func embeddedExecutableURL(
@@ -463,7 +513,7 @@ struct SelectionBarTerminalCommandService {
     return URL(string: "warp://launch/\(encodedPath)")
   }
 
-  private static func isExecutableFile(_ url: URL) -> Bool {
+  nonisolated private static func isExecutableFile(_ url: URL) -> Bool {
     var isDirectory: ObjCBool = false
     guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
       !isDirectory.boolValue
@@ -473,7 +523,7 @@ struct SelectionBarTerminalCommandService {
     return FileManager.default.isExecutableFile(atPath: url.path)
   }
 
-  private static func resolveExecutableInLoginShell(
+  nonisolated private static func resolveExecutableInLoginShell(
     token: String,
     shellPath: String
   ) -> URL? {
@@ -485,9 +535,13 @@ struct SelectionBarTerminalCommandService {
     process.arguments = ["-lc", "command -v -- \"$1\"", "selectionbar", token]
 
     let outputPipe = Pipe()
+    let completion = DispatchSemaphore(value: 0)
     process.standardOutput = outputPipe
     process.standardError = FileHandle.nullDevice
     process.standardInput = FileHandle.nullDevice
+    process.terminationHandler = { _ in
+      completion.signal()
+    }
 
     do {
       try process.run()
@@ -495,7 +549,13 @@ struct SelectionBarTerminalCommandService {
       return nil
     }
 
-    process.waitUntilExit()
+    if completion.wait(timeout: .now() + Self.loginShellResolutionTimeout) == .timedOut {
+      if process.isRunning {
+        process.terminate()
+      }
+      _ = completion.wait(timeout: .now() + Self.loginShellTerminationGracePeriod)
+      return nil
+    }
     guard process.terminationStatus == 0 else { return nil }
 
     let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
@@ -511,7 +571,7 @@ struct SelectionBarTerminalCommandService {
     return isExecutableFile(url) ? url : nil
   }
 
-  private static func shellTokens(in line: String) -> [String] {
+  nonisolated private static func shellTokens(in line: String) -> [String] {
     enum State {
       case normal
       case singleQuote
@@ -574,7 +634,7 @@ struct SelectionBarTerminalCommandService {
     return tokens
   }
 
-  private static func isEnvironmentAssignment(_ token: String) -> Bool {
+  nonisolated private static func isEnvironmentAssignment(_ token: String) -> Bool {
     guard let equalsIndex = token.firstIndex(of: "="), equalsIndex != token.startIndex else {
       return false
     }
@@ -588,7 +648,7 @@ struct SelectionBarTerminalCommandService {
     }
   }
 
-  private static func pwShellPath() -> String? {
+  nonisolated private static func pwShellPath() -> String? {
     guard let passwd = getpwuid(getuid()), let shellPointer = passwd.pointee.pw_shell else {
       return nil
     }
@@ -737,7 +797,7 @@ struct SelectionBarTerminalCommandService {
     "'\(value.replacingOccurrences(of: "'", with: "'\"'\"'"))'"
   }
 
-  private static let defaultPATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  nonisolated private static let defaultPATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
   private static let terminalAppleScript = """
     on run argv

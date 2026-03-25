@@ -18,7 +18,7 @@ struct SelectionBarCoordinatorTests {
       actionHandler: SelectionBarActionHandler(),
       windowControllerFactory: { _ in windowPresenter },
       runCommandVisibilityResolver: { _ in
-        Thread.sleep(forTimeInterval: 0.2)
+        try? await Task.sleep(for: .milliseconds(200))
         return false
       }
     )
@@ -56,7 +56,7 @@ struct SelectionBarCoordinatorTests {
     #expect(windowPresenter.showNearCalls == 1)
     #expect(windowPresenter.updateCalls == 0)
 
-    try await Task.sleep(for: .milliseconds(30))
+    try await Task.sleep(for: .milliseconds(120))
 
     #expect(windowPresenter.updateCalls == 1)
     #expect(windowPresenter.showAtOriginCalls == 1)
@@ -88,7 +88,7 @@ struct SelectionBarCoordinatorTests {
       at: NSPoint(x: 110, y: 150)
     )
 
-    try await Task.sleep(for: .milliseconds(30))
+    try await Task.sleep(for: .milliseconds(200))
 
     #expect(windowPresenter.showNearCalls == 2)
     #expect(windowPresenter.dismissCalls == 1)

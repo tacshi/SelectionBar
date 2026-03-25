@@ -12,7 +12,7 @@ public final class SelectionBarCoordinator {
   private let monitor: SelectionMonitor
   private let actionHandler: SelectionBarActionHandler
   private let windowControllerFactory: (AnyView) -> any SelectionBarWindowPresenting
-  private let runCommandVisibilityResolver: (String) -> Bool
+  private let runCommandVisibilityResolver: (String) async -> Bool
   private var windowController: (any SelectionBarWindowPresenting)?
   private var actionTask: Task<Void, Never>?
   private var autoDismissTask: Task<Void, Never>?
@@ -52,7 +52,7 @@ public final class SelectionBarCoordinator {
     monitor: SelectionMonitor,
     actionHandler: SelectionBarActionHandler,
     windowControllerFactory: @escaping (AnyView) -> any SelectionBarWindowPresenting,
-    runCommandVisibilityResolver: ((String) -> Bool)? = nil
+    runCommandVisibilityResolver: ((String) async -> Bool)? = nil
   ) {
     self.settingsStore = settingsStore
     self.monitor = monitor
@@ -61,7 +61,7 @@ public final class SelectionBarCoordinator {
     self.runCommandVisibilityResolver =
       runCommandVisibilityResolver
       ?? { text in
-        actionHandler.canRunCommand(text: text, settings: settingsStore)
+        await actionHandler.canRunCommand(text: text, settings: settingsStore)
       }
     self.chatSessionStore = ChatSessionStore()
 
@@ -863,9 +863,11 @@ public final class SelectionBarCoordinator {
       guard let self else { return }
       guard !Task.isCancelled else { return }
 
-      let canRunCommand = self.runCommandVisibilityResolver(text)
+      let resolver = self.runCommandVisibilityResolver
+      let textSnapshot = text
+      let canRunCommand = await resolver(textSnapshot)
       guard !Task.isCancelled else { return }
-      guard self.selectedText == text else { return }
+      guard self.selectedText == textSnapshot else { return }
 
       if self.showRunCommand != canRunCommand {
         self.showRunCommand = canRunCommand

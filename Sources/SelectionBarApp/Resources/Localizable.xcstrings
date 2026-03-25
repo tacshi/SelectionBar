@@ -593,6 +593,70 @@
         }
       }
     },
+    "Run Command": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コマンドを実行"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行命令"
+          }
+        }
+      }
+    },
+    "Terminal": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ターミナル"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "终端"
+          }
+        }
+      }
+    },
+    "No supported terminal apps detected": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対応しているターミナルアプリが見つかりません"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未检测到受支持的终端应用"
+          }
+        }
+      }
+    },
+    "Runs the selected command in the chosen terminal when the executable exists.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "実行ファイルが存在する場合、選択したコマンドを指定したターミナルで実行します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当可执行文件存在时，在所选终端中运行选中的命令。"
+          }
+        }
+      }
+    },
     "Enable Look Up": {
       "localizations": {
         "ja": {
