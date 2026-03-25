@@ -91,7 +91,7 @@ struct SelectionBarView: View {
       if showLookup {
         actionButton(
           title: String(localized: "Look Up", bundle: .localizedModule),
-          systemImage: "book.closed", action: onLookupSelected
+          systemImage: "character.book.closed", action: onLookupSelected
         )
       }
 

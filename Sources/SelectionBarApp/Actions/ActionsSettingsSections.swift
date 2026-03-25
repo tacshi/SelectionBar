@@ -190,7 +190,7 @@ private struct ActionsBuiltInSettingsContent: View {
           }
         }
       } header: {
-        Label("Word Lookup", systemImage: "book.closed")
+        Label("Word Lookup", systemImage: "character.book.closed")
       }
 
       Section {
