@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 import os.log
 
 private let logger = Logger(subsystem: "com.selectionbar", category: "SelectionBarCoordinator")
@@ -8,11 +9,14 @@ private let logger = Logger(subsystem: "com.selectionbar", category: "SelectionB
 @MainActor
 public final class SelectionBarCoordinator {
   private let settingsStore: SelectionBarSettingsStore
-  private let monitor = SelectionMonitor()
-  private let actionHandler = SelectionBarActionHandler()
-  private var windowController: SelectionBarWindowController?
+  private let monitor: SelectionMonitor
+  private let actionHandler: SelectionBarActionHandler
+  private let windowControllerFactory: (AnyView) -> any SelectionBarWindowPresenting
+  private let runCommandVisibilityResolver: (String) async -> Bool
+  private var windowController: (any SelectionBarWindowPresenting)?
   private var actionTask: Task<Void, Never>?
   private var autoDismissTask: Task<Void, Never>?
+  private var runCommandVisibilityTask: Task<Void, Never>?
 
   private var chatWindowController: ChatWindowController?
   private var chatSession: ChatSession?
@@ -28,10 +32,37 @@ public final class SelectionBarCoordinator {
   private var errorActionId: UUID?
   private var isTranslating = false
   private var isTranslateError = false
+  private var showRunCommand = false
+  private var isRunningCommand = false
+  private var isRunCommandError = false
   private var isSpeaking = false
 
-  public init(settingsStore: SelectionBarSettingsStore) {
+  public convenience init(settingsStore: SelectionBarSettingsStore) {
+    self.init(
+      settingsStore: settingsStore,
+      monitor: SelectionMonitor(),
+      actionHandler: SelectionBarActionHandler(),
+      windowControllerFactory: { SelectionBarWindowController(contentView: $0) },
+      runCommandVisibilityResolver: nil
+    )
+  }
+
+  init(
+    settingsStore: SelectionBarSettingsStore,
+    monitor: SelectionMonitor,
+    actionHandler: SelectionBarActionHandler,
+    windowControllerFactory: @escaping (AnyView) -> any SelectionBarWindowPresenting,
+    runCommandVisibilityResolver: ((String) async -> Bool)? = nil
+  ) {
     self.settingsStore = settingsStore
+    self.monitor = monitor
+    self.actionHandler = actionHandler
+    self.windowControllerFactory = windowControllerFactory
+    self.runCommandVisibilityResolver =
+      runCommandVisibilityResolver
+      ?? { text in
+        await actionHandler.canRunCommand(text: text, settings: settingsStore)
+      }
     self.chatSessionStore = ChatSessionStore()
 
     monitor.onTextSelected = { [weak self] text, location in
@@ -102,15 +133,19 @@ public final class SelectionBarCoordinator {
     errorActionId = nil
     isTranslating = false
     isTranslateError = false
+    showRunCommand = false
+    isRunningCommand = false
+    isRunCommandError = false
     isSpeaking = false
     actionHandler.stopSpeaking()
 
     showBar(near: location)
+    refreshRunCommandVisibility(for: text)
     startAutoDismissTimer()
   }
 
   private func showBar(near location: NSPoint) {
-    let controller = SelectionBarWindowController(contentView: makeBarView())
+    let controller = windowControllerFactory(AnyView(makeBarView()))
     controller.showNear(point: location)
     windowController = controller
   }
@@ -150,7 +185,7 @@ public final class SelectionBarCoordinator {
       && !settingsStore.availableChatProviders().isEmpty
     let showCut = monitor.isFocusedElementEditable()
     let enabledActions = settingsStore.orderedEnabledSelectionBarActions
-    let isBusy = processingActionId != nil || isTranslating
+    let isBusy = processingActionId != nil || isTranslating || isRunningCommand
 
     return SelectionBarView(
       actions: enabledActions,
@@ -159,6 +194,9 @@ public final class SelectionBarCoordinator {
       showCut: showCut,
       showSearch: showSearch,
       showOpenURL: showOpenURL,
+      showRunCommand: showRunCommand,
+      isRunningCommand: isRunningCommand,
+      isRunCommandError: isRunCommandError,
       showLookup: showLookup,
       showTranslate: showTranslate,
       isTranslating: isTranslating,
@@ -172,6 +210,9 @@ public final class SelectionBarCoordinator {
       },
       onOpenURLSelected: { [weak self] in
         self?.handleOpenURLSelected()
+      },
+      onRunCommandSelected: { [weak self] in
+        self?.handleRunCommandSelected()
       },
       onCopySelected: { [weak self] in
         self?.handleCopySelected()
@@ -199,11 +240,10 @@ public final class SelectionBarCoordinator {
 
   private func rebuildBarIfVisible() {
     guard let controller = windowController,
-      let window = controller.window,
-      window.isVisible
+      controller.isVisible
     else { return }
-    let origin = window.frame.origin
-    controller.update(contentView: makeBarView())
+    let origin = controller.currentOrigin ?? .zero
+    controller.update(anyContentView: AnyView(makeBarView()))
     controller.show(atOrigin: origin)
   }
 
@@ -222,6 +262,10 @@ public final class SelectionBarCoordinator {
     errorActionId = nil
     isTranslating = true
     isTranslateError = false
+    runCommandVisibilityTask?.cancel()
+    runCommandVisibilityTask = nil
+    isRunningCommand = false
+    isRunCommandError = false
     rebuildBarIfVisible()
 
     actionTask = Task { [weak self] in
@@ -319,6 +363,10 @@ public final class SelectionBarCoordinator {
     errorActionId = nil
     isTranslating = false
     isTranslateError = false
+    runCommandVisibilityTask?.cancel()
+    runCommandVisibilityTask = nil
+    isRunningCommand = false
+    isRunCommandError = false
     rebuildBarIfVisible()
 
     actionTask = Task { [weak self] in
@@ -386,6 +434,8 @@ public final class SelectionBarCoordinator {
 
     autoDismissTask?.cancel()
     autoDismissTask = nil
+    runCommandVisibilityTask?.cancel()
+    runCommandVisibilityTask = nil
 
     windowController?.dismiss()
     windowController = nil
@@ -591,6 +641,37 @@ public final class SelectionBarCoordinator {
     }
   }
 
+  private func handleRunCommandSelected() {
+    guard let selectedText else { return }
+
+    autoDismissTask?.cancel()
+    actionTask?.cancel()
+
+    processingActionId = nil
+    errorActionId = nil
+    isTranslating = false
+    isTranslateError = false
+    runCommandVisibilityTask?.cancel()
+    runCommandVisibilityTask = nil
+    isRunningCommand = true
+    isRunCommandError = false
+    rebuildBarIfVisible()
+
+    actionTask = Task { [weak self] in
+      guard let self else { return }
+
+      do {
+        try await self.actionHandler.runCommand(text: selectedText, settings: self.settingsStore)
+        guard !Task.isCancelled else { return }
+        self.dismiss()
+      } catch {
+        guard !Task.isCancelled else { return }
+        logger.error("Run command action failed: \(error.localizedDescription, privacy: .public)")
+        self.showRunCommandError()
+      }
+    }
+  }
+
   private func handleSearchSelected() {
     guard let selectedText else { return }
     let didOpen = actionHandler.searchWeb(text: selectedText, settings: settingsStore)
@@ -632,6 +713,8 @@ public final class SelectionBarCoordinator {
     errorActionId = nil
     isTranslating = false
     isTranslateError = true
+    isRunningCommand = false
+    isRunCommandError = false
     actionTask = nil
     rebuildBarIfVisible()
 
@@ -648,6 +731,26 @@ public final class SelectionBarCoordinator {
     errorActionId = actionId
     isTranslating = false
     isTranslateError = false
+    isRunningCommand = false
+    isRunCommandError = false
+    actionTask = nil
+    rebuildBarIfVisible()
+
+    autoDismissTask?.cancel()
+    autoDismissTask = Task { [weak self] in
+      try? await Task.sleep(for: .seconds(2))
+      guard !Task.isCancelled else { return }
+      self?.dismiss()
+    }
+  }
+
+  private func showRunCommandError() {
+    processingActionId = nil
+    errorActionId = nil
+    isTranslating = false
+    isTranslateError = false
+    isRunningCommand = false
+    isRunCommandError = true
     actionTask = nil
     rebuildBarIfVisible()
 
@@ -666,6 +769,10 @@ public final class SelectionBarCoordinator {
     errorActionId = nil
     isTranslating = false
     isTranslateError = false
+    runCommandVisibilityTask?.cancel()
+    runCommandVisibilityTask = nil
+    isRunningCommand = false
+    isRunCommandError = false
     actionTask = nil
 
     let origin = windowController?.currentOrigin
@@ -684,7 +791,7 @@ public final class SelectionBarCoordinator {
     )
 
     if let controller = windowController {
-      controller.update(contentView: view)
+      controller.update(anyContentView: AnyView(view))
       if let origin {
         controller.show(atOrigin: origin)
       } else {
@@ -693,7 +800,7 @@ public final class SelectionBarCoordinator {
       return
     }
 
-    let controller = SelectionBarWindowController(contentView: view)
+    let controller = windowControllerFactory(AnyView(view))
     if let origin {
       controller.show(atOrigin: origin)
     } else {
@@ -732,6 +839,8 @@ public final class SelectionBarCoordinator {
     actionTask = nil
     autoDismissTask?.cancel()
     autoDismissTask = nil
+    runCommandVisibilityTask?.cancel()
+    runCommandVisibilityTask = nil
     actionHandler.stopSpeaking()
     windowController?.dismiss()
     windowController = nil
@@ -741,6 +850,35 @@ public final class SelectionBarCoordinator {
     errorActionId = nil
     isTranslating = false
     isTranslateError = false
+    showRunCommand = false
+    isRunningCommand = false
+    isRunCommandError = false
     isSpeaking = false
+  }
+
+  private func refreshRunCommandVisibility(for text: String) {
+    runCommandVisibilityTask?.cancel()
+    runCommandVisibilityTask = Task { @MainActor [weak self] in
+      await Task.yield()
+      guard let self else { return }
+      guard !Task.isCancelled else { return }
+
+      let resolver = self.runCommandVisibilityResolver
+      let textSnapshot = text
+      let canRunCommand = await resolver(textSnapshot)
+      guard !Task.isCancelled else { return }
+      guard self.selectedText == textSnapshot else { return }
+
+      if self.showRunCommand != canRunCommand {
+        self.showRunCommand = canRunCommand
+        self.rebuildBarIfVisible()
+      }
+
+      self.runCommandVisibilityTask = nil
+    }
+  }
+
+  func handleTextSelectedForTesting(text: String, at location: NSPoint) {
+    handleTextSelected(text: text, at: location)
   }
 }

@@ -9,6 +9,7 @@ public final class SelectionBarActionHandler {
   private let lookupService: SelectionBarLookupService
   private let clipboardService: SelectionBarClipboardService
   private let speakService: SelectionBarSpeakService
+  private let terminalCommandService: SelectionBarTerminalCommandService
   private var synthesisTask: Task<Void, Never>?
 
   public convenience init() {
@@ -17,7 +18,8 @@ public final class SelectionBarActionHandler {
       elevenLabsClient: SelectionBarElevenLabsClient(),
       lookupService: SelectionBarLookupService(),
       clipboardService: SelectionBarClipboardService(),
-      speakService: SelectionBarSpeakService()
+      speakService: SelectionBarSpeakService(),
+      terminalCommandService: SelectionBarTerminalCommandService()
     )
   }
 
@@ -26,13 +28,16 @@ public final class SelectionBarActionHandler {
     elevenLabsClient: SelectionBarElevenLabsClient = SelectionBarElevenLabsClient(),
     lookupService: SelectionBarLookupService,
     clipboardService: SelectionBarClipboardService,
-    speakService: SelectionBarSpeakService = SelectionBarSpeakService()
+    speakService: SelectionBarSpeakService = SelectionBarSpeakService(),
+    terminalCommandService: SelectionBarTerminalCommandService =
+      SelectionBarTerminalCommandService()
   ) {
     self.openAIClient = openAIClient
     self.elevenLabsClient = elevenLabsClient
     self.lookupService = lookupService
     self.clipboardService = clipboardService
     self.speakService = speakService
+    self.terminalCommandService = terminalCommandService
   }
 
   /// Translate selected text in a dedicated translation app.
@@ -214,10 +219,40 @@ public final class SelectionBarActionHandler {
     lookupService.openURL(text: text)
   }
 
+  public func canRunCommand(text: String, settings: SelectionBarSettingsStore) async -> Bool {
+    guard let terminalApp = resolvedTerminalApp(from: settings) else { return false }
+    return await terminalCommandService.canRunCommand(text: text, terminalApp: terminalApp)
+  }
+
+  public func runCommand(
+    text: String,
+    settings: SelectionBarSettingsStore
+  ) async throws {
+    let terminalApp = resolvedTerminalApp(from: settings) ?? settings.selectionBarTerminalApp
+
+    try await terminalCommandService.launchCommand(
+      text: text,
+      terminalApp: terminalApp
+    )
+  }
+
   /// Replace the currently selected text in the frontmost app with the given text.
   /// Uses clipboard + Cmd+V, then restores the original clipboard contents.
   public func replaceSelectedText(with text: String) async {
     await clipboardService.replaceSelectedText(with: text)
+  }
+
+  private func resolvedTerminalApp(
+    from settings: SelectionBarSettingsStore
+  ) -> SelectionBarTerminalApp? {
+    let availableTerminalApps = settings.availableSelectionBarTerminalApps()
+    if availableTerminalApps.contains(settings.selectionBarTerminalApp) {
+      return settings.selectionBarTerminalApp
+    }
+    if availableTerminalApps.contains(.terminal) {
+      return .terminal
+    }
+    return availableTerminalApps.first
   }
 
   /// Copies text to the clipboard.

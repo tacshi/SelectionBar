@@ -406,4 +406,87 @@ struct SelectionBarSettingsStoreTests {
     )
   }
 
+  @Test("terminal app selection persists across reload")
+  func terminalAppSelectionPersistsAcrossReload() {
+    let originalResolver = SelectionBarSettingsStore.availableTerminalAppsResolver
+    SelectionBarSettingsStore.availableTerminalAppsResolver = {
+      [.terminal, .ghostty, .warp]
+    }
+    defer {
+      SelectionBarSettingsStore.availableTerminalAppsResolver = originalResolver
+    }
+
+    let suite = "SelectionBarCoreTests.Terminals.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    defer { defaults.removePersistentDomain(forName: suite) }
+
+    let keychain = InMemoryKeychain()
+    let store = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+
+    store.selectionBarTerminalApp = .ghostty
+
+    let reloaded = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+    #expect(reloaded.selectionBarTerminalApp == .ghostty)
+  }
+
+  @Test("terminal app falls back to terminal when stored choice disappears")
+  func terminalAppFallsBackWhenStoredChoiceDisappears() {
+    let originalResolver = SelectionBarSettingsStore.availableTerminalAppsResolver
+    SelectionBarSettingsStore.availableTerminalAppsResolver = {
+      [.terminal, .ghostty]
+    }
+    defer {
+      SelectionBarSettingsStore.availableTerminalAppsResolver = originalResolver
+    }
+
+    let suite = "SelectionBarCoreTests.TerminalFallback.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    defer { defaults.removePersistentDomain(forName: suite) }
+
+    let keychain = InMemoryKeychain()
+    let store = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+    store.selectionBarTerminalApp = .ghostty
+
+    SelectionBarSettingsStore.availableTerminalAppsResolver = {
+      [.terminal, .warp]
+    }
+
+    let reloaded = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+    #expect(reloaded.selectionBarTerminalApp == .terminal)
+  }
+
+  @Test("available terminal apps are ordered and filtered by resolver")
+  func availableTerminalAppsUseResolverOrder() {
+    let originalResolver = SelectionBarSettingsStore.availableTerminalAppsResolver
+    SelectionBarSettingsStore.availableTerminalAppsResolver = {
+      [.warp, .ghostty, .terminal]
+    }
+    defer {
+      SelectionBarSettingsStore.availableTerminalAppsResolver = originalResolver
+    }
+
+    let keychain = InMemoryKeychain()
+    let store = makeStore(keychain: keychain)
+
+    #expect(store.availableSelectionBarTerminalApps() == [.warp, .ghostty, .terminal])
+  }
+
 }

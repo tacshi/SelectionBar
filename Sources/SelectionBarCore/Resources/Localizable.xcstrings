@@ -65,6 +65,22 @@
         }
       }
     },
+    "Run Command": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コマンドを実行"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行命令"
+          }
+        }
+      }
+    },
     "Look Up": {
       "localizations": {
         "ja": {

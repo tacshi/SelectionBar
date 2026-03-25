@@ -24,6 +24,9 @@ public final class SelectionBarSettingsStore {
     IgnoredApp(id: "com.tencent.xinWeChat", name: "WeChat"),
     IgnoredApp(id: "ru.keepcoder.Telegram", name: "Telegram"),
   ]
+  static var availableTerminalAppsResolver: @MainActor () -> [SelectionBarTerminalApp] = {
+    SelectionBarTerminalCommandService().availableTerminalApps()
+  }
   static var appInstallationResolver: @MainActor (String) -> Bool = { bundleID in
     NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
   }
@@ -102,6 +105,13 @@ public final class SelectionBarSettingsStore {
 
   public var selectionBarSearchCustomScheme: String {
     didSet { persistIfNeeded() }
+  }
+
+  public var selectionBarTerminalApp: SelectionBarTerminalApp {
+    didSet {
+      ensureValidSelectionBarTerminalApp()
+      persistIfNeeded()
+    }
   }
 
   public var selectionBarSpeakEnabled: Bool {
@@ -285,6 +295,7 @@ public final class SelectionBarSettingsStore {
     selectionBarLookupCustomScheme = ""
     selectionBarSearchEngine = .google
     selectionBarSearchCustomScheme = ""
+    selectionBarTerminalApp = .terminal
     selectionBarSpeakEnabled = true
     selectionBarSpeakVoiceIdentifier = ""
     selectionBarSpeakProviderId = SelectionBarSpeakSystemProvider.apple.rawValue
@@ -320,6 +331,7 @@ public final class SelectionBarSettingsStore {
     refreshCredentialAvailability()
     ensureValidSelectionBarTranslationProvider()
     ensureValidSelectionBarTranslationTargetLanguage()
+    ensureValidSelectionBarTerminalApp()
     ensureValidSelectionBarSpeakProvider()
     ensureValidChatProvider()
     _ = reconcileActionsAvailabilityIfNeeded(checkProviderAvailability: false)
@@ -420,6 +432,25 @@ public final class SelectionBarSettingsStore {
       selectionBarTranslationProviderId = llmFallback
     } else if let fallback = available.first?.id {
       selectionBarTranslationProviderId = fallback
+    }
+  }
+
+  public func availableSelectionBarTerminalApps() -> [SelectionBarTerminalApp] {
+    Self.availableTerminalAppsResolver()
+  }
+
+  public func ensureValidSelectionBarTerminalApp() {
+    let available = availableSelectionBarTerminalApps()
+    guard !available.isEmpty else { return }
+
+    if available.contains(selectionBarTerminalApp) {
+      return
+    }
+
+    if available.contains(.terminal) {
+      selectionBarTerminalApp = .terminal
+    } else if let fallback = available.first {
+      selectionBarTerminalApp = fallback
     }
   }
 
@@ -751,6 +782,7 @@ public final class SelectionBarSettingsStore {
       selectionBarLookupCustomScheme: selectionBarLookupCustomScheme,
       selectionBarSearchEngine: selectionBarSearchEngine.rawValue,
       selectionBarSearchCustomScheme: selectionBarSearchCustomScheme,
+      selectionBarTerminalApp: selectionBarTerminalApp.rawValue,
       selectionBarSpeakEnabled: selectionBarSpeakEnabled,
       selectionBarSpeakVoiceIdentifier: selectionBarSpeakVoiceIdentifier,
       selectionBarSpeakProviderId: selectionBarSpeakProviderId,
@@ -805,6 +837,8 @@ public final class SelectionBarSettingsStore {
         SelectionBarSearchEngine(rawValue: settings.selectionBarSearchEngine ?? "")
         ?? .google
       selectionBarSearchCustomScheme = settings.selectionBarSearchCustomScheme ?? ""
+      selectionBarTerminalApp =
+        SelectionBarTerminalApp(rawValue: settings.selectionBarTerminalApp ?? "") ?? .terminal
       selectionBarSpeakEnabled = settings.selectionBarSpeakEnabled ?? true
       selectionBarSpeakVoiceIdentifier = settings.selectionBarSpeakVoiceIdentifier ?? ""
       selectionBarSpeakProviderId =
@@ -862,6 +896,7 @@ private struct StoredSettings: Codable {
   let selectionBarLookupCustomScheme: String?
   let selectionBarSearchEngine: String?
   let selectionBarSearchCustomScheme: String?
+  let selectionBarTerminalApp: String?
   let selectionBarSpeakEnabled: Bool?
   let selectionBarSpeakVoiceIdentifier: String?
   let selectionBarSpeakProviderId: String?

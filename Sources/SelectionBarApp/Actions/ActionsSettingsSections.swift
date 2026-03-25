@@ -152,6 +152,25 @@ private struct ActionsBuiltInSettingsContent: View {
       }
 
       Section {
+        let terminalApps = settings.availableSelectionBarTerminalApps()
+
+        if terminalApps.isEmpty {
+          Text("No supported terminal apps detected")
+            .foregroundStyle(.secondary)
+        } else {
+          Picker("Terminal", selection: $settings.selectionBarTerminalApp) {
+            ForEach(terminalApps, id: \.self) { terminalApp in
+              Text(terminalApp.displayName).tag(terminalApp)
+            }
+          }
+        }
+      } header: {
+        Label("Run Command", systemImage: "play.circle")
+      } footer: {
+        Text("Runs the selected command in the chosen terminal when the executable exists.")
+      }
+
+      Section {
         Toggle("Enable Look Up", isOn: $settings.selectionBarLookupEnabled)
 
         if settings.selectionBarLookupEnabled {
@@ -171,7 +190,7 @@ private struct ActionsBuiltInSettingsContent: View {
           }
         }
       } header: {
-        Label("Word Lookup", systemImage: "book.closed")
+        Label("Word Lookup", systemImage: "character.book.closed")
       }
 
       Section {
@@ -319,6 +338,7 @@ private struct ActionsBuiltInSettingsContent: View {
     .padding()
     .onAppear {
       settings.ensureValidSelectionBarTranslationProvider()
+      settings.ensureValidSelectionBarTerminalApp()
       settings.ensureValidSelectionBarSpeakProvider()
       settings.reconcileActionsAvailabilityIfNeeded()
     }
