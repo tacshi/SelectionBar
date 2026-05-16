@@ -200,207 +200,213 @@ struct ActionsCustomActionEditorView: View {
 
       Divider()
 
-      List {
-        Section {
-          TextField("Action Name", text: $name)
-            .textFieldStyle(.roundedBorder)
-        }
-
-        Section("Icon") {
-          HStack(spacing: 8) {
-            ActionIconGlyph(
-              icon: CustomActionIcon(value: selectedSFSymbol),
-              tint: .primary,
-              size: 16
-            )
-            .frame(width: 20)
-
-            TextField("SF Symbol Name", text: .constant(selectedSFSymbol))
+      ScrollView {
+        VStack(alignment: .leading, spacing: 22) {
+          ActionEditorSection {
+            TextField("Action Name", text: $name)
               .textFieldStyle(.roundedBorder)
-              .disabled(true)
-
-            Button("Pick SF Symbol") {
-              showingSFSymbolPicker = true
-            }
           }
-          .listRowSeparator(.hidden, edges: .bottom)
-        }
 
-        if mode == .custom {
-          Section("Execution") {
-            Picker("Kind", selection: $actionKind) {
-              ForEach(availableKinds, id: \.self) { kind in
-                Text(kind.displayName).tag(kind)
-              }
-            }
+          ActionEditorSection("Icon") {
+            HStack(spacing: 8) {
+              ActionIconGlyph(
+                icon: CustomActionIcon(value: selectedSFSymbol),
+                tint: .primary,
+                size: 16
+              )
+              .frame(width: 20)
 
-            Picker("Output", selection: $outputMode) {
-              ForEach(CustomActionOutputMode.allCases, id: \.self) { mode in
-                Text(mode.displayName).tag(mode)
+              TextField("SF Symbol Name", text: .constant(selectedSFSymbol))
+                .textFieldStyle(.roundedBorder)
+                .disabled(true)
+
+              Button("Pick SF Symbol") {
+                showingSFSymbolPicker = true
               }
             }
           }
-        }
 
-        if mode == .custom && actionKind == .llm {
-          Section("Model") {
-            Picker("Provider", selection: $modelProvider) {
-              Text("Select").tag(Optional<String>.none)
-              ForEach(providerOptions) { option in
-                Text(option.name).tag(Optional(option.id))
-              }
-            }
-            .disabled(providerOptions.isEmpty)
-            .onChange(of: modelProvider) { _, _ in
-              modelId = nil
-              refreshAvailableModels()
-            }
-
-            if providerOptions.isEmpty {
-              Text("No configured providers. Configure a provider in the Providers tab.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-
-            Picker("Model", selection: $modelId) {
-              Text("Select").tag(Optional<String>.none)
-              ForEach(availableModels, id: \.self) { model in
-                Text(model).tag(Optional(model))
-              }
-            }
-            .disabled(modelProvider == nil || availableModels.isEmpty)
-          }
-
-          Section("Context") {
-            Toggle("Include Source Context", isOn: $includesSourceContext)
-
-            Text(
-              "When enabled, this action reads a bounded excerpt around the selection from the current file, PDF, or web page."
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
-          }
-
-          Section {
-            TextEditor(text: $prompt)
-              .font(.system(.body, design: .monospaced))
-              .frame(height: 180)
-          } header: {
-            Text("Prompt Template")
-          } footer: {
-            Text(
-              "Use {{TEXT}} for the selected text. Source context actions can also use {{CONTEXT}}, {{SOURCE_URL}}, {{APP_NAME}}, and {{BUNDLE_ID}}."
-            )
-              .font(.caption)
-          }
-        } else if mode == .custom && actionKind == .javascript {
-          Section {
-            TextEditor(text: $script)
-              .font(.system(.body, design: .monospaced))
-              .frame(height: 300)
-          } header: {
-            Text("JavaScript")
-          } footer: {
-            Text("Define a synchronous function transform(input) that returns a string.")
-              .font(.caption)
-          }
-
-          Section {
-            TextEditor(text: $prompt)
-              .font(.system(.body, design: .monospaced))
-              .frame(height: 120)
-          } header: {
-            Text("LLM Prompt (Optional, unused for JavaScript)")
-          } footer: {
-            Text("This is kept so switching back to LLM preserves your previous prompt.")
-              .font(.caption)
-          }
-        } else {
-          Section("Shortcut") {
-            ShortcutRecorderField(keyBinding: $keyBinding)
-
-            if let parsedKeyBinding {
-              let format = String(localized: "Will send: %@")
-              Text(String(format: format, parsedKeyBinding.displayString))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            } else {
-              let hasInput = !keyBinding.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-              Text("Use format like cmd+b, cmd+shift+k, or ctrl+opt+return.")
-                .font(.caption)
-                .foregroundStyle(hasInput ? .red : .secondary)
-            }
-
-            Text("App Overrides")
-              .font(.headline)
-              .padding(.top, 6)
-
-            if keyBindingOverrides.isEmpty {
-              Text("No app overrides configured")
-                .foregroundStyle(.secondary)
-            } else {
-              ForEach($keyBindingOverrides) { $override in
-                VStack(alignment: .leading, spacing: 6) {
-                  HStack(spacing: 10) {
-                    KeyBindingOverrideAppIcon(bundleID: override.bundleID, size: 20)
-                      .frame(width: 20, height: 20)
-
-                    VStack(alignment: .leading, spacing: 1) {
-                      let displayName = override.appName.trimmingCharacters(
-                        in: .whitespacesAndNewlines)
-                      Text(displayName.isEmpty ? override.bundleID : displayName)
-                        .font(.callout)
-                      Text(override.bundleID)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    ShortcutRecorderField(
-                      keyBinding: $override.keyBinding,
-                      width: 190
-                    )
-
-                    Button(role: .destructive) {
-                      keyBindingOverrides.removeAll { $0.bundleID == override.bundleID }
-                    } label: {
-                      Image(systemName: "trash")
-                    }
-                    .buttonStyle(.borderless)
-                    .help(String(localized: "Remove"))
-                  }
-
-                  if let parsed = SelectionBarKeyboardShortcutParser.parse(override.keyBinding) {
-                    let format = String(localized: "Will send: %@")
-                    Text(String(format: format, parsed.displayString))
-                      .font(.caption)
-                      .foregroundStyle(.secondary)
-                  } else {
-                    let hasInput =
-                      !override.keyBinding.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    Text("Use format like cmd+b, cmd+shift+k, or ctrl+opt+return.")
-                      .font(.caption)
-                      .foregroundStyle(hasInput ? .red : .secondary)
+          if mode == .custom {
+            ActionEditorSection("Execution") {
+              ActionEditorRow("Kind") {
+                Picker("", selection: $actionKind) {
+                  ForEach(availableKinds, id: \.self) { kind in
+                    Text(kind.displayName).tag(kind)
                   }
                 }
-                .padding(.vertical, 2)
+                .labelsHidden()
+                .frame(width: 180)
+              }
+
+              ActionEditorRow("Output") {
+                Picker("", selection: $outputMode) {
+                  ForEach(CustomActionOutputMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                  }
+                }
+                .labelsHidden()
+                .frame(width: 180)
+              }
+            }
+          }
+
+          if mode == .custom && actionKind == .llm {
+            ActionEditorSection("Model") {
+              ActionEditorRow("Provider") {
+                Picker("", selection: $modelProvider) {
+                  Text("Select").tag(Optional<String>.none)
+                  ForEach(providerOptions) { option in
+                    Text(option.name).tag(Optional(option.id))
+                  }
+                }
+                .labelsHidden()
+                .frame(width: 180)
+                .disabled(providerOptions.isEmpty)
+                .onChange(of: modelProvider) { _, _ in
+                  modelId = nil
+                  refreshAvailableModels()
+                }
+              }
+
+              if providerOptions.isEmpty {
+                Text("No configured providers. Configure a provider in the Providers tab.")
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+              }
+
+              ActionEditorRow("Model") {
+                Picker("", selection: $modelId) {
+                  Text("Select").tag(Optional<String>.none)
+                  ForEach(availableModels, id: \.self) { model in
+                    Text(model).tag(Optional(model))
+                  }
+                }
+                .labelsHidden()
+                .frame(width: 180)
+                .disabled(modelProvider == nil || availableModels.isEmpty)
               }
             }
 
-            Button {
-              showingOverrideAppPicker = true
-            } label: {
-              Label("Add App Override", systemImage: "plus.circle")
-            }
+            ActionEditorSection("Context") {
+              Toggle("Include Source Context", isOn: $includesSourceContext)
 
-            Text("Use per-app shortcuts when apps require different bindings.")
+              Text(
+                "When enabled, this action reads a bounded excerpt around the selection from the current file, PDF, or web page."
+              )
               .font(.caption)
               .foregroundStyle(.secondary)
+            }
+
+            ActionEditorSection("Prompt Template") {
+              TextEditor(text: $prompt)
+                .font(.system(.body, design: .monospaced))
+                .frame(height: 180)
+                .actionEditorTextBox()
+
+              Text(
+                "Use {{TEXT}} for the selected text. Source context actions can also use {{CONTEXT}}, {{SOURCE_URL}}, {{APP_NAME}}, and {{BUNDLE_ID}}."
+              )
+              .font(.caption)
+            }
+          } else if mode == .custom && actionKind == .javascript {
+            ActionEditorSection("JavaScript") {
+              TextEditor(text: $script)
+                .font(.system(.body, design: .monospaced))
+                .frame(height: 300)
+                .actionEditorTextBox()
+
+              Text("Define a synchronous function transform(input) that returns a string.")
+                .font(.caption)
+            }
+          } else {
+            ActionEditorSection("Shortcut") {
+              ShortcutRecorderField(keyBinding: $keyBinding)
+
+              if let parsedKeyBinding {
+                let format = String(localized: "Will send: %@")
+                Text(String(format: format, parsedKeyBinding.displayString))
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+              } else {
+                let hasInput = !keyBinding.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                Text("Use format like cmd+b, cmd+shift+k, or ctrl+opt+return.")
+                  .font(.caption)
+                  .foregroundStyle(hasInput ? .red : .secondary)
+              }
+
+              Text("App Overrides")
+                .font(.headline)
+                .padding(.top, 6)
+
+              if keyBindingOverrides.isEmpty {
+                Text("No app overrides configured")
+                  .foregroundStyle(.secondary)
+              } else {
+                ForEach($keyBindingOverrides) { $override in
+                  VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 10) {
+                      KeyBindingOverrideAppIcon(bundleID: override.bundleID, size: 20)
+                        .frame(width: 20, height: 20)
+
+                      VStack(alignment: .leading, spacing: 1) {
+                        let displayName = override.appName.trimmingCharacters(
+                          in: .whitespacesAndNewlines)
+                        Text(displayName.isEmpty ? override.bundleID : displayName)
+                          .font(.callout)
+                        Text(override.bundleID)
+                          .font(.caption2)
+                          .foregroundStyle(.secondary)
+                      }
+
+                      Spacer()
+
+                      ShortcutRecorderField(
+                        keyBinding: $override.keyBinding,
+                        width: 190
+                      )
+
+                      Button(role: .destructive) {
+                        keyBindingOverrides.removeAll { $0.bundleID == override.bundleID }
+                      } label: {
+                        Image(systemName: "trash")
+                      }
+                      .buttonStyle(.borderless)
+                      .help(String(localized: "Remove"))
+                    }
+
+                    if let parsed = SelectionBarKeyboardShortcutParser.parse(override.keyBinding) {
+                      let format = String(localized: "Will send: %@")
+                      Text(String(format: format, parsed.displayString))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    } else {
+                      let hasInput =
+                        !override.keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
+                        .isEmpty
+                      Text("Use format like cmd+b, cmd+shift+k, or ctrl+opt+return.")
+                        .font(.caption)
+                        .foregroundStyle(hasInput ? .red : .secondary)
+                    }
+                  }
+                  .padding(.vertical, 2)
+                }
+              }
+
+              Button {
+                showingOverrideAppPicker = true
+              } label: {
+                Label("Add App Override", systemImage: "plus.circle")
+              }
+
+              Text("Use per-app shortcuts when apps require different bindings.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
           }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 18)
       }
-      .formStyle(.grouped)
     }
     .frame(width: 520, height: 560)
     .onAppear {
@@ -603,6 +609,66 @@ struct ActionsCustomActionEditorView: View {
     baseline.kind = kind
     baseline.templateId = nil
     return baseline.defaultIconSFSymbolName
+  }
+}
+
+private struct ActionEditorTextBoxStyle: ViewModifier {
+  func body(content: Content) -> some View {
+    content
+      .background(Color(nsColor: .textBackgroundColor), in: .rect(cornerRadius: 8))
+      .clipShape(.rect(cornerRadius: 8))
+      .overlay {
+        RoundedRectangle(cornerRadius: 8)
+          .stroke(Color(nsColor: .tertiaryLabelColor).opacity(0.75), lineWidth: 1.5)
+      }
+  }
+}
+
+extension View {
+  fileprivate func actionEditorTextBox() -> some View {
+    modifier(ActionEditorTextBoxStyle())
+  }
+}
+
+private struct ActionEditorSection<Content: View>: View {
+  let title: LocalizedStringKey?
+  let content: Content
+
+  init(_ title: LocalizedStringKey? = nil, @ViewBuilder content: () -> Content) {
+    self.title = title
+    self.content = content()
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if let title {
+        Text(title)
+          .font(.headline)
+          .foregroundStyle(.secondary)
+      }
+
+      content
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
+private struct ActionEditorRow<Content: View>: View {
+  let title: LocalizedStringKey
+  let content: Content
+
+  init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
+    self.title = title
+    self.content = content()
+  }
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Text(title)
+      Spacer(minLength: 16)
+      content
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 
