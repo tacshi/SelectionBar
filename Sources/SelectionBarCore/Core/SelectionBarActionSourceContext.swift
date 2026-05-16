@@ -272,7 +272,8 @@ enum SelectionBarActionSourceContextResolver {
   }
 
   private static func findSelectionLine(selectedText: String, lines: [String]) -> Int? {
-    let searchLine = selectedText.components(separatedBy: .newlines)
+    let searchLine =
+      selectedText.components(separatedBy: .newlines)
       .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
       .first { !$0.isEmpty } ?? ""
     guard !searchLine.isEmpty else { return nil }
