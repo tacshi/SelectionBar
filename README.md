@@ -53,9 +53,9 @@ Each action can output to a result window or edit text inline.
 
 ### Custom JavaScript Actions
 
-8 starter templates with offline, instant execution:
+7 starter templates with offline, instant execution:
 
-- Trim Whitespace, Title Case, URL Toolkit, JWT Decode, Format JSON, Convert Timestamps, Clean Up Escapes, Wrap as Quote
+- Title Case, URL Toolkit, JWT Decode, Format JSON, Convert Timestamps, Clean Up Escapes, Wrap as Quote
 
 ### Key Binding Actions
 

@@ -288,11 +288,13 @@ struct SelectionBarCoreTests {
     #expect(invalid == "{ not-json }")
   }
 
-  @Test("javascript starter templates replace line utilities with URL and JWT tools")
+  @Test("javascript starter templates omit removed trim utility and keep URL/JWT tools")
   func javaScriptStarterTemplateList() {
     let names = Set(CustomActionConfig.createJavaScriptStarterTemplates().map(\.name))
+    #expect(names.count == 7)
     #expect(names.contains("URL Toolkit"))
     #expect(names.contains("JWT Decode"))
+    #expect(!names.contains("Trim + Normalize Whitespace"))
     #expect(!names.contains("Bulletize Lines"))
     #expect(!names.contains("Remove Empty Lines"))
   }

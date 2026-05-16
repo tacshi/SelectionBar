@@ -753,22 +753,6 @@
         }
       }
     },
-    "Trim + Normalize Whitespace": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "空白を整理"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "整理空白"
-          }
-        }
-      }
-    },
     "Title Case": {
       "localizations": {
         "ja": {
