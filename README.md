@@ -88,7 +88,7 @@ Require a modifier key (Option, Command, Control, or Shift) to activate the tool
 ```bash
 git clone https://github.com/tacshi/SelectionBar.git
 cd SelectionBar
-./build-app.sh
+./scripts/build-debug.sh
 open SelectionBar.app
 ```
 

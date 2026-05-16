@@ -12,14 +12,11 @@ SelectionBar is a macOS menu bar app (Swift 6.0, macOS 14+) that provides a floa
 # SPM build (fast iteration)
 swift build
 
-# Full app bundle (release, signed, formatted)
-./build-app.sh
-
 # Debug app bundle
-./build-app.sh --debug
+./scripts/build-debug.sh
 
 # Skip formatting / signing
-./build-app.sh --no-format --no-sign
+./scripts/build-debug.sh --no-format --no-sign
 
 # Run all tests
 swift test
@@ -27,7 +24,7 @@ swift test
 # Run a single test by name
 swift test --filter SelectionBarCoreTests.testName
 
-# Format code (also run automatically by build-app.sh)
+# Format code (also run automatically by build-debug.sh)
 swift-format --recursive --in-place Sources Tests Package.swift
 ```
 
@@ -57,8 +54,8 @@ Three languages: English (en), Japanese (ja), Simplified Chinese (zh-Hans). Stri
 ## Release
 
 ```bash
-./release.sh 0.4.0              # Full release (build, sign, upload, tag)
-./release.sh 0.4.0 --dry-run    # Validate without side effects
+./scripts/build-release.sh 0.4.0              # Full release (build, sign, upload, tag)
+./scripts/build-release.sh 0.4.0 --dry-run    # Validate without side effects
 ```
 
 Releases go to GitHub (`tacshi/SelectionBar`) with Sparkle appcast generation. Artifacts land in `releases/`.
