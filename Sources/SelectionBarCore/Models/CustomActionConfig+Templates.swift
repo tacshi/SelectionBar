@@ -4,7 +4,6 @@ extension CustomActionConfig {
   public static func createAllBuiltInTemplates() -> [CustomActionConfig] {
     [
       createPolishTemplate(),
-      createCleanUpTemplate(),
       createActionItemsTemplate(),
       createSummaryTemplate(),
       createBulletPointsTemplate(),

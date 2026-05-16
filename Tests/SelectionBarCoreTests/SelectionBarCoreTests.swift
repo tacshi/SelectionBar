@@ -320,6 +320,18 @@ struct SelectionBarCoreTests {
     #expect(!names.contains("Remove Empty Lines"))
   }
 
+  @Test("LLM starter templates omit removed clean up action")
+  func llmStarterTemplateList() {
+    let names = Set(CustomActionConfig.createAllBuiltInTemplates().map(\.name))
+    #expect(names.count == 5)
+    #expect(names.contains("Polish"))
+    #expect(!names.contains("Clean Up"))
+    #expect(names.contains("Extract Actions"))
+    #expect(names.contains("Summarize"))
+    #expect(names.contains("Bulletize"))
+    #expect(names.contains("Draft Email"))
+  }
+
   @Test("javascript URL toolkit template parses URL components and query params")
   func javaScriptURLToolkitTemplate() async throws {
     let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
