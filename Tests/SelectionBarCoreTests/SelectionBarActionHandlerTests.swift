@@ -6,6 +6,117 @@ import Testing
 @Suite("SelectionBarActionHandler Tests")
 @MainActor
 struct SelectionBarActionHandlerTests {
+  @Test("LLM prompt renderer substitutes source context variables")
+  func llmPromptRendererSubstitutesSourceContextVariables() {
+    let sourceContext = SelectionBarActionSourceContext(
+      appName: "TextEdit",
+      bundleID: "com.apple.TextEdit",
+      sourceURL: "/tmp/note.txt",
+      sourceKind: .textFile,
+      excerpt: "Lines 1-2 of 2:\n1:alpha\n2:selected",
+      isAvailable: true
+    )
+
+    let prompt = SelectionBarActionHandler.renderPrompt(
+      template:
+        "Text={{TEXT}}\nContext={{CONTEXT}}\nSource={{SOURCE_URL}}\nApp={{APP_NAME}}\nBundle={{BUNDLE_ID}}",
+      text: "selected",
+      sourceContext: sourceContext,
+      includesSourceContext: true
+    )
+
+    #expect(prompt.contains("Text=selected"))
+    #expect(prompt.contains("Source Context:"))
+    #expect(prompt.contains("Lines 1-2 of 2"))
+    #expect(prompt.contains("Source=/tmp/note.txt"))
+    #expect(prompt.contains("App=TextEdit"))
+    #expect(prompt.contains("Bundle=com.apple.TextEdit"))
+    #expect(!prompt.contains("{{"))
+  }
+
+  @Test("LLM prompt renderer prepends source context when template omits context placeholder")
+  func llmPromptRendererPrependsSourceContextWithoutPlaceholder() {
+    let sourceContext = SelectionBarActionSourceContext(
+      appName: "Safari",
+      bundleID: "com.apple.Safari",
+      sourceURL: "https://example.com",
+      sourceKind: .webPage,
+      excerpt: "Page content around selected text",
+      isAvailable: true
+    )
+
+    let prompt = SelectionBarActionHandler.renderPrompt(
+      template: "Summarize {{TEXT}}",
+      text: "selected",
+      sourceContext: sourceContext,
+      includesSourceContext: true
+    )
+
+    #expect(prompt.hasPrefix("Source Context:"))
+    #expect(prompt.contains("Page content around selected text"))
+    #expect(prompt.hasSuffix("Summarize selected"))
+  }
+
+  @Test("LLM prompt renderer omits source context when action is not opted in")
+  func llmPromptRendererOmitsSourceContextWhenDisabled() {
+    let sourceContext = SelectionBarActionSourceContext(
+      appName: "TextEdit",
+      bundleID: "com.apple.TextEdit",
+      sourceURL: "/tmp/note.txt",
+      sourceKind: .textFile,
+      excerpt: "secret source content",
+      isAvailable: true
+    )
+
+    let prompt = SelectionBarActionHandler.renderPrompt(
+      template: "{{TEXT}}\n{{CONTEXT}}\n{{SOURCE_URL}}\n{{APP_NAME}}\n{{BUNDLE_ID}}",
+      text: "selected",
+      sourceContext: sourceContext,
+      includesSourceContext: false
+    )
+
+    #expect(prompt.contains("selected"))
+    #expect(!prompt.contains("secret source content"))
+    #expect(!prompt.contains("/tmp/note.txt"))
+    #expect(!prompt.contains("TextEdit"))
+    #expect(!prompt.contains("com.apple.TextEdit"))
+    #expect(!prompt.contains("{{"))
+  }
+
+  @Test("LLM prompt renderer uses unavailable note when source context is missing")
+  func llmPromptRendererUsesUnavailableSourceContextNote() {
+    let prompt = SelectionBarActionHandler.renderPrompt(
+      template: "Explain {{TEXT}} with context",
+      text: "selected",
+      sourceContext: nil,
+      includesSourceContext: true
+    )
+
+    #expect(prompt.hasPrefix("Source Context:"))
+    #expect(prompt.contains("Source context unavailable"))
+    #expect(prompt.contains("Explain selected with context"))
+  }
+
+  @Test("LLM prompt renderer preserves placeholder-like text inside values")
+  func llmPromptRendererPreservesPlaceholderLikeTextInsideValues() {
+    let sourceContext = SelectionBarActionSourceContext(
+      sourceURL: "/tmp/source.txt",
+      sourceKind: .textFile,
+      excerpt: "source excerpt",
+      isAvailable: true
+    )
+
+    let prompt = SelectionBarActionHandler.renderPrompt(
+      template: "Selected: {{TEXT}}",
+      text: "literal {{CONTEXT}} token",
+      sourceContext: sourceContext,
+      includesSourceContext: true
+    )
+
+    #expect(prompt.contains("source excerpt"))
+    #expect(prompt.contains("Selected: literal {{CONTEXT}} token"))
+  }
+
   @Test("LLM process strips markdown code fences from provider output")
   func llmProcessSanitizesCodeFenceOutput() async throws {
     let client = SelectionBarOpenAIClient(

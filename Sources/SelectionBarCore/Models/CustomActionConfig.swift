@@ -97,6 +97,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
   public var isBuiltIn: Bool
   public var templateId: String?
   public var icon: CustomActionIcon?
+  public var includesSourceContext: Bool
 
   /// Localized name for known built-in templates.
   public var localizedName: String {
@@ -138,7 +139,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     isEnabled: Bool = false,
     isBuiltIn: Bool = false,
     templateId: String? = nil,
-    icon: CustomActionIcon? = nil
+    icon: CustomActionIcon? = nil,
+    includesSourceContext: Bool = false
   ) {
     self.id = id
     self.name = name
@@ -154,6 +156,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     self.isBuiltIn = isBuiltIn
     self.templateId = templateId
     self.icon = icon
+    self.includesSourceContext = includesSourceContext
   }
 
   private enum CodingKeys: String, CodingKey {
@@ -171,6 +174,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     case isBuiltIn
     case templateId
     case icon
+    case includesSourceContext
   }
 
   public init(from decoder: Decoder) throws {
@@ -203,6 +207,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     isBuiltIn = try container.decodeIfPresent(Bool.self, forKey: .isBuiltIn) ?? false
     templateId = try container.decodeIfPresent(String.self, forKey: .templateId)
     icon = try container.decodeIfPresent(CustomActionIcon.self, forKey: .icon)
+    includesSourceContext =
+      try container.decodeIfPresent(Bool.self, forKey: .includesSourceContext) ?? false
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -221,6 +227,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     try container.encode(isBuiltIn, forKey: .isBuiltIn)
     try container.encode(templateId, forKey: .templateId)
     try container.encode(icon, forKey: .icon)
+    try container.encode(includesSourceContext, forKey: .includesSourceContext)
   }
 
   public var defaultIconSFSymbolName: String {

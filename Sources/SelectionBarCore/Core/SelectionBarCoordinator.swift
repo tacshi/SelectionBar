@@ -369,13 +369,28 @@ public final class SelectionBarCoordinator {
     isRunCommandError = false
     rebuildBarIfVisible()
 
+    let frontmostApp = NSWorkspace.shared.frontmostApplication
+    let frontmostAppName = frontmostApp?.localizedName
+    let frontmostBundleID = frontmostApp?.bundleIdentifier
+    let frontmostPID = frontmostApp?.processIdentifier
+
     actionTask = Task { [weak self] in
       guard let self else { return }
       do {
+        let sourceContext =
+          action.kind == .llm && action.includesSourceContext
+          ? await SelectionBarActionSourceContextResolver.resolve(
+            selectedText: selectedText,
+            appName: frontmostAppName,
+            bundleID: frontmostBundleID,
+            processID: frontmostPID
+          )
+          : nil
         let result = try await self.actionHandler.process(
           text: selectedText,
           action: action,
-          settings: self.settingsStore
+          settings: self.settingsStore,
+          sourceContext: sourceContext
         )
         guard !Task.isCancelled else { return }
         if action.kind == .javascript && action.outputMode == .inplace {

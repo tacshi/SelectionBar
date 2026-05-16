@@ -1281,6 +1281,54 @@
         }
       }
     },
+    "Context": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コンテキスト"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上下文"
+          }
+        }
+      }
+    },
+    "Include Source Context": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ソースコンテキストを含める"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "包含源上下文"
+          }
+        }
+      }
+    },
+    "When enabled, this action reads a bounded excerpt around the selection from the current file, PDF, or web page.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効にすると、このアクションは現在のファイル、PDF、またはWebページから選択範囲周辺の範囲限定の抜粋を読み取ります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启用后，此操作会从当前文件、PDF 或网页中读取选区周围的限定长度摘录。"
+          }
+        }
+      }
+    },
     "Prompt Template": {
       "localizations": {
         "ja": {
@@ -1297,18 +1345,18 @@
         }
       }
     },
-    "Use {{TEXT}} as placeholder for the selected text.": {
+    "Use {{TEXT}} for the selected text. Source context actions can also use {{CONTEXT}}, {{SOURCE_URL}}, {{APP_NAME}}, and {{BUNDLE_ID}}.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "{{TEXT}}を選択テキストのプレースホルダーとして使用。"
+            "value": "{{TEXT}}を選択テキストに使用します。ソースコンテキストアクションでは{{CONTEXT}}、{{SOURCE_URL}}、{{APP_NAME}}、{{BUNDLE_ID}}も使用できます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用{{TEXT}}作为选中文本的占位符。"
+            "value": "使用{{TEXT}}表示选中文本。源上下文操作还可以使用{{CONTEXT}}、{{SOURCE_URL}}、{{APP_NAME}}和{{BUNDLE_ID}}。"
           }
         }
       }

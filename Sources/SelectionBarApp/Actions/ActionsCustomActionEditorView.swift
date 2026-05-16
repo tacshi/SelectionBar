@@ -47,6 +47,7 @@ struct ActionsCustomActionEditorView: View {
   @State private var keyBindingOverrides: [CustomActionKeyBindingOverride] = []
   @State private var availableModels: [String] = []
   @State private var selectedSFSymbol = "sparkles"
+  @State private var includesSourceContext = false
   @State private var showingSFSymbolPicker = false
   @State private var showingOverrideAppPicker = false
   @State private var sfSymbolSearchText = ""
@@ -187,7 +188,8 @@ struct ActionsCustomActionEditorView: View {
             isEnabled: config.isEnabled,
             isBuiltIn: mode == .builtInKeyBinding,
             templateId: nil,
-            icon: iconForSave()
+            icon: iconForSave(),
+            includesSourceContext: resolvedKind == .llm && includesSourceContext
           )
           onSave(newConfig)
         }
@@ -269,6 +271,16 @@ struct ActionsCustomActionEditorView: View {
             .disabled(modelProvider == nil || availableModels.isEmpty)
           }
 
+          Section("Context") {
+            Toggle("Include Source Context", isOn: $includesSourceContext)
+
+            Text(
+              "When enabled, this action reads a bounded excerpt around the selection from the current file, PDF, or web page."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          }
+
           Section {
             TextEditor(text: $prompt)
               .font(.system(.body, design: .monospaced))
@@ -276,7 +288,9 @@ struct ActionsCustomActionEditorView: View {
           } header: {
             Text("Prompt Template")
           } footer: {
-            Text("Use {{TEXT}} as placeholder for the selected text.")
+            Text(
+              "Use {{TEXT}} for the selected text. Source context actions can also use {{CONTEXT}}, {{SOURCE_URL}}, {{APP_NAME}}, and {{BUNDLE_ID}}."
+            )
               .font(.caption)
           }
         } else if mode == .custom && actionKind == .javascript {
@@ -402,6 +416,7 @@ struct ActionsCustomActionEditorView: View {
         script = CustomActionConfig.defaultJavaScriptTemplate
         modelProvider = nil
         modelId = nil
+        includesSourceContext = false
       } else {
         prompt = config.prompt
         actionKind = availableKinds.contains(config.kind) ? config.kind : .javascript
@@ -412,6 +427,7 @@ struct ActionsCustomActionEditorView: View {
           : config.script
         modelProvider = config.modelProvider.isEmpty ? nil : config.modelProvider
         modelId = config.modelId.isEmpty ? nil : config.modelId
+        includesSourceContext = config.kind == .llm && config.includesSourceContext
       }
 
       selectedSFSymbol = config.defaultIconSFSymbolName
@@ -427,11 +443,13 @@ struct ActionsCustomActionEditorView: View {
         outputMode = .resultWindow
         refreshAvailableModels()
       case .javascript:
+        includesSourceContext = false
         if script.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
           script = CustomActionConfig.defaultJavaScriptTemplate
         }
       case .keyBinding:
         outputMode = .resultWindow
+        includesSourceContext = false
       }
     }
     .sheet(isPresented: $showingSFSymbolPicker) {

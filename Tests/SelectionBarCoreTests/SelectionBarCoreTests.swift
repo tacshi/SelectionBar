@@ -141,6 +141,7 @@ struct SelectionBarCoreTests {
     #expect(decoded.kind == .javascript)
     #expect(decoded.outputMode == .resultWindow)
     #expect(decoded.script == CustomActionConfig.defaultJavaScriptTemplate)
+    #expect(decoded.includesSourceContext == false)
   }
 
   @Test("javascript custom action roundtrips through Codable")
@@ -163,6 +164,26 @@ struct SelectionBarCoreTests {
     let encoded = try JSONEncoder().encode(original)
     let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
     #expect(decoded == original)
+  }
+
+  @Test("LLM custom action source context setting roundtrips through Codable")
+  func customActionIncludesSourceContextRoundTrip() throws {
+    let original = CustomActionConfig(
+      id: UUID(),
+      name: "Explain With Context",
+      prompt: "Explain {{TEXT}} using {{CONTEXT}}",
+      modelProvider: "openai",
+      modelId: "gpt-4o-mini",
+      kind: .llm,
+      isEnabled: true,
+      isBuiltIn: false,
+      includesSourceContext: true
+    )
+
+    let encoded = try JSONEncoder().encode(original)
+    let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
+    #expect(decoded == original)
+    #expect(decoded.includesSourceContext)
   }
 
   @Test("key-binding custom action roundtrips through Codable")

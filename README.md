@@ -49,7 +49,7 @@ Chat with AI about selected text in a floating panel with streaming responses an
 
 - Polish, Clean Up, Extract Actions, Summarize, Bulletize, Draft Email
 
-Each action can output to a result window or edit text inline.
+Each action can output to a result window or edit text inline. LLM actions can optionally include bounded source context from the current file, PDF, or web page using `{{CONTEXT}}`, `{{SOURCE_URL}}`, `{{APP_NAME}}`, and `{{BUNDLE_ID}}`.
 
 ### Custom JavaScript Actions
 
