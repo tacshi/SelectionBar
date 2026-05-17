@@ -6,6 +6,9 @@ public enum CustomActionEnablementIssue: Sendable, Equatable {
   case missingProvider
   case missingModel
   case providerUnavailable
+  case emptyPipeline
+  case missingPipelineStep
+  case invalidPipelineStep
 }
 
 @MainActor
@@ -615,18 +618,46 @@ public final class SelectionBarSettingsStore {
   }
 
   public func canEnableCustomAction(_ action: CustomActionConfig) -> Bool {
+    customActionEnablementIssue(action) == nil
+  }
+
+  public func customActionEnablementIssue(
+    _ action: CustomActionConfig
+  ) -> CustomActionEnablementIssue? {
+    customActionEnablementIssue(action, checkProviderAvailability: true)
+  }
+
+  private func customActionEnablementIssue(
+    _ action: CustomActionConfig,
+    checkProviderAvailability: Bool
+  ) -> CustomActionEnablementIssue? {
     switch action.kind {
     case .javascript:
-      return true
+      return nil
     case .llm:
-      return llmActionEnablementIssue(action) == nil
+      return llmActionEnablementIssue(
+        action,
+        checkProviderAvailability: checkProviderAvailability
+      )
     case .keyBinding:
-      return isValidKeyBindingAction(action)
+      return isValidKeyBindingAction(action) ? nil : .invalidPipelineStep
+    case .pipeline:
+      return pipelineActionEnablementIssue(
+        action,
+        checkProviderAvailability: checkProviderAvailability
+      )
     }
   }
 
   public func llmActionEnablementIssue(_ action: CustomActionConfig) -> CustomActionEnablementIssue?
   {
+    llmActionEnablementIssue(action, checkProviderAvailability: true)
+  }
+
+  private func llmActionEnablementIssue(
+    _ action: CustomActionConfig,
+    checkProviderAvailability: Bool
+  ) -> CustomActionEnablementIssue? {
     guard action.kind == .llm else { return nil }
 
     let provider = action.modelProvider.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -635,8 +666,63 @@ public final class SelectionBarSettingsStore {
     let model = action.modelId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !model.isEmpty else { return .missingModel }
 
-    guard isAvailableLLMProvider(providerID: provider) else { return .providerUnavailable }
+    guard !checkProviderAvailability || isAvailableLLMProvider(providerID: provider) else {
+      return .providerUnavailable
+    }
     return nil
+  }
+
+  public func pipelineActionEnablementIssue(
+    _ action: CustomActionConfig
+  ) -> CustomActionEnablementIssue? {
+    pipelineActionEnablementIssue(action, checkProviderAvailability: true)
+  }
+
+  private func pipelineActionEnablementIssue(
+    _ action: CustomActionConfig,
+    checkProviderAvailability: Bool
+  ) -> CustomActionEnablementIssue? {
+    guard action.kind == .pipeline else { return nil }
+    guard !action.pipelineSteps.isEmpty else { return .emptyPipeline }
+
+    for step in action.pipelineSteps {
+      guard let stepAction = customActions.first(where: { $0.id == step.actionID }) else {
+        return .missingPipelineStep
+      }
+      guard stepAction.id != action.id else { return .invalidPipelineStep }
+
+      switch stepAction.kind {
+      case .javascript:
+        continue
+      case .llm:
+        if llmActionEnablementIssue(
+          stepAction,
+          checkProviderAvailability: checkProviderAvailability
+        ) != nil {
+          return .invalidPipelineStep
+        }
+      case .keyBinding, .pipeline:
+        return .invalidPipelineStep
+      }
+    }
+
+    return nil
+  }
+
+  public func actionNeedsSourceContext(_ action: CustomActionConfig) -> Bool {
+    switch action.kind {
+    case .llm:
+      return action.includesSourceContext
+    case .pipeline:
+      return action.pipelineSteps.contains { step in
+        guard let stepAction = customActions.first(where: { $0.id == step.actionID }) else {
+          return false
+        }
+        return stepAction.kind == .llm && stepAction.includesSourceContext
+      }
+    case .javascript, .keyBinding:
+      return false
+    }
   }
 
   /// Reconcile all configurable actions:
@@ -669,14 +755,19 @@ public final class SelectionBarSettingsStore {
         }
         return updated
       case .llm:
-        if let issue = llmActionEnablementIssue(updated) {
-          // Always disable for structural issues (missing provider / model).
-          // Only disable for provider-unavailable when explicitly requested,
-          // because Keychain may be inaccessible after ad-hoc re-signing.
-          let isStructuralIssue = issue != .providerUnavailable
-          if isStructuralIssue || checkProviderAvailability {
-            updated.isEnabled = false
-          }
+        if llmActionEnablementIssue(
+          updated,
+          checkProviderAvailability: checkProviderAvailability
+        ) != nil {
+          updated.isEnabled = false
+        }
+        return updated
+      case .pipeline:
+        if customActionEnablementIssue(
+          updated,
+          checkProviderAvailability: checkProviderAvailability
+        ) != nil {
+          updated.isEnabled = false
         }
         return updated
       }

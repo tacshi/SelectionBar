@@ -378,7 +378,7 @@ public final class SelectionBarCoordinator {
       guard let self else { return }
       do {
         let sourceContext =
-          action.kind == .llm && action.includesSourceContext
+          self.settingsStore.actionNeedsSourceContext(action)
           ? await SelectionBarActionSourceContextResolver.resolve(
             selectedText: selectedText,
             appName: frontmostAppName,
@@ -393,7 +393,8 @@ public final class SelectionBarCoordinator {
           sourceContext: sourceContext
         )
         guard !Task.isCancelled else { return }
-        if action.kind == .javascript && action.outputMode == .inplace {
+        if (action.kind == .javascript || action.kind == .pipeline) && action.outputMode == .inplace
+        {
           if self.monitor.isFocusedElementEditable() {
             self.processingActionId = nil
             self.errorActionId = nil

@@ -45,6 +45,7 @@ struct ActionsCustomActionEditorView: View {
   @State private var script = CustomActionConfig.defaultJavaScriptTemplate
   @State private var keyBinding = ""
   @State private var keyBindingOverrides: [CustomActionKeyBindingOverride] = []
+  @State private var pipelineSteps: [CustomActionPipelineStep] = []
   @State private var availableModels: [String] = []
   @State private var selectedSFSymbol = "sparkles"
   @State private var includesSourceContext = false
@@ -67,9 +68,15 @@ struct ActionsCustomActionEditorView: View {
   private var availableKinds: [CustomActionKind] {
     switch mode {
     case .custom:
-      return [.javascript, .llm]
+      return [.javascript, .llm, .pipeline]
     case .builtInKeyBinding:
       return [.keyBinding]
+    }
+  }
+
+  private var pipelineStepOptions: [CustomActionConfig] {
+    settingsStore.customActions.filter { action in
+      action.id != config.id && (action.kind == .javascript || action.kind == .llm)
     }
   }
 
@@ -133,6 +140,11 @@ struct ActionsCustomActionEditorView: View {
         && modelId != nil
     case .javascript:
       return !script.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    case .pipeline:
+      return !pipelineSteps.isEmpty
+        && pipelineSteps.allSatisfy { step in
+          pipelineStepOptions.contains { $0.id == step.actionID }
+        }
     case .keyBinding:
       return false
     }
@@ -158,18 +170,23 @@ struct ActionsCustomActionEditorView: View {
         Button("Save") {
           let resolvedKind: CustomActionKind = mode == .builtInKeyBinding ? .keyBinding : actionKind
           let resolvedPrompt =
-            mode == .builtInKeyBinding ? CustomActionConfig.defaultPromptTemplate : prompt
-          let resolvedModelProvider = mode == .builtInKeyBinding ? "" : (modelProvider ?? "")
-          let resolvedModelId = mode == .builtInKeyBinding ? "" : (modelId ?? "")
+            mode == .builtInKeyBinding || resolvedKind == .pipeline
+            ? CustomActionConfig.defaultPromptTemplate : prompt
+          let resolvedModelProvider =
+            mode == .builtInKeyBinding || resolvedKind == .pipeline ? "" : (modelProvider ?? "")
+          let resolvedModelId =
+            mode == .builtInKeyBinding || resolvedKind == .pipeline ? "" : (modelId ?? "")
           let resolvedOutputMode =
             mode == .builtInKeyBinding ? .resultWindow : outputMode
           let resolvedScript =
-            mode == .builtInKeyBinding
+            mode == .builtInKeyBinding || resolvedKind == .pipeline
             ? CustomActionConfig.defaultJavaScriptTemplate
             : script
           let normalizedKeyBinding =
-            SelectionBarKeyboardShortcutParser.normalize(keyBinding)
-            ?? keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
+            resolvedKind == .keyBinding
+            ? SelectionBarKeyboardShortcutParser.normalize(keyBinding)
+              ?? keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
+            : ""
           let resolvedKeyBindingOverrides =
             mode == .builtInKeyBinding ? normalizedKeyBindingOverrides() : []
 
@@ -189,7 +206,8 @@ struct ActionsCustomActionEditorView: View {
             isBuiltIn: mode == .builtInKeyBinding,
             templateId: nil,
             icon: iconForSave(),
-            includesSourceContext: resolvedKind == .llm && includesSourceContext
+            includesSourceContext: resolvedKind == .llm && includesSourceContext,
+            pipelineSteps: resolvedKind == .pipeline ? pipelineSteps : []
           )
           onSave(newConfig)
         }
@@ -318,6 +336,34 @@ struct ActionsCustomActionEditorView: View {
               Text("Define a synchronous function transform(input) that returns a string.")
                 .font(.caption)
             }
+          } else if mode == .custom && actionKind == .pipeline {
+            ActionEditorSection("Pipeline") {
+              if pipelineStepOptions.isEmpty {
+                Text("Create a JavaScript or LLM action first.")
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+              } else if pipelineSteps.isEmpty {
+                Text("No steps configured")
+                  .foregroundStyle(.secondary)
+              } else {
+                ForEach(Array(pipelineSteps.enumerated()), id: \.element.id) { index, step in
+                  pipelineStepRow(step: step, index: index)
+                }
+              }
+
+              Menu {
+                ForEach(pipelineStepOptions) { option in
+                  Button {
+                    pipelineSteps.append(CustomActionPipelineStep(actionID: option.id))
+                  } label: {
+                    Label(option.localizedName, systemImage: option.effectiveIcon.resolvedValue)
+                  }
+                }
+              } label: {
+                Label("Add Step", systemImage: "plus.circle")
+              }
+              .disabled(pipelineStepOptions.isEmpty)
+            }
           } else {
             ActionEditorSection("Shortcut") {
               ShortcutRecorderField(keyBinding: $keyBinding)
@@ -414,6 +460,7 @@ struct ActionsCustomActionEditorView: View {
       name = config.name
       keyBinding = config.keyBinding
       keyBindingOverrides = config.keyBindingOverrides
+      pipelineSteps = config.pipelineSteps
 
       if mode == .builtInKeyBinding {
         prompt = CustomActionConfig.defaultPromptTemplate
@@ -423,6 +470,7 @@ struct ActionsCustomActionEditorView: View {
         modelProvider = nil
         modelId = nil
         includesSourceContext = false
+        pipelineSteps = []
       } else {
         prompt = config.prompt
         actionKind = availableKinds.contains(config.kind) ? config.kind : .javascript
@@ -434,6 +482,7 @@ struct ActionsCustomActionEditorView: View {
         modelProvider = config.modelProvider.isEmpty ? nil : config.modelProvider
         modelId = config.modelId.isEmpty ? nil : config.modelId
         includesSourceContext = config.kind == .llm && config.includesSourceContext
+        pipelineSteps = config.kind == .pipeline ? config.pipelineSteps : []
       }
 
       selectedSFSymbol = config.defaultIconSFSymbolName
@@ -453,6 +502,10 @@ struct ActionsCustomActionEditorView: View {
         if script.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
           script = CustomActionConfig.defaultJavaScriptTemplate
         }
+      case .pipeline:
+        includesSourceContext = false
+        modelProvider = nil
+        modelId = nil
       case .keyBinding:
         outputMode = .resultWindow
         includesSourceContext = false
@@ -563,6 +616,80 @@ struct ActionsCustomActionEditorView: View {
     let bundleID = override.bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
     let keyBinding = override.keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
     return !bundleID.isEmpty && SelectionBarKeyboardShortcutParser.parse(keyBinding) != nil
+  }
+
+  @ViewBuilder
+  private func pipelineStepRow(step: CustomActionPipelineStep, index: Int) -> some View {
+    HStack(spacing: 8) {
+      Text("\(index + 1).")
+        .foregroundStyle(.secondary)
+        .frame(width: 24, alignment: .trailing)
+
+      Picker("", selection: pipelineStepActionBinding(for: step.id)) {
+        if pipelineStepOptions.first(where: { $0.id == step.actionID }) == nil {
+          Text("Missing Action").tag(step.actionID)
+        }
+        ForEach(pipelineStepOptions) { action in
+          Text(action.localizedName).tag(action.id)
+        }
+      }
+      .labelsHidden()
+
+      if let selectedAction = pipelineStepOptions.first(where: { $0.id == step.actionID }) {
+        Text(selectedAction.kind.displayName)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      } else {
+        Text("Missing")
+          .font(.caption)
+          .foregroundStyle(.red)
+      }
+
+      Button {
+        movePipelineStep(from: index, to: index - 1)
+      } label: {
+        Image(systemName: "chevron.up")
+      }
+      .buttonStyle(.borderless)
+      .disabled(index == 0)
+      .help(String(localized: "Move Up"))
+
+      Button {
+        movePipelineStep(from: index, to: index + 1)
+      } label: {
+        Image(systemName: "chevron.down")
+      }
+      .buttonStyle(.borderless)
+      .disabled(index >= pipelineSteps.count - 1)
+      .help(String(localized: "Move Down"))
+
+      Button(role: .destructive) {
+        pipelineSteps.removeAll { $0.id == step.id }
+      } label: {
+        Image(systemName: "trash")
+      }
+      .buttonStyle(.borderless)
+      .help(String(localized: "Remove"))
+    }
+  }
+
+  private func pipelineStepActionBinding(for stepID: UUID) -> Binding<UUID> {
+    Binding(
+      get: {
+        pipelineSteps.first(where: { $0.id == stepID })?.actionID ?? UUID()
+      },
+      set: { actionID in
+        guard let index = pipelineSteps.firstIndex(where: { $0.id == stepID }) else { return }
+        pipelineSteps[index].actionID = actionID
+      }
+    )
+  }
+
+  private func movePipelineStep(from source: Int, to destination: Int) {
+    guard pipelineSteps.indices.contains(source), pipelineSteps.indices.contains(destination) else {
+      return
+    }
+    pipelineSteps.swapAt(source, destination)
   }
 
   private func normalizedKeyBindingOverrides() -> [CustomActionKeyBindingOverride] {

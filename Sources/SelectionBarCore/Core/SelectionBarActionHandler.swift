@@ -152,7 +152,49 @@ public final class SelectionBarActionHandler {
         throw SelectionBarError.keyboardShortcutDispatchFailed(shortcut.canonicalString)
       }
       return text
+
+    case .pipeline:
+      return try await processPipeline(
+        text: text,
+        action: action,
+        settings: settings,
+        sourceContext: sourceContext
+      )
     }
+  }
+
+  private func processPipeline(
+    text: String,
+    action: CustomActionConfig,
+    settings: SelectionBarSettingsStore,
+    sourceContext: SelectionBarActionSourceContext?
+  ) async throws -> String {
+    guard action.kind == .pipeline, !action.pipelineSteps.isEmpty else {
+      throw SelectionBarError.invalidPipeline
+    }
+
+    var currentText = text
+    for step in action.pipelineSteps {
+      guard let stepAction = settings.customActions.first(where: { $0.id == step.actionID }),
+        stepAction.id != action.id
+      else {
+        throw SelectionBarError.invalidPipeline
+      }
+
+      switch stepAction.kind {
+      case .javascript, .llm:
+        currentText = try await process(
+          text: currentText,
+          action: stepAction,
+          settings: settings,
+          sourceContext: sourceContext
+        )
+      case .keyBinding, .pipeline:
+        throw SelectionBarError.invalidPipeline
+      }
+    }
+
+    return currentText
   }
 
   /// Translate selected text through configured translation-capable providers.
@@ -483,6 +525,7 @@ public enum SelectionBarError: LocalizedError, Sendable, Equatable {
   case javaScriptTimeout
   case invalidKeyboardShortcut(String)
   case keyboardShortcutDispatchFailed(String)
+  case invalidPipeline
 
   public var errorDescription: String? {
     switch self {
@@ -513,6 +556,8 @@ public enum SelectionBarError: LocalizedError, Sendable, Equatable {
       return "Invalid keyboard shortcut: '\(shortcut)'."
     case .keyboardShortcutDispatchFailed(let shortcut):
       return "Failed to trigger keyboard shortcut '\(shortcut)'."
+    case .invalidPipeline:
+      return "Pipeline contains no valid action steps."
     }
   }
 }

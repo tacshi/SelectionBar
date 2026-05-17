@@ -33,6 +33,7 @@ public enum CustomActionKind: String, Codable, CaseIterable, Sendable, Hashable 
   case javascript
   case llm
   case keyBinding
+  case pipeline
 
   public var displayName: String {
     switch self {
@@ -42,6 +43,8 @@ public enum CustomActionKind: String, Codable, CaseIterable, Sendable, Hashable 
       String(localized: "LLM", bundle: .localizedModule)
     case .keyBinding:
       String(localized: "Key Binding", bundle: .localizedModule)
+    case .pipeline:
+      String(localized: "Pipeline", bundle: .localizedModule)
     }
   }
 }
@@ -74,6 +77,16 @@ public struct CustomActionKeyBindingOverride: Codable, Equatable, Sendable, Hash
   }
 }
 
+public struct CustomActionPipelineStep: Codable, Equatable, Sendable, Hashable, Identifiable {
+  public var id: UUID
+  public var actionID: UUID
+
+  public init(id: UUID = UUID(), actionID: UUID) {
+    self.id = id
+    self.actionID = actionID
+  }
+}
+
 /// Configuration for a text action.
 public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Hashable {
   public static let defaultPromptTemplate = "Process the following text:\n\n{{TEXT}}"
@@ -98,6 +111,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
   public var templateId: String?
   public var icon: CustomActionIcon?
   public var includesSourceContext: Bool
+  public var pipelineSteps: [CustomActionPipelineStep]
 
   /// Localized name for known built-in templates.
   public var localizedName: String {
@@ -140,7 +154,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     isBuiltIn: Bool = false,
     templateId: String? = nil,
     icon: CustomActionIcon? = nil,
-    includesSourceContext: Bool = false
+    includesSourceContext: Bool = false,
+    pipelineSteps: [CustomActionPipelineStep] = []
   ) {
     self.id = id
     self.name = name
@@ -157,6 +172,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     self.templateId = templateId
     self.icon = icon
     self.includesSourceContext = includesSourceContext
+    self.pipelineSteps = pipelineSteps
   }
 
   private enum CodingKeys: String, CodingKey {
@@ -175,6 +191,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     case templateId
     case icon
     case includesSourceContext
+    case pipelineSteps
   }
 
   public init(from decoder: Decoder) throws {
@@ -209,6 +226,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     icon = try container.decodeIfPresent(CustomActionIcon.self, forKey: .icon)
     includesSourceContext =
       try container.decodeIfPresent(Bool.self, forKey: .includesSourceContext) ?? false
+    pipelineSteps =
+      try container.decodeIfPresent([CustomActionPipelineStep].self, forKey: .pipelineSteps) ?? []
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -228,6 +247,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     try container.encode(templateId, forKey: .templateId)
     try container.encode(icon, forKey: .icon)
     try container.encode(includesSourceContext, forKey: .includesSourceContext)
+    try container.encode(pipelineSteps, forKey: .pipelineSteps)
   }
 
   public var defaultIconSFSymbolName: String {
@@ -261,6 +281,9 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     default:
       if kind == .keyBinding {
         return "keyboard"
+      }
+      if kind == .pipeline {
+        return "list.number"
       }
       return "sparkles"
     }

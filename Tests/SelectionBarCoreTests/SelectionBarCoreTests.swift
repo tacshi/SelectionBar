@@ -142,6 +142,7 @@ struct SelectionBarCoreTests {
     #expect(decoded.outputMode == .resultWindow)
     #expect(decoded.script == CustomActionConfig.defaultJavaScriptTemplate)
     #expect(decoded.includesSourceContext == false)
+    #expect(decoded.pipelineSteps.isEmpty)
   }
 
   @Test("javascript custom action roundtrips through Codable")
@@ -184,6 +185,39 @@ struct SelectionBarCoreTests {
     let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
     #expect(decoded == original)
     #expect(decoded.includesSourceContext)
+  }
+
+  @Test("pipeline custom action roundtrips ordered steps through Codable")
+  func customActionPipelineRoundTrip() throws {
+    let firstActionID = UUID()
+    let secondActionID = UUID()
+    let firstStepID = UUID()
+    let secondStepID = UUID()
+    let original = CustomActionConfig(
+      id: UUID(),
+      name: "Pipeline",
+      prompt: "Unused",
+      modelProvider: "",
+      modelId: "",
+      kind: .pipeline,
+      outputMode: .inplace,
+      script: CustomActionConfig.defaultJavaScriptTemplate,
+      isEnabled: true,
+      icon: nil,
+      pipelineSteps: [
+        CustomActionPipelineStep(id: firstStepID, actionID: firstActionID),
+        CustomActionPipelineStep(id: secondStepID, actionID: secondActionID),
+      ]
+    )
+
+    let encoded = try JSONEncoder().encode(original)
+    let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
+
+    #expect(decoded == original)
+    #expect(decoded.kind == .pipeline)
+    #expect(decoded.defaultIconSFSymbolName == "list.number")
+    #expect(decoded.pipelineSteps.map(\.id) == [firstStepID, secondStepID])
+    #expect(decoded.pipelineSteps.map(\.actionID) == [firstActionID, secondActionID])
   }
 
   @Test("key-binding custom action roundtrips through Codable")

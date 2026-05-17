@@ -516,7 +516,7 @@ private struct ActionsCustomSettingsContent: View {
           List {
             ForEach(settingsStore.customActions) { config in
               let canEnable = settingsStore.canEnableCustomAction(config)
-              let enablementIssue = settingsStore.llmActionEnablementIssue(config)
+              let enablementIssue = settingsStore.customActionEnablementIssue(config)
               ActionsActionListRow(
                 config: config,
                 canEnable: canEnable,
@@ -583,6 +583,32 @@ private struct ActionsCustomSettingsContent: View {
           } label: {
             Label("Custom", systemImage: "square.and.pencil")
           }
+
+          Button {
+            editingAction = ActionsEditorItem(
+              destination: .customActions,
+              mode: .custom,
+              config: CustomActionConfig(
+                id: UUID(),
+                name: "",
+                prompt: CustomActionConfig.defaultPromptTemplate,
+                modelProvider: "",
+                modelId: "",
+                kind: .pipeline,
+                outputMode: .resultWindow,
+                script: CustomActionConfig.defaultJavaScriptTemplate,
+                keyBinding: "",
+                isEnabled: false,
+                isBuiltIn: false,
+                templateId: nil,
+                icon: nil
+              )
+            )
+          } label: {
+            Label("Pipeline", systemImage: "list.number")
+          }
+
+          Divider()
 
           ForEach(javaScriptTemplates) { template in
             Button {
@@ -789,6 +815,8 @@ private struct ActionsActionRow: View {
           return String(localized: "Choose model before enabling")
         case .providerUnavailable:
           return String(localized: "Provider key missing")
+        case .emptyPipeline, .missingPipelineStep, .invalidPipelineStep:
+          return String(localized: "Invalid action")
         }
       }
       return config.modelId
@@ -805,6 +833,21 @@ private struct ActionsActionRow: View {
         return String(format: format, shortcut.displayString)
       }
       return String(localized: "Key Binding • Invalid Shortcut")
+    case .pipeline:
+      if let enablementIssue {
+        switch enablementIssue {
+        case .emptyPipeline:
+          return String(localized: "Pipeline needs at least one step")
+        case .missingPipelineStep:
+          return String(localized: "Pipeline has a missing step")
+        case .invalidPipelineStep:
+          return String(localized: "Pipeline has an invalid step")
+        case .missingProvider, .missingModel, .providerUnavailable:
+          return String(localized: "Pipeline has an invalid LLM step")
+        }
+      }
+      let format = String(localized: "Pipeline • %d steps")
+      return String(format: format, config.pipelineSteps.count)
     }
   }
 
