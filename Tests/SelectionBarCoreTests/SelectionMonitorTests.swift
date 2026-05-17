@@ -22,6 +22,83 @@ struct SelectionMonitorTests {
     )
   }
 
+  @Test("file browser icon drag skips clipboard fallback even when AX exposes selected text")
+  func fileBrowserIconDragSkipsClipboardFallbackEvenWithAXSelectedText() {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.focusedTextSelection = true
+    let monitor = makeMonitor(accessibility: accessibility)
+
+    #expect(
+      !monitor.shouldAttemptClipboardFallback(
+        at: NSPoint(x: 40, y: 80),
+        isSelectionGesture: true,
+        isMultiClickGesture: false,
+        didMoveWindow: false,
+        allowFocusedTextContextFallback: false,
+        frontmostBundleID: "com.apple.finder",
+        frontmostPID: 42
+      )
+    )
+  }
+
+  @Test("file browser icon drag skips direct AX selected text")
+  func fileBrowserIconDragSkipsDirectAXSelectedText() {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.hitTestTextContext = true
+    let monitor = makeMonitor(accessibility: accessibility)
+
+    #expect(
+      !monitor.shouldAcceptAccessibilitySelectedText(
+        at: NSPoint(x: 40, y: 80),
+        allowFocusedTextContextFallback: false,
+        frontmostBundleID: "com.apple.finder"
+      )
+    )
+  }
+
+  @Test("file browser editable text keeps direct AX selected text")
+  func fileBrowserEditableTextKeepsDirectAXSelectedText() {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.focusedElementEditable = true
+    let monitor = makeMonitor(accessibility: accessibility)
+
+    #expect(
+      monitor.shouldAcceptAccessibilitySelectedText(
+        at: NSPoint(x: 40, y: 80),
+        allowFocusedTextContextFallback: false,
+        frontmostBundleID: "com.apple.finder"
+      )
+    )
+  }
+
+  @Test("direct AX selected text requires text context outside file browsers")
+  func directAXSelectedTextRequiresTextContextOutsideFileBrowsers() {
+    let monitor = makeMonitor()
+
+    #expect(
+      !monitor.shouldAcceptAccessibilitySelectedText(
+        at: NSPoint(x: 40, y: 80),
+        allowFocusedTextContextFallback: false,
+        frontmostBundleID: "com.example.Canvas"
+      )
+    )
+  }
+
+  @Test("direct AX selected text allows text hit-test context")
+  func directAXSelectedTextAllowsTextHitTestContext() {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.hitTestTextContext = true
+    let monitor = makeMonitor(accessibility: accessibility)
+
+    #expect(
+      monitor.shouldAcceptAccessibilitySelectedText(
+        at: NSPoint(x: 40, y: 80),
+        allowFocusedTextContextFallback: false,
+        frontmostBundleID: "com.example.Editor"
+      )
+    )
+  }
+
   @Test("mouse drag preserves existing window-move safeguard")
   func mouseDragSkipsClipboardFallbackWhenWindowMoves() {
     let accessibility = FakeSelectionMonitorAccessibility()
@@ -155,6 +232,7 @@ struct SelectionMonitorTests {
 
 @MainActor
 private final class FakeSelectionMonitorAccessibility: SelectionMonitorAccessibilityProviding {
+  var focusedElementEditable = false
   var focusedTextSelection = false
   var hitTestTextSelection = false
   var hitTestTextContext = false
@@ -167,7 +245,7 @@ private final class FakeSelectionMonitorAccessibility: SelectionMonitorAccessibi
   }
 
   func isFocusedElementEditable() -> Bool {
-    false
+    focusedElementEditable
   }
 
   func selectedTextFromFocusedHierarchy() -> String? {

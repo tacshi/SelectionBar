@@ -24,7 +24,7 @@ final class SelectionMonitorAccessibility: SelectionMonitorAccessibilityProvidin
 
   func isFocusedElementEditable() -> Bool {
     guard AXIsProcessTrusted(), let element = focusedElement() else { return false }
-    return isEditable(element)
+    return isEditableTextInputInHierarchy(startingAt: element)
   }
 
   func selectedTextFromFocusedHierarchy() -> String? {
@@ -137,6 +137,15 @@ final class SelectionMonitorAccessibility: SelectionMonitorAccessibilityProvidin
     return unsafeDowncast(element, to: AXUIElement.self)
   }
 
+  private func isEditableTextInputInHierarchy(startingAt element: AXUIElement) -> Bool {
+    for candidate in elementAndAncestors(startingAt: element) {
+      if isEditable(candidate) || hasEditableAncestor(candidate) {
+        return true
+      }
+    }
+    return false
+  }
+
   private func isEditable(_ element: AXUIElement) -> Bool {
     var roleValue: AnyObject?
     guard
@@ -175,18 +184,19 @@ final class SelectionMonitorAccessibility: SelectionMonitorAccessibilityProvidin
       return true
     }
 
-    var isRangeSettable: DarwinBoolean = false
-    if AXUIElementIsAttributeSettable(
-      element,
-      kAXSelectedTextRangeAttribute as CFString,
-      &isRangeSettable
-    ) == .success,
-      isRangeSettable.boolValue
-    {
-      return true
-    }
-
     return false
+  }
+
+  private func hasEditableAncestor(_ element: AXUIElement) -> Bool {
+    guard
+      let editableAncestor = attributeValue(
+        of: element,
+        attribute: kAXEditableAncestorAttribute as CFString
+      )
+    else {
+      return false
+    }
+    return CFGetTypeID(editableAncestor) == AXUIElementGetTypeID()
   }
 
   private func isOwnedByCurrentProcess(_ element: AXUIElement) -> Bool {
