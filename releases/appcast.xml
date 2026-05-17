@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.7.0</title>
+            <pubDate>Sun, 17 May 2026 13:31:43 +1200</pubDate>
+            <sparkle:version>20</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.7.0</h2><ul><li>fmt</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.7.0/SelectionBar-0.7.0.dmg" length="7144650" type="application/octet-stream" sparkle:edSignature="Zq56mNU15UMz9zBktGp8PUcnUUHn//ndA+9GTCOfQ0nWPRq/i/hkkZrtTOk4c6eGOMGHMjgBQVzkmcWONcSjDQ=="/>
+        </item>
+        <item>
             <title>0.6.0</title>
             <pubDate>Wed, 25 Mar 2026 19:34:17 +1300</pubDate>
             <sparkle:version>19</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.5.3</h2><ul><li>Fix floating bar hit testing (#18)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.5.3/SelectionBar-0.5.3.dmg" length="6709094" type="application/octet-stream" sparkle:edSignature="HUz91CxnJmRk5nLHvU+bykcbLjiaOVPFkdx6XVyGsuSeLOHAKIh+aM076QqmxzoCPn1IhtrJf52BYKNeIylGCg=="/>
-        </item>
-        <item>
-            <title>0.5.2</title>
-            <pubDate>Tue, 10 Mar 2026 01:35:02 +0800</pubDate>
-            <sparkle:version>17</sparkle:version>
-            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.5.2</h2><ul><li>Add glass-style floating selection bar (#17)</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.5.2/SelectionBar-0.5.2.dmg" length="6693313" type="application/octet-stream" sparkle:edSignature="A4a1cTHAfPvHfj06fRugrJnHvVKdkBSU58ivhBLdPsEo5iXbDlHzr/QzidVFaGLWYvyA6B3C52Fp6hmelLFJBQ=="/>
         </item>
     </channel>
 </rss>
