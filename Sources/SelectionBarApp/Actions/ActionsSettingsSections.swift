@@ -1,9 +1,11 @@
+import AppKit
 import SelectionBarCore
 import SwiftUI
 
 private enum ActionsTab: Hashable {
   case builtIn
   case custom
+  case profiles
 }
 
 private enum ActionEditorDestination: Hashable {
@@ -19,11 +21,46 @@ private struct ActionsEditorItem: Identifiable {
   var id: UUID { config.id }
 }
 
+private struct ActionProfileEditorItem: Identifiable {
+  let profile: SelectionBarActionProfile
+
+  var id: UUID { profile.id }
+}
+
+private struct ActionProfileAppIconView: View {
+  let bundleID: String
+  let size: CGFloat
+
+  var body: some View {
+    if let image = resolveIcon() {
+      Image(nsImage: image)
+        .resizable()
+        .aspectRatio(contentMode: .fit)
+        .frame(width: size, height: size)
+    } else {
+      Image(systemName: "app")
+        .font(.system(size: size * 0.7))
+        .foregroundStyle(.secondary)
+        .frame(width: size, height: size)
+    }
+  }
+
+  private func resolveIcon() -> NSImage? {
+    guard !bundleID.isEmpty,
+      let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+    else {
+      return nil
+    }
+    return NSWorkspace.shared.icon(forFile: url.path)
+  }
+}
+
 struct ActionsSettingsSections: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
 
   @State private var selectedTab: ActionsTab? = .builtIn
   @State private var editingAction: ActionsEditorItem?
+  @State private var editingProfile: ActionProfileEditorItem?
 
   private var llmTemplates: [CustomActionConfig] {
     CustomActionConfig.createAllBuiltInTemplates()
@@ -45,6 +82,9 @@ struct ActionsSettingsSections: View {
 
         Label("Custom", systemImage: "square.and.pencil")
           .tag(ActionsTab.custom)
+
+        Label("Profiles", systemImage: "person.crop.square")
+          .tag(ActionsTab.profiles)
       }
       .frame(width: 180)
       .listStyle(.sidebar)
@@ -65,6 +105,11 @@ struct ActionsSettingsSections: View {
             editingAction: $editingAction,
             llmTemplates: llmTemplates,
             javaScriptTemplates: javaScriptTemplates
+          )
+        case .profiles:
+          ActionsProfilesSettingsContent(
+            settingsStore: settingsStore,
+            editingProfile: $editingProfile
           )
         case .none:
           ActionsBuiltInSettingsContent(
@@ -110,6 +155,23 @@ struct ActionsSettingsSections: View {
           editingAction = nil
         },
         onCancel: { editingAction = nil }
+      )
+    }
+    .sheet(item: $editingProfile) { item in
+      ActionProfileEditorView(
+        settingsStore: settingsStore,
+        profile: item.profile,
+        onSave: { profile in
+          if let existingIndex = settingsStore.actionProfiles.firstIndex(where: {
+            $0.id == profile.id
+          }) {
+            settingsStore.actionProfiles[existingIndex] = profile
+          } else {
+            settingsStore.actionProfiles.append(profile)
+          }
+          editingProfile = nil
+        },
+        onCancel: { editingProfile = nil }
       )
     }
   }
@@ -605,7 +667,7 @@ private struct ActionsCustomSettingsContent: View {
               )
             )
           } label: {
-            Label("Pipeline", systemImage: "list.number")
+            Label("Pipeline", systemImage: "app.connected.to.app.below.fill")
           }
 
           Divider()
@@ -683,6 +745,400 @@ private struct ActionsCustomSettingsContent: View {
     .onAppear {
       settingsStore.reconcileActionsAvailabilityIfNeeded()
     }
+  }
+}
+
+private struct ActionsProfilesSettingsContent: View {
+  @Bindable var settingsStore: SelectionBarSettingsStore
+  @Binding var editingProfile: ActionProfileEditorItem?
+
+  var body: some View {
+    Form {
+      Section {
+        if settingsStore.actionProfiles.isEmpty {
+          Text("No profiles configured")
+            .foregroundStyle(.secondary)
+        } else {
+          List {
+            ForEach(settingsStore.actionProfiles) { profile in
+              let status = settingsStore.actionProfileStatus(profile)
+              ActionProfileListRow(
+                profile: profile,
+                status: status,
+                onEdit: {
+                  editingProfile = ActionProfileEditorItem(profile: profile)
+                },
+                onDelete: {
+                  settingsStore.actionProfiles.removeAll { $0.id == profile.id }
+                },
+                onToggle: { isEnabled in
+                  if let index = settingsStore.actionProfiles.firstIndex(where: {
+                    $0.id == profile.id
+                  }) {
+                    settingsStore.actionProfiles[index].isEnabled = isEnabled
+                  }
+                }
+              )
+            }
+          }
+          .listStyle(.plain)
+          .scrollContentBackground(.hidden)
+          .frame(minHeight: 180)
+        }
+
+        Button {
+          let profile = SelectionBarActionProfile(
+            app: IgnoredApp(id: "", name: ""),
+            isEnabled: true,
+            actionIDs: settingsStore.orderedEnabledSelectionBarActions.map(\.id)
+          )
+          editingProfile = ActionProfileEditorItem(profile: profile)
+        } label: {
+          Label("Add Profile", systemImage: "plus.circle")
+        }
+      } footer: {
+        Text("A matching enabled profile replaces the global action list for that app.")
+      }
+    }
+    .formStyle(.grouped)
+    .padding()
+  }
+}
+
+private struct ActionProfileListRow: View {
+  let profile: SelectionBarActionProfile
+  let status: SelectionBarActionProfileStatus
+  let onEdit: () -> Void
+  let onDelete: () -> Void
+  let onToggle: (Bool) -> Void
+
+  @State private var isEnabled: Bool
+
+  init(
+    profile: SelectionBarActionProfile,
+    status: SelectionBarActionProfileStatus,
+    onEdit: @escaping () -> Void,
+    onDelete: @escaping () -> Void,
+    onToggle: @escaping (Bool) -> Void
+  ) {
+    self.profile = profile
+    self.status = status
+    self.onEdit = onEdit
+    self.onDelete = onDelete
+    self.onToggle = onToggle
+    self._isEnabled = State(initialValue: profile.isEnabled)
+  }
+
+  private var subtitle: String {
+    let actionFormat = String(localized: "%d actions")
+    var parts = [String(format: actionFormat, status.validActionCount)]
+    if status.missingActionCount > 0 {
+      let missingFormat = String(localized: "%d missing")
+      parts.append(String(format: missingFormat, status.missingActionCount))
+    }
+    if status.invalidActionCount > 0 {
+      let invalidFormat = String(localized: "%d invalid")
+      parts.append(String(format: invalidFormat, status.invalidActionCount))
+    }
+    return parts.joined(separator: " • ")
+  }
+
+  var body: some View {
+    HStack(spacing: 10) {
+      ActionProfileAppIconView(bundleID: profile.app.id, size: 22)
+        .frame(width: 24, height: 24)
+
+      VStack(alignment: .leading, spacing: 2) {
+        Text(profile.app.name.isEmpty ? profile.app.id : profile.app.name)
+          .lineLimit(1)
+        Text(profile.app.id)
+          .font(.caption2)
+          .foregroundStyle(.tertiary)
+          .lineLimit(1)
+        Text(subtitle)
+          .font(.caption)
+          .foregroundStyle(status.hasIssues ? Color.red : Color.secondary)
+      }
+
+      Spacer()
+
+      Toggle("", isOn: $isEnabled)
+        .labelsHidden()
+        .onChange(of: isEnabled) { _, newValue in
+          onToggle(newValue)
+        }
+
+      Button("Edit", action: onEdit)
+
+      Button(role: .destructive, action: onDelete) {
+        Image(systemName: "trash")
+      }
+      .buttonStyle(.borderless)
+      .help(String(localized: "Delete"))
+    }
+    .padding(.vertical, 4)
+    .onChange(of: profile.isEnabled) { _, newValue in
+      isEnabled = newValue
+    }
+  }
+}
+
+private struct ActionProfileEditorView: View {
+  @Bindable var settingsStore: SelectionBarSettingsStore
+
+  let profile: SelectionBarActionProfile
+  let onSave: (SelectionBarActionProfile) -> Void
+  let onCancel: () -> Void
+
+  @State private var app: IgnoredApp
+  @State private var isEnabled: Bool
+  @State private var actionIDs: [UUID]
+  @State private var showingAppPicker = false
+
+  init(
+    settingsStore: SelectionBarSettingsStore,
+    profile: SelectionBarActionProfile,
+    onSave: @escaping (SelectionBarActionProfile) -> Void,
+    onCancel: @escaping () -> Void
+  ) {
+    self.settingsStore = settingsStore
+    self.profile = profile
+    self.onSave = onSave
+    self.onCancel = onCancel
+    self._app = State(initialValue: profile.app)
+    self._isEnabled = State(initialValue: profile.isEnabled)
+    self._actionIDs = State(initialValue: profile.actionIDs)
+  }
+
+  private var availableActions: [CustomActionConfig] {
+    settingsStore.actionProfileAvailableActions
+  }
+
+  private var addableActions: [CustomActionConfig] {
+    availableActions.filter { action in
+      !actionIDs.contains(action.id)
+    }
+  }
+
+  private var duplicateAppProfileExists: Bool {
+    let appID = app.id.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !appID.isEmpty else { return false }
+    return settingsStore.actionProfiles.contains { existing in
+      existing.id != profile.id && existing.app.id == appID
+    }
+  }
+
+  private var canSave: Bool {
+    !app.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      && !duplicateAppProfileExists
+  }
+
+  var body: some View {
+    VStack(spacing: 0) {
+      HStack {
+        Button("Cancel", action: onCancel)
+          .keyboardShortcut(.escape)
+
+        Spacer()
+
+        Text(profile.app.id.isEmpty ? "New Profile" : "Edit Profile")
+          .font(.headline)
+
+        Spacer()
+
+        Button("Save") {
+          onSave(
+            SelectionBarActionProfile(
+              id: profile.id,
+              app: app,
+              isEnabled: isEnabled,
+              actionIDs: actionIDs
+            ))
+        }
+        .keyboardShortcut(.return)
+        .disabled(!canSave)
+      }
+      .padding()
+
+      Divider()
+
+      Form {
+        Section {
+          HStack(spacing: 10) {
+            ActionProfileAppIconView(bundleID: app.id, size: 28)
+              .frame(width: 30, height: 30)
+
+            VStack(alignment: .leading, spacing: 2) {
+              Text(app.name.isEmpty ? "No application selected" : app.name)
+              if !app.id.isEmpty {
+                Text(app.id)
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+              }
+            }
+
+            Spacer()
+
+            Button(app.id.isEmpty ? "Choose App" : "Change App") {
+              showingAppPicker = true
+            }
+          }
+
+          if duplicateAppProfileExists {
+            Text("A profile already exists for this application.")
+              .font(.caption)
+              .foregroundStyle(.red)
+          }
+
+          Toggle("Enable Profile", isOn: $isEnabled)
+        } header: {
+          Label("Application", systemImage: "macwindow")
+        }
+
+        Section {
+          if actionIDs.isEmpty {
+            Text("No actions configured")
+              .foregroundStyle(.secondary)
+          } else {
+            ForEach(Array(actionIDs.enumerated()), id: \.element) { index, actionID in
+              profileActionRow(actionID: actionID, index: index)
+            }
+          }
+
+          Menu {
+            ForEach(addableActions) { action in
+              Button {
+                actionIDs.append(action.id)
+              } label: {
+                Label(action.localizedName, systemImage: action.effectiveIcon.resolvedValue)
+              }
+            }
+          } label: {
+            Label("Add Action", systemImage: "plus.circle")
+          }
+          .disabled(addableActions.isEmpty)
+        } header: {
+          Label("Actions", systemImage: "list.number")
+        } footer: {
+          Text("These actions replace the global configured action list for the selected app.")
+        }
+      }
+      .formStyle(.grouped)
+      .padding()
+    }
+    .frame(width: 560, height: 560)
+    .sheet(isPresented: $showingAppPicker) {
+      ApplicationPickerSheet(
+        existingBundleIDs: existingProfileBundleIDs(),
+        selectionLimit: 1,
+        onAppsSelected: { apps in
+          guard let selected = apps.first else { return }
+          app = selected
+        }
+      )
+    }
+  }
+
+  @ViewBuilder
+  private func profileActionRow(actionID: UUID, index: Int) -> some View {
+    let action = availableActions.first { $0.id == actionID }
+    let issue = action.flatMap { settingsStore.customActionEnablementIssue($0) }
+
+    HStack(spacing: 8) {
+      Text("\(index + 1).")
+        .foregroundStyle(.secondary)
+        .frame(width: 24, alignment: .trailing)
+
+      if let action {
+        ActionIconGlyph(icon: action.effectiveIcon, tint: .primary, size: 13)
+          .frame(width: 18)
+
+        VStack(alignment: .leading, spacing: 1) {
+          Text(action.localizedName)
+            .lineLimit(1)
+          Text(actionSubtitle(action: action, issue: issue))
+            .font(.caption)
+            .foregroundStyle(issue == nil ? Color.secondary : Color.red)
+        }
+      } else {
+        Image(systemName: "questionmark.circle")
+          .foregroundStyle(.red)
+          .frame(width: 18)
+
+        VStack(alignment: .leading, spacing: 1) {
+          Text("Missing Action")
+          Text(actionID.uuidString)
+            .font(.caption)
+            .foregroundStyle(.red)
+            .lineLimit(1)
+        }
+      }
+
+      Spacer()
+
+      Button {
+        moveProfileAction(from: index, to: index - 1)
+      } label: {
+        Image(systemName: "chevron.up")
+      }
+      .buttonStyle(.borderless)
+      .disabled(index == 0)
+      .help(String(localized: "Move Up"))
+
+      Button {
+        moveProfileAction(from: index, to: index + 1)
+      } label: {
+        Image(systemName: "chevron.down")
+      }
+      .buttonStyle(.borderless)
+      .disabled(index >= actionIDs.count - 1)
+      .help(String(localized: "Move Down"))
+
+      Button(role: .destructive) {
+        actionIDs.removeAll { $0 == actionID }
+      } label: {
+        Image(systemName: "trash")
+      }
+      .buttonStyle(.borderless)
+      .help(String(localized: "Remove"))
+    }
+  }
+
+  private func actionSubtitle(
+    action: CustomActionConfig,
+    issue: CustomActionEnablementIssue?
+  ) -> String {
+    guard issue == nil else {
+      return String(localized: "Invalid action")
+    }
+
+    switch action.kind {
+    case .keyBinding:
+      if let shortcut = SelectionBarKeyboardShortcutParser.parse(action.keyBinding) {
+        return String(format: String(localized: "Key Binding • %@"), shortcut.displayString)
+      }
+      return String(localized: "Key Binding")
+    case .javascript:
+      return String(localized: "JavaScript")
+    case .llm:
+      return String(localized: "LLM")
+    case .pipeline:
+      return String(format: String(localized: "Pipeline • %d steps"), action.pipelineSteps.count)
+    }
+  }
+
+  private func moveProfileAction(from source: Int, to destination: Int) {
+    guard actionIDs.indices.contains(source), actionIDs.indices.contains(destination) else {
+      return
+    }
+    actionIDs.swapAt(source, destination)
+  }
+
+  private func existingProfileBundleIDs() -> Set<String> {
+    Set(
+      settingsStore.actionProfiles.compactMap { existing in
+        existing.id == profile.id ? nil : existing.app.id
+      })
   }
 }
 

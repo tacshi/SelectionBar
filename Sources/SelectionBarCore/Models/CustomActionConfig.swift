@@ -283,7 +283,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
         return "keyboard"
       }
       if kind == .pipeline {
-        return "list.number"
+        return "app.connected.to.app.below.fill"
       }
       return "sparkles"
     }

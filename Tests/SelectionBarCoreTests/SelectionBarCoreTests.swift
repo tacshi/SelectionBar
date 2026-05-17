@@ -220,6 +220,26 @@ struct SelectionBarCoreTests {
     #expect(decoded.pipelineSteps.map(\.actionID) == [firstActionID, secondActionID])
   }
 
+  @Test("action profile roundtrips app metadata and ordered unique actions")
+  func actionProfileRoundTrip() throws {
+    let firstActionID = UUID()
+    let secondActionID = UUID()
+    let original = SelectionBarActionProfile(
+      id: UUID(),
+      app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+      isEnabled: true,
+      actionIDs: [firstActionID, secondActionID, firstActionID]
+    )
+
+    let encoded = try JSONEncoder().encode(original)
+    let decoded = try JSONDecoder().decode(SelectionBarActionProfile.self, from: encoded)
+
+    #expect(decoded.id == original.id)
+    #expect(decoded.app == original.app)
+    #expect(decoded.isEnabled)
+    #expect(decoded.actionIDs == [firstActionID, secondActionID])
+  }
+
   @Test("key-binding custom action roundtrips through Codable")
   func customActionKeyBindingRoundTrip() throws {
     let original = CustomActionConfig(

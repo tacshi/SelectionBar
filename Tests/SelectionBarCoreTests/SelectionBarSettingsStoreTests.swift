@@ -195,6 +195,7 @@ struct SelectionBarSettingsStoreTests {
     #expect(store.selectionBarEnabled == true)
     #expect(store.customActions.isEmpty)
     #expect(store.builtInKeyBindingActions.isEmpty)
+    #expect(store.actionProfiles.isEmpty)
   }
 
   @Test("built-in key bindings persist across reload")
@@ -241,6 +242,37 @@ struct SelectionBarSettingsStoreTests {
       keychain: keychain
     )
     #expect(reloaded.builtInKeyBindingActions == [action])
+  }
+
+  @Test("action profiles persist across reload")
+  func actionProfilesPersistAcrossReload() {
+    let suite = "SelectionBarCoreTests.ActionProfiles.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    defer { defaults.removePersistentDomain(forName: suite) }
+
+    let keychain = InMemoryKeychain()
+    let store = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+    let profile = SelectionBarActionProfile(
+      id: UUID(),
+      app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+      isEnabled: true,
+      actionIDs: [UUID(), UUID()]
+    )
+
+    store.actionProfiles = [profile]
+
+    let reloaded = SelectionBarSettingsStore(
+      defaults: defaults,
+      storageKey: "test.settings",
+      keychain: keychain
+    )
+
+    #expect(reloaded.actionProfiles == [profile])
   }
 
   @Test("ordered enabled actions prioritize built-in key bindings")
@@ -306,6 +338,216 @@ struct SelectionBarSettingsStoreTests {
     let ordered = store.orderedEnabledSelectionBarActions
     #expect(
       ordered.map(\.id) == [keyBindingAction.id, llmAction.id, jsAction.id, pipelineAction.id])
+  }
+
+  @Test("per-app action profile resolution overrides global actions")
+  func perAppActionProfileResolutionOverridesGlobalActions() {
+    let keychain = InMemoryKeychain()
+    _ = keychain.save(key: "openai_api_key", value: "openai-key")
+    let store = makeStore(keychain: keychain)
+
+    let globalKeyBinding = CustomActionConfig(
+      id: UUID(),
+      name: "Bold",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+b",
+      isEnabled: true
+    )
+    let globalJS = CustomActionConfig(
+      id: UUID(),
+      name: "Title Case",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .javascript,
+      script: "function transform(input) { return input; }",
+      isEnabled: true
+    )
+    let profileJS = CustomActionConfig(
+      id: UUID(),
+      name: "Profile JS",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .javascript,
+      script: "function transform(input) { return input.trim(); }",
+      isEnabled: false
+    )
+    let profileLLM = CustomActionConfig(
+      id: UUID(),
+      name: "Profile LLM",
+      prompt: "{{TEXT}}",
+      modelProvider: "openai",
+      modelId: "gpt-4o-mini",
+      kind: .llm,
+      isEnabled: false
+    )
+    let profile = SelectionBarActionProfile(
+      app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+      isEnabled: true,
+      actionIDs: [profileLLM.id, profileJS.id]
+    )
+
+    store.builtInKeyBindingActions = [globalKeyBinding]
+    store.customActions = [globalJS, profileJS, profileLLM]
+    store.actionProfiles = [profile]
+
+    #expect(
+      store.orderedEnabledSelectionBarActions.map(\.id) == [globalKeyBinding.id, globalJS.id])
+    #expect(
+      store.orderedEnabledSelectionBarActions(for: "com.example.Editor").map(\.id)
+        == [profileLLM.id, profileJS.id]
+    )
+    #expect(
+      store.orderedEnabledSelectionBarActions(for: "com.example.Other").map(\.id)
+        == [globalKeyBinding.id, globalJS.id]
+    )
+    #expect(
+      store.orderedEnabledSelectionBarActions(for: nil).map(\.id)
+        == [globalKeyBinding.id, globalJS.id]
+    )
+  }
+
+  @Test("empty enabled profile returns no profile-controlled actions")
+  func emptyEnabledProfileReturnsNoActions() {
+    let store = makeStore(keychain: InMemoryKeychain())
+    let globalJS = CustomActionConfig(
+      id: UUID(),
+      name: "Global",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .javascript,
+      script: "function transform(input) { return input; }",
+      isEnabled: true
+    )
+    let profile = SelectionBarActionProfile(
+      app: IgnoredApp(id: "com.example.Empty", name: "Empty"),
+      isEnabled: true,
+      actionIDs: []
+    )
+
+    store.customActions = [globalJS]
+    store.actionProfiles = [profile]
+
+    #expect(store.orderedEnabledSelectionBarActions(for: "com.example.Empty").isEmpty)
+    #expect(
+      store.orderedEnabledSelectionBarActions(for: "com.example.Other").map(\.id) == [globalJS.id])
+  }
+
+  @Test("disabled profile falls back to global actions")
+  func disabledProfileFallsBackToGlobalActions() {
+    let store = makeStore(keychain: InMemoryKeychain())
+    let globalJS = CustomActionConfig(
+      id: UUID(),
+      name: "Global",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .javascript,
+      script: "function transform(input) { return input; }",
+      isEnabled: true
+    )
+    let profileJS = CustomActionConfig(
+      id: UUID(),
+      name: "Profile",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .javascript,
+      script: "function transform(input) { return input.trim(); }",
+      isEnabled: false
+    )
+    let profile = SelectionBarActionProfile(
+      app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+      isEnabled: false,
+      actionIDs: [profileJS.id]
+    )
+
+    store.customActions = [globalJS, profileJS]
+    store.actionProfiles = [profile]
+
+    #expect(
+      store.orderedEnabledSelectionBarActions(for: "com.example.Editor").map(\.id) == [globalJS.id])
+  }
+
+  @Test("profile resolution skips missing and invalid references")
+  func profileResolutionSkipsMissingAndInvalidReferences() {
+    let store = makeStore(keychain: InMemoryKeychain())
+
+    let validJS = CustomActionConfig(
+      id: UUID(),
+      name: "Valid",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .javascript,
+      script: "function transform(input) { return input; }",
+      isEnabled: false
+    )
+    let invalidKeyBinding = CustomActionConfig(
+      id: UUID(),
+      name: "Broken Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+",
+      isEnabled: false
+    )
+    let customKeyBinding = CustomActionConfig(
+      id: UUID(),
+      name: "Custom Shortcut",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .keyBinding,
+      keyBinding: "cmd+b",
+      isEnabled: false
+    )
+    let invalidLLM = CustomActionConfig(
+      id: UUID(),
+      name: "Broken LLM",
+      prompt: "{{TEXT}}",
+      modelProvider: "",
+      modelId: "",
+      kind: .llm,
+      isEnabled: false
+    )
+    let invalidPipeline = CustomActionConfig(
+      id: UUID(),
+      name: "Broken Pipeline",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .pipeline,
+      isEnabled: false,
+      pipelineSteps: []
+    )
+    let missingID = UUID()
+    let profile = SelectionBarActionProfile(
+      app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+      isEnabled: true,
+      actionIDs: [
+        missingID, invalidKeyBinding.id, customKeyBinding.id, invalidLLM.id,
+        invalidPipeline.id, validJS.id,
+      ]
+    )
+
+    store.builtInKeyBindingActions = [invalidKeyBinding]
+    store.customActions = [customKeyBinding, invalidLLM, invalidPipeline, validJS]
+    store.actionProfiles = [profile]
+
+    let resolved = store.orderedEnabledSelectionBarActions(for: "com.example.Editor")
+    let status = store.actionProfileStatus(profile)
+
+    #expect(resolved.map(\.id) == [validJS.id])
+    #expect(status.validActionCount == 1)
+    #expect(status.missingActionCount == 1)
+    #expect(status.invalidActionCount == 4)
   }
 
   @Test("pipeline with disabled JavaScript and LLM steps can be enabled")

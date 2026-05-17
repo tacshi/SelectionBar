@@ -281,6 +281,11 @@ public final class SelectionBarSettingsStore {
     }
   }
 
+  /// Per-app overrides for configurable Selection Bar actions.
+  public var actionProfiles: [SelectionBarActionProfile] {
+    didSet { persistIfNeeded() }
+  }
+
   public init(
     defaults: UserDefaults = .standard,
     storageKey: String = "SelectionBar.settings",
@@ -323,6 +328,7 @@ public final class SelectionBarSettingsStore {
     customLLMProviders = []
     customActions = []
     builtInKeyBindingActions = []
+    actionProfiles = []
     appLanguage = defaults.string(forKey: "SelectionBar_AppLanguageOverride") ?? ""
     openAIAPIKeyConfigured = false
     openRouterAPIKeyConfigured = false
@@ -345,6 +351,56 @@ public final class SelectionBarSettingsStore {
     let keyBindings = builtInKeyBindingActions.filter(\.isEnabled)
     let custom = customActions.filter { $0.isEnabled && $0.kind != .keyBinding }
     return keyBindings + custom
+  }
+
+  /// All actions that can be included in an app-specific action profile.
+  public var actionProfileAvailableActions: [CustomActionConfig] {
+    builtInKeyBindingActions + customActions.filter { $0.kind != .keyBinding }
+  }
+
+  /// Enabled action list for a frontmost app. Matching enabled profiles replace the global list.
+  public func orderedEnabledSelectionBarActions(for bundleID: String?) -> [CustomActionConfig] {
+    guard
+      let bundleID = bundleID?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !bundleID.isEmpty,
+      let profile = actionProfiles.first(where: { profile in
+        profile.isEnabled && profile.app.id == bundleID
+      })
+    else {
+      return orderedEnabledSelectionBarActions
+    }
+
+    return profile.actionIDs.compactMap { actionID in
+      guard let action = actionProfileAction(id: actionID) else { return nil }
+      return isValidActionProfileAction(action) ? action : nil
+    }
+  }
+
+  public func actionProfileStatus(
+    _ profile: SelectionBarActionProfile
+  ) -> SelectionBarActionProfileStatus {
+    var validActionCount = 0
+    var missingActionCount = 0
+    var invalidActionCount = 0
+
+    for actionID in profile.actionIDs {
+      guard let action = actionProfileAction(id: actionID) else {
+        missingActionCount += 1
+        continue
+      }
+
+      if isValidActionProfileAction(action) {
+        validActionCount += 1
+      } else {
+        invalidActionCount += 1
+      }
+    }
+
+    return SelectionBarActionProfileStatus(
+      validActionCount: validActionCount,
+      missingActionCount: missingActionCount,
+      invalidActionCount: invalidActionCount
+    )
   }
 
   public func availableSelectionBarTranslationProviders() -> [SelectionBarTranslationProviderOption]
@@ -897,7 +953,8 @@ public final class SelectionBarSettingsStore {
       selectionBarTranslationTargetLanguage: selectionBarTranslationTargetLanguage,
       customLLMProviders: customLLMProviders,
       customActions: customActions,
-      builtInKeyBindingActions: builtInKeyBindingActions
+      builtInKeyBindingActions: builtInKeyBindingActions,
+      actionProfiles: actionProfiles
     )
 
     if let encoded = try? JSONEncoder().encode(data) {
@@ -963,6 +1020,7 @@ public final class SelectionBarSettingsStore {
       customActions = (settings.customActions ?? []).filter { $0.kind != .keyBinding }
       builtInKeyBindingActions =
         (settings.builtInKeyBindingActions ?? []).filter { $0.kind == .keyBinding }
+      actionProfiles = settings.actionProfiles ?? []
     }
   }
 
@@ -975,6 +1033,23 @@ public final class SelectionBarSettingsStore {
   private func persistIfNeeded() {
     guard persistenceSuppressionDepth == 0 else { return }
     save()
+  }
+
+  private func actionProfileAction(id: UUID) -> CustomActionConfig? {
+    builtInKeyBindingActions.first { $0.id == id }
+      ?? customActions.first { $0.id == id }
+  }
+
+  private func isValidActionProfileAction(_ action: CustomActionConfig) -> Bool {
+    switch action.kind {
+    case .keyBinding:
+      guard builtInKeyBindingActions.contains(where: { $0.id == action.id }) else {
+        return false
+      }
+    case .javascript, .llm, .pipeline:
+      break
+    }
+    return customActionEnablementIssue(action) == nil
   }
 }
 
@@ -1012,4 +1087,5 @@ private struct StoredSettings: Codable {
   let customLLMProviders: [CustomLLMProvider]?
   let customActions: [CustomActionConfig]?
   let builtInKeyBindingActions: [CustomActionConfig]?
+  let actionProfiles: [SelectionBarActionProfile]?
 }
