@@ -141,6 +141,8 @@ struct SelectionBarCoreTests {
     #expect(decoded.kind == .javascript)
     #expect(decoded.outputMode == .resultWindow)
     #expect(decoded.script == CustomActionConfig.defaultJavaScriptTemplate)
+    #expect(decoded.includesSourceContext == false)
+    #expect(decoded.pipelineSteps.isEmpty)
   }
 
   @Test("javascript custom action roundtrips through Codable")
@@ -163,6 +165,79 @@ struct SelectionBarCoreTests {
     let encoded = try JSONEncoder().encode(original)
     let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
     #expect(decoded == original)
+  }
+
+  @Test("LLM custom action source context setting roundtrips through Codable")
+  func customActionIncludesSourceContextRoundTrip() throws {
+    let original = CustomActionConfig(
+      id: UUID(),
+      name: "Explain With Context",
+      prompt: "Explain {{TEXT}} using {{CONTEXT}}",
+      modelProvider: "openai",
+      modelId: "gpt-4o-mini",
+      kind: .llm,
+      isEnabled: true,
+      isBuiltIn: false,
+      includesSourceContext: true
+    )
+
+    let encoded = try JSONEncoder().encode(original)
+    let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
+    #expect(decoded == original)
+    #expect(decoded.includesSourceContext)
+  }
+
+  @Test("pipeline custom action roundtrips ordered steps through Codable")
+  func customActionPipelineRoundTrip() throws {
+    let firstActionID = UUID()
+    let secondActionID = UUID()
+    let firstStepID = UUID()
+    let secondStepID = UUID()
+    let original = CustomActionConfig(
+      id: UUID(),
+      name: "Pipeline",
+      prompt: "Unused",
+      modelProvider: "",
+      modelId: "",
+      kind: .pipeline,
+      outputMode: .inplace,
+      script: CustomActionConfig.defaultJavaScriptTemplate,
+      isEnabled: true,
+      icon: nil,
+      pipelineSteps: [
+        CustomActionPipelineStep(id: firstStepID, actionID: firstActionID),
+        CustomActionPipelineStep(id: secondStepID, actionID: secondActionID),
+      ]
+    )
+
+    let encoded = try JSONEncoder().encode(original)
+    let decoded = try JSONDecoder().decode(CustomActionConfig.self, from: encoded)
+
+    #expect(decoded == original)
+    #expect(decoded.kind == .pipeline)
+    #expect(decoded.defaultIconSFSymbolName == "list.number")
+    #expect(decoded.pipelineSteps.map(\.id) == [firstStepID, secondStepID])
+    #expect(decoded.pipelineSteps.map(\.actionID) == [firstActionID, secondActionID])
+  }
+
+  @Test("action profile roundtrips app metadata and ordered unique actions")
+  func actionProfileRoundTrip() throws {
+    let firstActionID = UUID()
+    let secondActionID = UUID()
+    let original = SelectionBarActionProfile(
+      id: UUID(),
+      app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+      isEnabled: true,
+      actionIDs: [firstActionID, secondActionID, firstActionID]
+    )
+
+    let encoded = try JSONEncoder().encode(original)
+    let decoded = try JSONDecoder().decode(SelectionBarActionProfile.self, from: encoded)
+
+    #expect(decoded.id == original.id)
+    #expect(decoded.app == original.app)
+    #expect(decoded.isEnabled)
+    #expect(decoded.actionIDs == [firstActionID, secondActionID])
   }
 
   @Test("key-binding custom action roundtrips through Codable")
@@ -288,13 +363,27 @@ struct SelectionBarCoreTests {
     #expect(invalid == "{ not-json }")
   }
 
-  @Test("javascript starter templates replace line utilities with URL and JWT tools")
+  @Test("javascript starter templates omit removed trim utility and keep URL/JWT tools")
   func javaScriptStarterTemplateList() {
     let names = Set(CustomActionConfig.createJavaScriptStarterTemplates().map(\.name))
+    #expect(names.count == 7)
     #expect(names.contains("URL Toolkit"))
     #expect(names.contains("JWT Decode"))
+    #expect(!names.contains("Trim + Normalize Whitespace"))
     #expect(!names.contains("Bulletize Lines"))
     #expect(!names.contains("Remove Empty Lines"))
+  }
+
+  @Test("LLM starter templates omit removed clean up action")
+  func llmStarterTemplateList() {
+    let names = Set(CustomActionConfig.createAllBuiltInTemplates().map(\.name))
+    #expect(names.count == 5)
+    #expect(names.contains("Polish"))
+    #expect(!names.contains("Clean Up"))
+    #expect(names.contains("Extract Actions"))
+    #expect(names.contains("Summarize"))
+    #expect(names.contains("Bulletize"))
+    #expect(names.contains("Draft Email"))
   }
 
   @Test("javascript URL toolkit template parses URL components and query params")

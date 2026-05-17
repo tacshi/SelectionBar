@@ -1,23 +1,26 @@
 #!/bin/bash
-# Build SelectionBar and package it as a local .app bundle.
+# Build SelectionBar and package it as a local debug .app bundle.
 #
 # Usage:
-#   ./build-app.sh
-#   ./build-app.sh --debug
-#   ./build-app.sh --arch x86_64
-#   ./build-app.sh --no-format
-#   ./build-app.sh --no-sign
-#   ./build-app.sh --clean
+#   ./scripts/build-debug.sh
+#   ./scripts/build-debug.sh --arch x86_64
+#   ./scripts/build-debug.sh --no-format
+#   ./scripts/build-debug.sh --no-sign
+#   ./scripts/build-debug.sh --clean
+#
+# Signing:
+#   export DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)"
+#   If DEVELOPER_ID_APPLICATION is unset, the script falls back to ad-hoc signing.
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="SelectionBar"
 EXECUTABLE_NAME="SelectionBarApp"
 APP_DIR="$SCRIPT_DIR/$APP_NAME.app"
 ICON_ICNS_SOURCE="$SCRIPT_DIR/Assets/AppIcon.icns"
 ICONSET_SOURCE="$SCRIPT_DIR/Assets/AppIcon.iconset"
-CONFIGURATION="release"
+CONFIGURATION="debug"
 ARCH=""
 DO_FORMAT=true
 DO_SIGN=true
@@ -28,10 +31,10 @@ usage() {
 Usage: $0 [OPTIONS]
 
 Options:
-  --debug         Build debug configuration (default: release)
+  --debug         Build debug configuration (default)
   --arch ARCH     Build for architecture (arm64 or x86_64)
   --no-format     Skip swift-format step
-  --no-sign       Skip ad-hoc code signing
+  --no-sign       Skip code signing
   --clean         Remove .build and app bundle before building
   -h, --help      Show this help
 USAGE
@@ -197,25 +200,31 @@ echo -n "APPL????" > "$APP_DIR/Contents/PkgInfo"
 
 if [ "$DO_SIGN" = true ]; then
   if command -v codesign >/dev/null 2>&1; then
-    echo "🔑 Signing app bundle..."
+    SIGN_IDENTITY="${DEVELOPER_ID_APPLICATION:-}"
+    if [ -n "$SIGN_IDENTITY" ]; then
+      echo "🔑 Signing app bundle with DEVELOPER_ID_APPLICATION: $SIGN_IDENTITY"
+    else
+      SIGN_IDENTITY="-"
+      echo "🔑 DEVELOPER_ID_APPLICATION not set; signing app bundle ad-hoc"
+    fi
 
     # Sign Sparkle framework components
     SPARKLE_FRAMEWORK="$APP_DIR/Contents/Frameworks/Sparkle.framework"
     if [ -d "$SPARKLE_FRAMEWORK" ]; then
       for xpc in "$SPARKLE_FRAMEWORK/Versions/B/XPCServices"/*.xpc; do
-        [ -d "$xpc" ] && codesign --force --sign "-" --options runtime "$xpc"
+        [ -d "$xpc" ] && codesign --force --sign "$SIGN_IDENTITY" --options runtime "$xpc"
       done
       for app in "$SPARKLE_FRAMEWORK/Versions/B"/*.app; do
-        [ -d "$app" ] && codesign --force --sign "-" --options runtime "$app"
+        [ -d "$app" ] && codesign --force --sign "$SIGN_IDENTITY" --options runtime "$app"
       done
       for exe in "$SPARKLE_FRAMEWORK/Versions/B/Autoupdate"; do
-        [ -f "$exe" ] && codesign --force --sign "-" --options runtime "$exe"
+        [ -f "$exe" ] && codesign --force --sign "$SIGN_IDENTITY" --options runtime "$exe"
       done
-      codesign --force --sign "-" --options runtime "$SPARKLE_FRAMEWORK"
+      codesign --force --sign "$SIGN_IDENTITY" --options runtime "$SPARKLE_FRAMEWORK"
     fi
 
     # Sign main app with entitlements
-    codesign --force --sign "-" \
+    codesign --force --sign "$SIGN_IDENTITY" \
       --entitlements "$SCRIPT_DIR/SelectionBar.entitlements" \
       --options runtime \
       "$APP_DIR"

@@ -108,11 +108,17 @@ public final class SelectionBarActionHandler {
   public func process(
     text: String,
     action: CustomActionConfig,
-    settings: SelectionBarSettingsStore
+    settings: SelectionBarSettingsStore,
+    sourceContext: SelectionBarActionSourceContext? = nil
   ) async throws -> String {
     switch action.kind {
     case .llm:
-      let prompt = buildPrompt(template: action.prompt, text: text)
+      let prompt = Self.renderPrompt(
+        template: action.prompt,
+        text: text,
+        sourceContext: sourceContext,
+        includesSourceContext: action.includesSourceContext
+      )
       let snapshot = makeProviderSettingsSnapshot(from: settings)
       let result = try await performOpenAICompletion(
         prompt: prompt,
@@ -146,7 +152,49 @@ public final class SelectionBarActionHandler {
         throw SelectionBarError.keyboardShortcutDispatchFailed(shortcut.canonicalString)
       }
       return text
+
+    case .pipeline:
+      return try await processPipeline(
+        text: text,
+        action: action,
+        settings: settings,
+        sourceContext: sourceContext
+      )
     }
+  }
+
+  private func processPipeline(
+    text: String,
+    action: CustomActionConfig,
+    settings: SelectionBarSettingsStore,
+    sourceContext: SelectionBarActionSourceContext?
+  ) async throws -> String {
+    guard action.kind == .pipeline, !action.pipelineSteps.isEmpty else {
+      throw SelectionBarError.invalidPipeline
+    }
+
+    var currentText = text
+    for step in action.pipelineSteps {
+      guard let stepAction = settings.customActions.first(where: { $0.id == step.actionID }),
+        stepAction.id != action.id
+      else {
+        throw SelectionBarError.invalidPipeline
+      }
+
+      switch stepAction.kind {
+      case .javascript, .llm:
+        currentText = try await process(
+          text: currentText,
+          action: stepAction,
+          settings: settings,
+          sourceContext: sourceContext
+        )
+      case .keyBinding, .pipeline:
+        throw SelectionBarError.invalidPipeline
+      }
+    }
+
+    return currentText
   }
 
   /// Translate selected text through configured translation-capable providers.
@@ -281,8 +329,75 @@ public final class SelectionBarActionHandler {
     clipboardService.triggerKeyboardShortcut(shortcut)
   }
 
+  nonisolated static func renderPrompt(
+    template: String,
+    text: String,
+    sourceContext: SelectionBarActionSourceContext?,
+    includesSourceContext: Bool
+  ) -> String {
+    let effectiveSourceContext =
+      includesSourceContext
+      ? sourceContext
+        ?? SelectionBarActionSourceContext(
+          excerpt: "Source context unavailable: no readable source was detected.",
+          isAvailable: false
+        )
+      : nil
+
+    let replacements: [(String, String)] = [
+      ("{{TEXT}}", text),
+      ("{{CONTEXT}}", effectiveSourceContext?.formattedPromptBlock ?? ""),
+      ("{{SOURCE_URL}}", effectiveSourceContext?.sourceURL ?? ""),
+      ("{{APP_NAME}}", effectiveSourceContext?.appName ?? ""),
+      ("{{BUNDLE_ID}}", effectiveSourceContext?.bundleID ?? ""),
+    ]
+
+    let rendered = Self.replacingPlaceholders(
+      in: template,
+      values: Dictionary(uniqueKeysWithValues: replacements)
+    )
+
+    guard includesSourceContext, !template.contains("{{CONTEXT}}") else {
+      return rendered
+    }
+
+    return "\(effectiveSourceContext?.formattedPromptBlock ?? "")\n\n\(rendered)"
+  }
+
+  nonisolated private static func replacingPlaceholders(
+    in template: String,
+    values: [String: String]
+  ) -> String {
+    let pattern = values.keys
+      .map { NSRegularExpression.escapedPattern(for: $0) }
+      .joined(separator: "|")
+    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+      return template
+    }
+
+    var rendered = ""
+    var currentIndex = template.startIndex
+    let range = NSRange(template.startIndex..<template.endIndex, in: template)
+
+    for match in regex.matches(in: template, range: range) {
+      guard let matchRange = Range(match.range, in: template) else { continue }
+      rendered += template[currentIndex..<matchRange.lowerBound]
+      let placeholder = String(template[matchRange])
+      rendered += values[placeholder] ?? placeholder
+      currentIndex = matchRange.upperBound
+    }
+
+    rendered += template[currentIndex..<template.endIndex]
+    return rendered
+  }
+
   private func buildPrompt(template: String, text: String) -> String {
-    template.replacing("{{TEXT}}", with: text)
+    Self.renderPrompt(
+      template: template,
+      text: text,
+      sourceContext: nil,
+      includesSourceContext: false
+    )
   }
 
   private func makeProviderSettingsSnapshot(
@@ -410,6 +525,7 @@ public enum SelectionBarError: LocalizedError, Sendable, Equatable {
   case javaScriptTimeout
   case invalidKeyboardShortcut(String)
   case keyboardShortcutDispatchFailed(String)
+  case invalidPipeline
 
   public var errorDescription: String? {
     switch self {
@@ -440,6 +556,8 @@ public enum SelectionBarError: LocalizedError, Sendable, Equatable {
       return "Invalid keyboard shortcut: '\(shortcut)'."
     case .keyboardShortcutDispatchFailed(let shortcut):
       return "Failed to trigger keyboard shortcut '\(shortcut)'."
+    case .invalidPipeline:
+      return "Pipeline contains no valid action steps."
     }
   }
 }

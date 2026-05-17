@@ -1,13 +1,13 @@
 #!/bin/bash
 # Automated release script for SelectionBar
-# Usage: ./release.sh VERSION [OPTIONS]
+# Usage: ./scripts/build-release.sh VERSION [OPTIONS]
 #
 # Examples:
-#   ./release.sh 0.1.2              # Full release (all architectures + GitHub)
-#   ./release.sh 0.1.2 --dry-run    # Validate only
-#   ./release.sh 0.1.2 --no-upload  # Build locally without upload
-#   ./release.sh 0.1.2 --no-tag     # Skip git tag creation
-#   ./release.sh 0.1.2 --arch arm64 # Build for specific architecture only
+#   ./scripts/build-release.sh 0.1.2              # Full release (all architectures + GitHub)
+#   ./scripts/build-release.sh 0.1.2 --dry-run    # Validate only
+#   ./scripts/build-release.sh 0.1.2 --no-upload  # Build locally without upload
+#   ./scripts/build-release.sh 0.1.2 --no-tag     # Skip git tag creation
+#   ./scripts/build-release.sh 0.1.2 --arch arm64 # Build for specific architecture only
 
 set -e
 
@@ -18,8 +18,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Repository root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="SelectionBar"
 EXECUTABLE_NAME="SelectionBarApp"
 INFO_PLIST="$SCRIPT_DIR/Info.plist"

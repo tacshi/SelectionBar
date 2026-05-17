@@ -95,6 +95,129 @@ struct SelectionBarCoordinatorTests {
     #expect(windowPresenter.updateCalls == 0)
     #expect(resolvedTexts == ["plain text"])
   }
+
+  @Test("selection popup uses profile actions for selected app bundle")
+  func selectionPopupUsesProfileActionsForSelectedAppBundle() {
+    let store = makeStore(keychain: InMemoryKeychain())
+    let globalAction = makeJavaScriptAction(name: "Global", isEnabled: true)
+    let profileAction = makeJavaScriptAction(name: "Profile", isEnabled: false)
+    store.customActions = [globalAction, profileAction]
+    store.actionProfiles = [
+      SelectionBarActionProfile(
+        app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+        isEnabled: true,
+        actionIDs: [profileAction.id]
+      )
+    ]
+
+    var observedActionIDs: [[UUID]] = []
+    let coordinator = SelectionBarCoordinator(
+      settingsStore: store,
+      monitor: SelectionMonitor(),
+      actionHandler: SelectionBarActionHandler(),
+      windowControllerFactory: { _ in FakeSelectionBarWindowPresenter() },
+      runCommandVisibilityResolver: { _ in false },
+      barActionsObserver: { actions in
+        observedActionIDs.append(actions.map(\.id))
+      }
+    )
+
+    coordinator.handleTextSelectedForTesting(
+      text: "selected text",
+      at: NSPoint(x: 80, y: 120),
+      frontmostBundleID: "com.example.Editor"
+    )
+
+    #expect(observedActionIDs.first == [profileAction.id])
+  }
+
+  @Test("selection popup uses global actions for unknown app bundle")
+  func selectionPopupUsesGlobalActionsForUnknownAppBundle() {
+    let store = makeStore(keychain: InMemoryKeychain())
+    let globalAction = makeJavaScriptAction(name: "Global", isEnabled: true)
+    let profileAction = makeJavaScriptAction(name: "Profile", isEnabled: false)
+    store.customActions = [globalAction, profileAction]
+    store.actionProfiles = [
+      SelectionBarActionProfile(
+        app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+        isEnabled: true,
+        actionIDs: [profileAction.id]
+      )
+    ]
+
+    var observedActionIDs: [[UUID]] = []
+    let coordinator = SelectionBarCoordinator(
+      settingsStore: store,
+      monitor: SelectionMonitor(),
+      actionHandler: SelectionBarActionHandler(),
+      windowControllerFactory: { _ in FakeSelectionBarWindowPresenter() },
+      runCommandVisibilityResolver: { _ in false },
+      barActionsObserver: { actions in
+        observedActionIDs.append(actions.map(\.id))
+      }
+    )
+
+    coordinator.handleTextSelectedForTesting(
+      text: "selected text",
+      at: NSPoint(x: 80, y: 120),
+      frontmostBundleID: "com.example.Other"
+    )
+
+    #expect(observedActionIDs.first == [globalAction.id])
+  }
+
+  @Test("selection popup rebuild keeps captured selected app profile")
+  func selectionPopupRebuildKeepsCapturedSelectedAppProfile() async throws {
+    let store = makeStore(keychain: InMemoryKeychain())
+    let globalAction = makeJavaScriptAction(name: "Global", isEnabled: true)
+    let profileAction = makeJavaScriptAction(name: "Profile", isEnabled: false)
+    let windowPresenter = FakeSelectionBarWindowPresenter()
+    store.customActions = [globalAction, profileAction]
+    store.actionProfiles = [
+      SelectionBarActionProfile(
+        app: IgnoredApp(id: "com.example.Editor", name: "Editor"),
+        isEnabled: true,
+        actionIDs: [profileAction.id]
+      )
+    ]
+
+    var observedActionIDs: [[UUID]] = []
+    let coordinator = SelectionBarCoordinator(
+      settingsStore: store,
+      monitor: SelectionMonitor(),
+      actionHandler: SelectionBarActionHandler(),
+      windowControllerFactory: { _ in windowPresenter },
+      runCommandVisibilityResolver: { _ in true },
+      barActionsObserver: { actions in
+        observedActionIDs.append(actions.map(\.id))
+      }
+    )
+
+    coordinator.handleTextSelectedForTesting(
+      text: "/usr/bin/git status",
+      at: NSPoint(x: 80, y: 120),
+      frontmostBundleID: "com.example.Editor"
+    )
+
+    try await Task.sleep(for: .milliseconds(120))
+
+    #expect(windowPresenter.updateCalls == 1)
+    #expect(observedActionIDs.count >= 2)
+    #expect(observedActionIDs.allSatisfy { $0 == [profileAction.id] })
+  }
+}
+
+private func makeJavaScriptAction(name: String, isEnabled: Bool) -> CustomActionConfig {
+  CustomActionConfig(
+    id: UUID(),
+    name: name,
+    prompt: "",
+    modelProvider: "",
+    modelId: "",
+    kind: .javascript,
+    script: "function transform(input) { return input; }",
+    isEnabled: isEnabled
+  )
 }
 
 @MainActor

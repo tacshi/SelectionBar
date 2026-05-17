@@ -4,7 +4,6 @@ extension CustomActionConfig {
   public static func createAllBuiltInTemplates() -> [CustomActionConfig] {
     [
       createPolishTemplate(),
-      createCleanUpTemplate(),
       createActionItemsTemplate(),
       createSummaryTemplate(),
       createBulletPointsTemplate(),
@@ -234,7 +233,6 @@ extension CustomActionConfig {
 
   public static func createJavaScriptStarterTemplates() -> [CustomActionConfig] {
     [
-      createJavaScriptTrimNormalizeTemplate(),
       createJavaScriptTitleCaseTemplate(),
       createJavaScriptURLToolkitTemplate(),
       createJavaScriptJWTDecodeTemplate(),
@@ -243,29 +241,6 @@ extension CustomActionConfig {
       createJavaScriptCleanEscapesTemplate(),
       createJavaScriptWrapQuoteTemplate(),
     ]
-  }
-
-  public static func createJavaScriptTrimNormalizeTemplate() -> CustomActionConfig {
-    CustomActionConfig(
-      name: "Trim + Normalize Whitespace",
-      prompt: Self.defaultPromptTemplate,
-      modelProvider: "",
-      modelId: "",
-      kind: .javascript,
-      outputMode: .inplace,
-      script: """
-        function transform(input) {
-          return input
-            .trim()
-            .replace(/[ \\t]+/g, " ")
-            .replace(/\\n{3,}/g, "\\n\\n");
-        }
-        """,
-      isEnabled: false,
-      isBuiltIn: true,
-      templateId: "js-trim-normalize",
-      icon: CustomActionIcon(value: "text.badge.checkmark")
-    )
   }
 
   public static func createJavaScriptTitleCaseTemplate() -> CustomActionConfig {

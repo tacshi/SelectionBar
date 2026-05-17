@@ -6,6 +6,9 @@ public enum CustomActionEnablementIssue: Sendable, Equatable {
   case missingProvider
   case missingModel
   case providerUnavailable
+  case emptyPipeline
+  case missingPipelineStep
+  case invalidPipelineStep
 }
 
 @MainActor
@@ -278,6 +281,11 @@ public final class SelectionBarSettingsStore {
     }
   }
 
+  /// Per-app overrides for configurable Selection Bar actions.
+  public var actionProfiles: [SelectionBarActionProfile] {
+    didSet { persistIfNeeded() }
+  }
+
   public init(
     defaults: UserDefaults = .standard,
     storageKey: String = "SelectionBar.settings",
@@ -320,6 +328,7 @@ public final class SelectionBarSettingsStore {
     customLLMProviders = []
     customActions = []
     builtInKeyBindingActions = []
+    actionProfiles = []
     appLanguage = defaults.string(forKey: "SelectionBar_AppLanguageOverride") ?? ""
     openAIAPIKeyConfigured = false
     openRouterAPIKeyConfigured = false
@@ -342,6 +351,56 @@ public final class SelectionBarSettingsStore {
     let keyBindings = builtInKeyBindingActions.filter(\.isEnabled)
     let custom = customActions.filter { $0.isEnabled && $0.kind != .keyBinding }
     return keyBindings + custom
+  }
+
+  /// All actions that can be included in an app-specific action profile.
+  public var actionProfileAvailableActions: [CustomActionConfig] {
+    builtInKeyBindingActions + customActions.filter { $0.kind != .keyBinding }
+  }
+
+  /// Enabled action list for a frontmost app. Matching enabled profiles replace the global list.
+  public func orderedEnabledSelectionBarActions(for bundleID: String?) -> [CustomActionConfig] {
+    guard
+      let bundleID = bundleID?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !bundleID.isEmpty,
+      let profile = actionProfiles.first(where: { profile in
+        profile.isEnabled && profile.app.id == bundleID
+      })
+    else {
+      return orderedEnabledSelectionBarActions
+    }
+
+    return profile.actionIDs.compactMap { actionID in
+      guard let action = actionProfileAction(id: actionID) else { return nil }
+      return isValidActionProfileAction(action) ? action : nil
+    }
+  }
+
+  public func actionProfileStatus(
+    _ profile: SelectionBarActionProfile
+  ) -> SelectionBarActionProfileStatus {
+    var validActionCount = 0
+    var missingActionCount = 0
+    var invalidActionCount = 0
+
+    for actionID in profile.actionIDs {
+      guard let action = actionProfileAction(id: actionID) else {
+        missingActionCount += 1
+        continue
+      }
+
+      if isValidActionProfileAction(action) {
+        validActionCount += 1
+      } else {
+        invalidActionCount += 1
+      }
+    }
+
+    return SelectionBarActionProfileStatus(
+      validActionCount: validActionCount,
+      missingActionCount: missingActionCount,
+      invalidActionCount: invalidActionCount
+    )
   }
 
   public func availableSelectionBarTranslationProviders() -> [SelectionBarTranslationProviderOption]
@@ -615,18 +674,46 @@ public final class SelectionBarSettingsStore {
   }
 
   public func canEnableCustomAction(_ action: CustomActionConfig) -> Bool {
+    customActionEnablementIssue(action) == nil
+  }
+
+  public func customActionEnablementIssue(
+    _ action: CustomActionConfig
+  ) -> CustomActionEnablementIssue? {
+    customActionEnablementIssue(action, checkProviderAvailability: true)
+  }
+
+  private func customActionEnablementIssue(
+    _ action: CustomActionConfig,
+    checkProviderAvailability: Bool
+  ) -> CustomActionEnablementIssue? {
     switch action.kind {
     case .javascript:
-      return true
+      return nil
     case .llm:
-      return llmActionEnablementIssue(action) == nil
+      return llmActionEnablementIssue(
+        action,
+        checkProviderAvailability: checkProviderAvailability
+      )
     case .keyBinding:
-      return isValidKeyBindingAction(action)
+      return isValidKeyBindingAction(action) ? nil : .invalidPipelineStep
+    case .pipeline:
+      return pipelineActionEnablementIssue(
+        action,
+        checkProviderAvailability: checkProviderAvailability
+      )
     }
   }
 
   public func llmActionEnablementIssue(_ action: CustomActionConfig) -> CustomActionEnablementIssue?
   {
+    llmActionEnablementIssue(action, checkProviderAvailability: true)
+  }
+
+  private func llmActionEnablementIssue(
+    _ action: CustomActionConfig,
+    checkProviderAvailability: Bool
+  ) -> CustomActionEnablementIssue? {
     guard action.kind == .llm else { return nil }
 
     let provider = action.modelProvider.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -635,8 +722,63 @@ public final class SelectionBarSettingsStore {
     let model = action.modelId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !model.isEmpty else { return .missingModel }
 
-    guard isAvailableLLMProvider(providerID: provider) else { return .providerUnavailable }
+    guard !checkProviderAvailability || isAvailableLLMProvider(providerID: provider) else {
+      return .providerUnavailable
+    }
     return nil
+  }
+
+  public func pipelineActionEnablementIssue(
+    _ action: CustomActionConfig
+  ) -> CustomActionEnablementIssue? {
+    pipelineActionEnablementIssue(action, checkProviderAvailability: true)
+  }
+
+  private func pipelineActionEnablementIssue(
+    _ action: CustomActionConfig,
+    checkProviderAvailability: Bool
+  ) -> CustomActionEnablementIssue? {
+    guard action.kind == .pipeline else { return nil }
+    guard !action.pipelineSteps.isEmpty else { return .emptyPipeline }
+
+    for step in action.pipelineSteps {
+      guard let stepAction = customActions.first(where: { $0.id == step.actionID }) else {
+        return .missingPipelineStep
+      }
+      guard stepAction.id != action.id else { return .invalidPipelineStep }
+
+      switch stepAction.kind {
+      case .javascript:
+        continue
+      case .llm:
+        if llmActionEnablementIssue(
+          stepAction,
+          checkProviderAvailability: checkProviderAvailability
+        ) != nil {
+          return .invalidPipelineStep
+        }
+      case .keyBinding, .pipeline:
+        return .invalidPipelineStep
+      }
+    }
+
+    return nil
+  }
+
+  public func actionNeedsSourceContext(_ action: CustomActionConfig) -> Bool {
+    switch action.kind {
+    case .llm:
+      return action.includesSourceContext
+    case .pipeline:
+      return action.pipelineSteps.contains { step in
+        guard let stepAction = customActions.first(where: { $0.id == step.actionID }) else {
+          return false
+        }
+        return stepAction.kind == .llm && stepAction.includesSourceContext
+      }
+    case .javascript, .keyBinding:
+      return false
+    }
   }
 
   /// Reconcile all configurable actions:
@@ -669,14 +811,19 @@ public final class SelectionBarSettingsStore {
         }
         return updated
       case .llm:
-        if let issue = llmActionEnablementIssue(updated) {
-          // Always disable for structural issues (missing provider / model).
-          // Only disable for provider-unavailable when explicitly requested,
-          // because Keychain may be inaccessible after ad-hoc re-signing.
-          let isStructuralIssue = issue != .providerUnavailable
-          if isStructuralIssue || checkProviderAvailability {
-            updated.isEnabled = false
-          }
+        if llmActionEnablementIssue(
+          updated,
+          checkProviderAvailability: checkProviderAvailability
+        ) != nil {
+          updated.isEnabled = false
+        }
+        return updated
+      case .pipeline:
+        if customActionEnablementIssue(
+          updated,
+          checkProviderAvailability: checkProviderAvailability
+        ) != nil {
+          updated.isEnabled = false
         }
         return updated
       }
@@ -806,7 +953,8 @@ public final class SelectionBarSettingsStore {
       selectionBarTranslationTargetLanguage: selectionBarTranslationTargetLanguage,
       customLLMProviders: customLLMProviders,
       customActions: customActions,
-      builtInKeyBindingActions: builtInKeyBindingActions
+      builtInKeyBindingActions: builtInKeyBindingActions,
+      actionProfiles: actionProfiles
     )
 
     if let encoded = try? JSONEncoder().encode(data) {
@@ -872,6 +1020,7 @@ public final class SelectionBarSettingsStore {
       customActions = (settings.customActions ?? []).filter { $0.kind != .keyBinding }
       builtInKeyBindingActions =
         (settings.builtInKeyBindingActions ?? []).filter { $0.kind == .keyBinding }
+      actionProfiles = settings.actionProfiles ?? []
     }
   }
 
@@ -884,6 +1033,23 @@ public final class SelectionBarSettingsStore {
   private func persistIfNeeded() {
     guard persistenceSuppressionDepth == 0 else { return }
     save()
+  }
+
+  private func actionProfileAction(id: UUID) -> CustomActionConfig? {
+    builtInKeyBindingActions.first { $0.id == id }
+      ?? customActions.first { $0.id == id }
+  }
+
+  private func isValidActionProfileAction(_ action: CustomActionConfig) -> Bool {
+    switch action.kind {
+    case .keyBinding:
+      guard builtInKeyBindingActions.contains(where: { $0.id == action.id }) else {
+        return false
+      }
+    case .javascript, .llm, .pipeline:
+      break
+    }
+    return customActionEnablementIssue(action) == nil
   }
 }
 
@@ -921,4 +1087,5 @@ private struct StoredSettings: Codable {
   let customLLMProviders: [CustomLLMProvider]?
   let customActions: [CustomActionConfig]?
   let builtInKeyBindingActions: [CustomActionConfig]?
+  let actionProfiles: [SelectionBarActionProfile]?
 }

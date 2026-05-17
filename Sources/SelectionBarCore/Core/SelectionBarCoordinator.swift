@@ -13,6 +13,7 @@ public final class SelectionBarCoordinator {
   private let actionHandler: SelectionBarActionHandler
   private let windowControllerFactory: (AnyView) -> any SelectionBarWindowPresenting
   private let runCommandVisibilityResolver: (String) async -> Bool
+  private let barActionsObserver: (([CustomActionConfig]) -> Void)?
   private var windowController: (any SelectionBarWindowPresenting)?
   private var actionTask: Task<Void, Never>?
   private var autoDismissTask: Task<Void, Never>?
@@ -27,6 +28,9 @@ public final class SelectionBarCoordinator {
   private var chatRestoredMessageCount = 0
 
   private var selectedText: String?
+  private var selectedAppName: String?
+  private var selectedAppBundleID: String?
+  private var selectedAppProcessID: pid_t?
   private var processedText: String?
   private var processingActionId: UUID?
   private var errorActionId: UUID?
@@ -52,12 +56,14 @@ public final class SelectionBarCoordinator {
     monitor: SelectionMonitor,
     actionHandler: SelectionBarActionHandler,
     windowControllerFactory: @escaping (AnyView) -> any SelectionBarWindowPresenting,
-    runCommandVisibilityResolver: ((String) async -> Bool)? = nil
+    runCommandVisibilityResolver: ((String) async -> Bool)? = nil,
+    barActionsObserver: (([CustomActionConfig]) -> Void)? = nil
   ) {
     self.settingsStore = settingsStore
     self.monitor = monitor
     self.actionHandler = actionHandler
     self.windowControllerFactory = windowControllerFactory
+    self.barActionsObserver = barActionsObserver
     self.runCommandVisibilityResolver =
       runCommandVisibilityResolver
       ?? { text in
@@ -119,8 +125,21 @@ public final class SelectionBarCoordinator {
     monitor.requiredActivationModifier = settingsStore.selectionBarActivationModifier
   }
 
-  private func handleTextSelected(text: String, at location: NSPoint) {
-    let enabledActions = settingsStore.orderedEnabledSelectionBarActions
+  private func handleTextSelected(
+    text: String,
+    at location: NSPoint,
+    frontmostAppName: String? = nil,
+    frontmostBundleID: String? = nil,
+    frontmostPID: pid_t? = nil
+  ) {
+    let frontmostApp =
+      frontmostAppName == nil && frontmostBundleID == nil && frontmostPID == nil
+      ? NSWorkspace.shared.frontmostApplication
+      : nil
+    let appName = frontmostAppName ?? frontmostApp?.localizedName
+    let bundleID = frontmostBundleID ?? frontmostApp?.bundleIdentifier
+    let processID = frontmostPID ?? frontmostApp?.processIdentifier
+    let enabledActions = settingsStore.orderedEnabledSelectionBarActions(for: bundleID)
     logger.info(
       "Showing selection bar near (\(location.x, privacy: .public), \(location.y, privacy: .public)) with \(enabledActions.count, privacy: .public) enabled actions"
     )
@@ -128,6 +147,9 @@ public final class SelectionBarCoordinator {
     dismiss()
 
     selectedText = text
+    selectedAppName = appName
+    selectedAppBundleID = bundleID
+    selectedAppProcessID = processID
     processedText = nil
     processingActionId = nil
     errorActionId = nil
@@ -184,7 +206,8 @@ public final class SelectionBarCoordinator {
       settingsStore.selectionBarChatEnabled
       && !settingsStore.availableChatProviders().isEmpty
     let showCut = monitor.isFocusedElementEditable()
-    let enabledActions = settingsStore.orderedEnabledSelectionBarActions
+    let enabledActions = settingsStore.orderedEnabledSelectionBarActions(for: selectedAppBundleID)
+    barActionsObserver?(enabledActions)
     let isBusy = processingActionId != nil || isTranslating || isRunningCommand
 
     return SelectionBarView(
@@ -372,13 +395,24 @@ public final class SelectionBarCoordinator {
     actionTask = Task { [weak self] in
       guard let self else { return }
       do {
+        let sourceContext =
+          self.settingsStore.actionNeedsSourceContext(action)
+          ? await SelectionBarActionSourceContextResolver.resolve(
+            selectedText: selectedText,
+            appName: self.selectedAppName,
+            bundleID: self.selectedAppBundleID,
+            processID: self.selectedAppProcessID
+          )
+          : nil
         let result = try await self.actionHandler.process(
           text: selectedText,
           action: action,
-          settings: self.settingsStore
+          settings: self.settingsStore,
+          sourceContext: sourceContext
         )
         guard !Task.isCancelled else { return }
-        if action.kind == .javascript && action.outputMode == .inplace {
+        if (action.kind == .javascript || action.kind == .pipeline) && action.outputMode == .inplace
+        {
           if self.monitor.isFocusedElementEditable() {
             self.processingActionId = nil
             self.errorActionId = nil
@@ -403,7 +437,8 @@ public final class SelectionBarCoordinator {
   }
 
   private func handleKeyBindingAction(_ action: CustomActionConfig) {
-    let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+    let frontmostBundleID =
+      selectedAppBundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier
     let resolvedKeyBinding = action.resolvedKeyBinding(for: frontmostBundleID)
 
     guard let shortcut = actionHandler.keyboardShortcut(for: action, bundleID: frontmostBundleID)
@@ -845,6 +880,9 @@ public final class SelectionBarCoordinator {
     windowController?.dismiss()
     windowController = nil
     selectedText = nil
+    selectedAppName = nil
+    selectedAppBundleID = nil
+    selectedAppProcessID = nil
     processedText = nil
     processingActionId = nil
     errorActionId = nil
@@ -878,7 +916,19 @@ public final class SelectionBarCoordinator {
     }
   }
 
-  func handleTextSelectedForTesting(text: String, at location: NSPoint) {
-    handleTextSelected(text: text, at: location)
+  func handleTextSelectedForTesting(
+    text: String,
+    at location: NSPoint,
+    frontmostAppName: String? = nil,
+    frontmostBundleID: String? = nil,
+    frontmostPID: pid_t? = nil
+  ) {
+    handleTextSelected(
+      text: text,
+      at: location,
+      frontmostAppName: frontmostAppName,
+      frontmostBundleID: frontmostBundleID,
+      frontmostPID: frontmostPID
+    )
   }
 }

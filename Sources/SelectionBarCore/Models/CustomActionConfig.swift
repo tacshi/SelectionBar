@@ -33,6 +33,7 @@ public enum CustomActionKind: String, Codable, CaseIterable, Sendable, Hashable 
   case javascript
   case llm
   case keyBinding
+  case pipeline
 
   public var displayName: String {
     switch self {
@@ -42,6 +43,8 @@ public enum CustomActionKind: String, Codable, CaseIterable, Sendable, Hashable 
       String(localized: "LLM", bundle: .localizedModule)
     case .keyBinding:
       String(localized: "Key Binding", bundle: .localizedModule)
+    case .pipeline:
+      String(localized: "Pipeline", bundle: .localizedModule)
     }
   }
 }
@@ -74,6 +77,16 @@ public struct CustomActionKeyBindingOverride: Codable, Equatable, Sendable, Hash
   }
 }
 
+public struct CustomActionPipelineStep: Codable, Equatable, Sendable, Hashable, Identifiable {
+  public var id: UUID
+  public var actionID: UUID
+
+  public init(id: UUID = UUID(), actionID: UUID) {
+    self.id = id
+    self.actionID = actionID
+  }
+}
+
 /// Configuration for a text action.
 public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Hashable {
   public static let defaultPromptTemplate = "Process the following text:\n\n{{TEXT}}"
@@ -97,6 +110,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
   public var isBuiltIn: Bool
   public var templateId: String?
   public var icon: CustomActionIcon?
+  public var includesSourceContext: Bool
+  public var pipelineSteps: [CustomActionPipelineStep]
 
   /// Localized name for known built-in templates.
   public var localizedName: String {
@@ -111,8 +126,6 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     case "kb-bold": return String(localized: "Bold", bundle: .localizedModule)
     case "kb-italic": return String(localized: "Italic", bundle: .localizedModule)
     case "kb-underline": return String(localized: "Underline", bundle: .localizedModule)
-    case "js-trim-normalize":
-      return String(localized: "Trim + Normalize Whitespace", bundle: .localizedModule)
     case "js-title-case": return String(localized: "Title Case", bundle: .localizedModule)
     case "js-url-toolkit": return String(localized: "URL Toolkit", bundle: .localizedModule)
     case "js-jwt-decode": return String(localized: "JWT Decode", bundle: .localizedModule)
@@ -140,7 +153,9 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     isEnabled: Bool = false,
     isBuiltIn: Bool = false,
     templateId: String? = nil,
-    icon: CustomActionIcon? = nil
+    icon: CustomActionIcon? = nil,
+    includesSourceContext: Bool = false,
+    pipelineSteps: [CustomActionPipelineStep] = []
   ) {
     self.id = id
     self.name = name
@@ -156,6 +171,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     self.isBuiltIn = isBuiltIn
     self.templateId = templateId
     self.icon = icon
+    self.includesSourceContext = includesSourceContext
+    self.pipelineSteps = pipelineSteps
   }
 
   private enum CodingKeys: String, CodingKey {
@@ -173,6 +190,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     case isBuiltIn
     case templateId
     case icon
+    case includesSourceContext
+    case pipelineSteps
   }
 
   public init(from decoder: Decoder) throws {
@@ -205,6 +224,10 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     isBuiltIn = try container.decodeIfPresent(Bool.self, forKey: .isBuiltIn) ?? false
     templateId = try container.decodeIfPresent(String.self, forKey: .templateId)
     icon = try container.decodeIfPresent(CustomActionIcon.self, forKey: .icon)
+    includesSourceContext =
+      try container.decodeIfPresent(Bool.self, forKey: .includesSourceContext) ?? false
+    pipelineSteps =
+      try container.decodeIfPresent([CustomActionPipelineStep].self, forKey: .pipelineSteps) ?? []
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -223,6 +246,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     try container.encode(isBuiltIn, forKey: .isBuiltIn)
     try container.encode(templateId, forKey: .templateId)
     try container.encode(icon, forKey: .icon)
+    try container.encode(includesSourceContext, forKey: .includesSourceContext)
+    try container.encode(pipelineSteps, forKey: .pipelineSteps)
   }
 
   public var defaultIconSFSymbolName: String {
@@ -256,6 +281,9 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     default:
       if kind == .keyBinding {
         return "keyboard"
+      }
+      if kind == .pipeline {
+        return "app.connected.to.app.below.fill"
       }
       return "sparkles"
     }

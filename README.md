@@ -49,13 +49,13 @@ Chat with AI about selected text in a floating panel with streaming responses an
 
 - Polish, Clean Up, Extract Actions, Summarize, Bulletize, Draft Email
 
-Each action can output to a result window or edit text inline.
+Each action can output to a result window or edit text inline. LLM actions can optionally include bounded source context from the current file, PDF, or web page using `{{CONTEXT}}`, `{{SOURCE_URL}}`, `{{APP_NAME}}`, and `{{BUNDLE_ID}}`.
 
 ### Custom JavaScript Actions
 
-8 starter templates with offline, instant execution:
+7 starter templates with offline, instant execution:
 
-- Trim Whitespace, Title Case, URL Toolkit, JWT Decode, Format JSON, Convert Timestamps, Clean Up Escapes, Wrap as Quote
+- Title Case, URL Toolkit, JWT Decode, Format JSON, Convert Timestamps, Clean Up Escapes, Wrap as Quote
 
 ### Key Binding Actions
 
@@ -88,7 +88,7 @@ Require a modifier key (Option, Command, Control, or Shift) to activate the tool
 ```bash
 git clone https://github.com/tacshi/SelectionBar.git
 cd SelectionBar
-./build-app.sh
+./scripts/build-debug.sh
 open SelectionBar.app
 ```
 
