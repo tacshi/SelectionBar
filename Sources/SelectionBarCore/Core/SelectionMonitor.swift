@@ -409,7 +409,12 @@ public final class SelectionMonitor {
     }
 
     // Strategy 1: AX query for selected text on focused element
-    if let text = queryViaAccessibility(isSelectionGesture: isSelectionGesture) {
+    if let text = queryViaAccessibility(
+      at: mouseLocation,
+      isSelectionGesture: isSelectionGesture,
+      allowFocusedTextContextFallback: allowFocusedTextContextFallback,
+      frontmostBundleID: frontmostBundleID
+    ) {
       logger.info("AX selected text (\(text.count) chars)")
       onTextSelected?(text, mouseLocation)
       return
@@ -454,6 +459,11 @@ public final class SelectionMonitor {
       return false
     }
 
+    if shouldSkipNonEditableFileBrowserSelection(frontmostBundleID: frontmostBundleID) {
+      logger.debug("Skipping clipboard fallback in non-editable file browser context")
+      return false
+    }
+
     // Preserve the existing window-drag safeguard for drag selections.
     if !isMultiClickGesture && didMoveWindow {
       logger.debug("Skipping clipboard fallback: focused window moved during drag gesture")
@@ -492,10 +502,58 @@ public final class SelectionMonitor {
     return false
   }
 
+  func shouldAcceptAccessibilitySelectedText(
+    at mouseLocation: NSPoint,
+    allowFocusedTextContextFallback: Bool,
+    frontmostBundleID: String?
+  ) -> Bool {
+    if shouldSkipNonEditableFileBrowserSelection(frontmostBundleID: frontmostBundleID) {
+      logger.debug("Skipping AX selected text in non-editable file browser context")
+      return false
+    }
+
+    if accessibility.isFocusedElementEditable() {
+      return true
+    }
+
+    if accessibility.isTextContext(at: mouseLocation) {
+      return true
+    }
+
+    if allowFocusedTextContextFallback && accessibility.isFocusedTextContext() {
+      return true
+    }
+
+    logger.debug("Skipping AX selected text outside text context")
+    return false
+  }
+
+  private func shouldSkipNonEditableFileBrowserSelection(frontmostBundleID: String?) -> Bool {
+    guard isFileBrowserBundleID(frontmostBundleID) else { return false }
+    return !accessibility.isFocusedElementEditable()
+  }
+
+  private func isFileBrowserBundleID(_ bundleID: String?) -> Bool {
+    guard let bundleID else { return false }
+    return Self.fileBrowserBundleIDs.contains(bundleID)
+  }
+
   /// Query selected text via Accessibility API (fast, non-invasive, works for native apps).
   /// Returns nil if the focused element has no selected text.
-  private func queryViaAccessibility(isSelectionGesture: Bool) -> String? {
+  private func queryViaAccessibility(
+    at mouseLocation: NSPoint,
+    isSelectionGesture: Bool,
+    allowFocusedTextContextFallback: Bool,
+    frontmostBundleID: String?
+  ) -> String? {
     guard let text = accessibility.selectedTextFromFocusedHierarchy() else { return nil }
+    guard
+      shouldAcceptAccessibilitySelectedText(
+        at: mouseLocation,
+        allowFocusedTextContextFallback: allowFocusedTextContextFallback,
+        frontmostBundleID: frontmostBundleID
+      )
+    else { return nil }
     guard
       text.count
         >= effectiveMinimumCharacterCount(
