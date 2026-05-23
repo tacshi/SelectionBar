@@ -84,7 +84,6 @@ public final class SelectionBarCoordinator {
 
     if settingsStore.selectionBarEnabled {
       logger.info("Selection bar enabled at launch, starting monitor")
-      _ = monitor.checkAccessibilityPermission(promptIfNeeded: true)
       monitor.start()
     } else {
       logger.info("Selection bar disabled at launch")
@@ -99,7 +98,6 @@ public final class SelectionBarCoordinator {
 
     if settingsStore.selectionBarEnabled {
       logger.info("Selection bar toggled ON, starting monitor")
-      _ = monitor.checkAccessibilityPermission(promptIfNeeded: true)
       monitor.start()
     } else {
       logger.info("Selection bar toggled OFF, stopping monitor")

@@ -12,13 +12,19 @@ let package = Package(
     .library(name: "SelectionBarCore", targets: ["SelectionBarCore"]),
   ],
   dependencies: [
+    .package(url: "https://github.com/jaywcjlove/PermissionFlow.git", from: "2.3.0"),
     .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.8.1"),
     .package(url: "https://github.com/gonzalezreal/swift-markdown-ui.git", from: "2.4.0"),
   ],
   targets: [
     .executableTarget(
       name: "SelectionBarApp",
-      dependencies: ["SelectionBarCore", "Sparkle"],
+      dependencies: [
+        "SelectionBarCore",
+        "Sparkle",
+        .product(name: "PermissionFlow", package: "PermissionFlow"),
+        .product(name: "PermissionFlowInputMonitoringStatus", package: "PermissionFlow"),
+      ],
       path: "Sources/SelectionBarApp",
       resources: [
         .process("Resources")
@@ -27,7 +33,8 @@ let package = Package(
     .target(
       name: "SelectionBarCore",
       dependencies: [
-        .product(name: "MarkdownUI", package: "swift-markdown-ui")
+        .product(name: "PermissionFlow", package: "PermissionFlow"),
+        .product(name: "MarkdownUI", package: "swift-markdown-ui"),
       ],
       path: "Sources/SelectionBarCore",
       resources: [

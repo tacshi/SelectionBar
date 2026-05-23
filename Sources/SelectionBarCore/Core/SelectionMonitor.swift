@@ -59,6 +59,7 @@ public final class SelectionMonitor {
   nonisolated(unsafe) private var appSwitchObserver: NSObjectProtocol?
   private let accessibility: SelectionMonitorAccessibilityProviding
   private let clipboardFallback: SelectionMonitorClipboardFallbackProviding
+  private let permissionGuide: SelectionMonitorPermissionGuiding
 
   private var debounceTask: Task<Void, Never>?
   private var isEnabled = false
@@ -89,16 +90,20 @@ public final class SelectionMonitor {
   // MARK: - Lifecycle
 
   public init() {
-    accessibility = SelectionMonitorAccessibility()
+    let permissionGuide = SelectionBarPermissionGuide()
+    accessibility = SelectionMonitorAccessibility(permissionGuide: permissionGuide)
     clipboardFallback = SelectionMonitorClipboardFallback()
+    self.permissionGuide = permissionGuide
   }
 
   init(
     accessibility: SelectionMonitorAccessibilityProviding,
-    clipboardFallback: SelectionMonitorClipboardFallbackProviding
+    clipboardFallback: SelectionMonitorClipboardFallbackProviding,
+    permissionGuide: SelectionMonitorPermissionGuiding = NoopSelectionMonitorPermissionGuide()
   ) {
     self.accessibility = accessibility
     self.clipboardFallback = clipboardFallback
+    self.permissionGuide = permissionGuide
   }
 
   deinit {
@@ -125,9 +130,10 @@ public final class SelectionMonitor {
     }
     isEnabled = true
 
+    let hasRequiredPermissions = requestRequiredPermissionsIfNeeded()
     let trusted = checkAccessibilityPermission(promptIfNeeded: false)
     logger.info(
-      "SelectionMonitor starting — AX trusted: \(trusted, privacy: .public)"
+      "SelectionMonitor starting — AX trusted: \(trusted, privacy: .public), required permissions ready: \(hasRequiredPermissions, privacy: .public)"
     )
 
     setupMonitors()
@@ -140,6 +146,20 @@ public final class SelectionMonitor {
   @discardableResult
   public func checkAccessibilityPermission(promptIfNeeded: Bool) -> Bool {
     accessibility.checkAccessibilityPermission(promptIfNeeded: promptIfNeeded)
+  }
+
+  /// Opens the first missing macOS permission pane needed for global selection monitoring.
+  @discardableResult
+  public func requestRequiredPermissionsIfNeeded() -> Bool {
+    guard !Self.isRunningUnderAutomatedTests else { return true }
+
+    guard accessibility.checkAccessibilityPermission(promptIfNeeded: false) else {
+      permissionGuide.requestAccessibilityPermission()
+      logger.info("Accessibility permission flow opened")
+      return false
+    }
+
+    return requestInputMonitoringAccessIfNeeded()
   }
 
   /// Returns whether the currently focused element is editable.
@@ -160,8 +180,6 @@ public final class SelectionMonitor {
   // MARK: - Private Methods
 
   private func setupMonitors() {
-    requestListenEventAccessIfNeeded()
-
     // Monitor mouse down — track position + dismiss existing bar
     mouseDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) {
       [weak self] event in
@@ -652,12 +670,14 @@ public final class SelectionMonitor {
 
   // MARK: - Input Monitoring Permission
 
-  private func requestListenEventAccessIfNeeded() {
+  private func requestInputMonitoringAccessIfNeeded() -> Bool {
     // Global event monitors require Input Monitoring permission on modern macOS.
     // Avoid triggering permission prompts in automated tests.
-    guard !Self.isRunningUnderAutomatedTests else { return }
-    guard !CGPreflightListenEventAccess() else { return }
-    CGRequestListenEventAccess()
+    guard !Self.isRunningUnderAutomatedTests else { return true }
+    guard !CGPreflightListenEventAccess() else { return true }
+    permissionGuide.requestInputMonitoringPermission()
+    logger.info("Input Monitoring permission flow opened")
+    return false
   }
 
   private static var isRunningUnderAutomatedTests: Bool {
