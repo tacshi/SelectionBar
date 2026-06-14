@@ -71,6 +71,32 @@ struct SelectionMonitorTests {
     )
   }
 
+  @Test("Xcode project navigator double click is treated as open action")
+  func xcodeProjectNavigatorDoubleClickIsOpenAction() {
+    let monitor = makeMonitor()
+
+    #expect(
+      monitor.shouldIgnoreMultiClickOpenAction(
+        frontmostBundleID: "com.apple.dt.Xcode",
+        clickCount: 2,
+        isEditableTextTarget: false
+      )
+    )
+  }
+
+  @Test("Xcode editable text double click is allowed")
+  func xcodeEditableTextDoubleClickIsAllowed() {
+    let monitor = makeMonitor()
+
+    #expect(
+      !monitor.shouldIgnoreMultiClickOpenAction(
+        frontmostBundleID: "com.apple.dt.Xcode",
+        clickCount: 2,
+        isEditableTextTarget: true
+      )
+    )
+  }
+
   @Test("direct AX selected text requires text context outside file browsers")
   func directAXSelectedTextRequiresTextContextOutsideFileBrowsers() {
     let monitor = makeMonitor()
@@ -245,6 +271,10 @@ private final class FakeSelectionMonitorAccessibility: SelectionMonitorAccessibi
   }
 
   func isFocusedElementEditable() -> Bool {
+    focusedElementEditable
+  }
+
+  func isEditableTextContext(at _: NSPoint) -> Bool {
     focusedElementEditable
   }
 

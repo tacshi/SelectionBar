@@ -32,6 +32,11 @@ final class SelectionMonitorAccessibility: SelectionMonitorAccessibilityProvidin
     return isEditableTextInputInHierarchy(startingAt: element)
   }
 
+  func isEditableTextContext(at screenPoint: NSPoint) -> Bool {
+    guard let element = element(at: screenPoint) else { return false }
+    return isEditableTextInputInHierarchy(startingAt: element)
+  }
+
   func selectedTextFromFocusedHierarchy() -> String? {
     guard let focused = focusedElement() else { return nil }
 

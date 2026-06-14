@@ -10,6 +10,7 @@ protocol SelectionMonitorAccessibilityProviding: AnyObject {
   @discardableResult
   func checkAccessibilityPermission(promptIfNeeded: Bool) -> Bool
   func isFocusedElementEditable() -> Bool
+  func isEditableTextContext(at screenPoint: NSPoint) -> Bool
   func selectedTextFromFocusedHierarchy() -> String?
   func hasFocusedTextSelection() -> Bool
   func hasTextSelection(at screenPoint: NSPoint) -> Bool
@@ -82,6 +83,12 @@ public final class SelectionMonitor {
     "com.apple.finder",
     "com.apple.appkit.xpc.openAndSavePanelService",
   ]
+
+  /// Apps with outline/list navigators where double-click opens the selected item.
+  private static let multiClickOpenActionBundleIDs: Set<String> =
+    fileBrowserBundleIDs.union([
+      "com.apple.dt.Xcode",
+    ])
 
   /// Apps that should opt into clipboard fallback when they expose text
   /// selection only globally rather than through detailed AX text nodes.
@@ -318,18 +325,13 @@ public final class SelectionMonitor {
       return
     }
 
-    if shouldIgnoreMultiClickSelection(
+    if shouldIgnoreMultiClickOpenAction(
       frontmostBundleID: frontApp.bundleIdentifier,
-      clickCount: effectiveClickCount
+      clickCount: effectiveClickCount,
+      isEditableTextTarget: accessibility.isEditableTextContext(at: mouseLocation)
     ) {
-      // Preserve multi-click text selection in editable controls (e.g. filename/search fields)
-      // even inside Finder/open-save panel contexts.
-      if accessibility.isFocusedElementEditable() {
-        logger.debug("Allowing multi-click selection in editable field")
-      } else {
-        logger.debug("Ignoring multi-click selection in file browser context")
-        return
-      }
+      logger.debug("Ignoring multi-click open action outside editable text")
+      return
     }
 
     // Debounce: wait 200ms for selection to settle
@@ -349,11 +351,14 @@ public final class SelectionMonitor {
     }
   }
 
-  private func shouldIgnoreMultiClickSelection(frontmostBundleID: String?, clickCount: Int)
-    -> Bool
-  {
+  func shouldIgnoreMultiClickOpenAction(
+    frontmostBundleID: String?,
+    clickCount: Int,
+    isEditableTextTarget: Bool
+  ) -> Bool {
+    guard !isEditableTextTarget else { return false }
     guard clickCount >= 2, let bundleID = frontmostBundleID else { return false }
-    return Self.fileBrowserBundleIDs.contains(bundleID)
+    return Self.multiClickOpenActionBundleIDs.contains(bundleID)
   }
 
   private func handleSelectAllShortcut(modifierFlags: NSEvent.ModifierFlags) {
