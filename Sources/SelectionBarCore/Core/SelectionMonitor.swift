@@ -87,7 +87,7 @@ public final class SelectionMonitor {
   /// Apps with outline/list navigators where double-click opens the selected item.
   private static let multiClickOpenActionBundleIDs: Set<String> =
     fileBrowserBundleIDs.union([
-      "com.apple.dt.Xcode",
+      "com.apple.dt.Xcode"
     ])
 
   /// Apps that should opt into clipboard fallback when they expose text
