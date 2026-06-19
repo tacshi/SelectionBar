@@ -1,5 +1,7 @@
 import AppKit
+import Combine
 import OSLog
+import PermissionFlow
 import SelectionBarCore
 import SwiftUI
 
@@ -48,6 +50,7 @@ private struct SelectionBarGeneralSettingsTab: View {
   @State private var showIgnoredAppPicker = false
   @State private var showClipboardFallbackIncludedAppPicker = false
   @State private var showRestartAlert = false
+  @State private var permissionGuide = SelectionBarPermissionGuide()
 
   var body: some View {
     @Bindable var settings = settingsStore
@@ -58,6 +61,28 @@ private struct SelectionBarGeneralSettingsTab: View {
           .help("Show a floating toolbar when text is selected in any app")
 
         Toggle("Launch at Login", isOn: launchAtLoginBinding)
+      }
+
+      Section {
+        LabeledContent("Accessibility") {
+          SelectionBarPermissionButton(
+            pane: .accessibility,
+            action: permissionGuide.requestAccessibilityPermission
+          )
+        }
+
+        LabeledContent("Input Monitoring") {
+          SelectionBarPermissionButton(
+            pane: .inputMonitoring,
+            action: permissionGuide.requestInputMonitoringPermission
+          )
+        }
+      } header: {
+        Label("Permissions", systemImage: "hand.raised")
+      } footer: {
+        Text(
+          "SelectionBar needs Accessibility to read selected text and Input Monitoring to observe global mouse and keyboard events."
+        )
       }
 
       Section {
@@ -260,6 +285,61 @@ private struct SelectionBarGeneralSettingsTab: View {
     alert.alertStyle = .warning
     alert.addButton(withTitle: "OK")
     alert.runModal()
+  }
+}
+
+private struct SelectionBarPermissionButton: View {
+  let pane: PermissionFlowPane
+  let action: @MainActor () -> Void
+
+  @State private var authorizationState: PermissionAuthorizationState = .checking
+
+  var body: some View {
+    Button(action: requestPermission) {
+      Label(buttonTitle, systemImage: systemImage)
+        .foregroundStyle(authorizationState == .granted ? .green : .primary)
+    }
+    .onAppear(perform: refreshStatus)
+    .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification))
+    {
+      _ in
+      refreshStatus()
+    }
+  }
+
+  private var buttonTitle: String {
+    switch authorizationState {
+    case .granted:
+      return String(localized: "Granted")
+    case .notGranted:
+      return String(localized: "Grant")
+    case .unknown:
+      return String(localized: "Open")
+    case .checking:
+      return String(localized: "Checking...")
+    }
+  }
+
+  private var systemImage: String {
+    switch authorizationState {
+    case .granted:
+      return "checkmark.circle.fill"
+    case .checking:
+      return "clock"
+    case .notGranted, .unknown:
+      return "arrow.up.forward.app"
+    }
+  }
+
+  @MainActor
+  private func requestPermission() {
+    action()
+    refreshStatus()
+  }
+
+  @MainActor
+  private func refreshStatus() {
+    authorizationState = PermissionStatusRegistry.provider(for: pane).authorizationState()
   }
 }
 

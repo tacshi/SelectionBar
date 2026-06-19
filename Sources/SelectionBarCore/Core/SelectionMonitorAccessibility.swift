@@ -9,21 +9,29 @@ private let logger = Logger(
 @MainActor
 final class SelectionMonitorAccessibility: SelectionMonitorAccessibilityProviding {
   private let focusedWindowChromeHeight: CGFloat = 40
+  private let permissionGuide: SelectionMonitorPermissionGuiding
+
+  init(permissionGuide: SelectionMonitorPermissionGuiding = SelectionBarPermissionGuide()) {
+    self.permissionGuide = permissionGuide
+  }
 
   @discardableResult
   func checkAccessibilityPermission(promptIfNeeded: Bool) -> Bool {
     let trusted = AXIsProcessTrusted()
     guard !trusted, promptIfNeeded else { return trusted }
 
-    let options =
-      [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-    let nowTrusted = AXIsProcessTrustedWithOptions(options)
-    logger.info("AX prompt shown, trusted now: \(nowTrusted, privacy: .public)")
-    return nowTrusted
+    permissionGuide.requestAccessibilityPermission()
+    logger.info("Accessibility permission flow opened")
+    return AXIsProcessTrusted()
   }
 
   func isFocusedElementEditable() -> Bool {
     guard AXIsProcessTrusted(), let element = focusedElement() else { return false }
+    return isEditableTextInputInHierarchy(startingAt: element)
+  }
+
+  func isEditableTextContext(at screenPoint: NSPoint) -> Bool {
+    guard let element = element(at: screenPoint) else { return false }
     return isEditableTextInputInHierarchy(startingAt: element)
   }
 

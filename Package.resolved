@@ -1,5 +1,5 @@
 {
-  "originHash" : "0bf85d105a560b5fa51e383ed4c58a734e653e2fd520b514524e9959afdfe7f6",
+  "originHash" : "34e6ab6e14dcc11926c0ed8a738fe4d2654b1e5a7baa4efe7f678f1604c6cdf6",
   "pins" : [
     {
       "identity" : "networkimage",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "2849f5323265386e200484b0d0f896e73c3411b9",
         "version" : "6.0.1"
+      }
+    },
+    {
+      "identity" : "permissionflow",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jaywcjlove/PermissionFlow.git",
+      "state" : {
+        "revision" : "114ab3fb010859bb59c225556d1bfc153da649ec",
+        "version" : "2.3.0"
       }
     },
     {

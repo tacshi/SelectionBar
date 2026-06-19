@@ -1,4 +1,5 @@
 import AppKit
+import PermissionFlowInputMonitoringStatus
 
 @MainActor
 final class SelectionBarAppManager {
@@ -13,6 +14,7 @@ final class SelectionBarAppManager {
 @MainActor
 final class SelectionBarAppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
+    PermissionFlowInputMonitoringStatus.register()
     SelectionBarAppManager.shared.updaterManager.checkForUpdatesInBackground()
   }
 }

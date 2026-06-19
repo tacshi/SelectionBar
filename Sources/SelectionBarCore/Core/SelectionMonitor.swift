@@ -10,6 +10,7 @@ protocol SelectionMonitorAccessibilityProviding: AnyObject {
   @discardableResult
   func checkAccessibilityPermission(promptIfNeeded: Bool) -> Bool
   func isFocusedElementEditable() -> Bool
+  func isEditableTextContext(at screenPoint: NSPoint) -> Bool
   func selectedTextFromFocusedHierarchy() -> String?
   func hasFocusedTextSelection() -> Bool
   func hasTextSelection(at screenPoint: NSPoint) -> Bool
@@ -59,6 +60,7 @@ public final class SelectionMonitor {
   nonisolated(unsafe) private var appSwitchObserver: NSObjectProtocol?
   private let accessibility: SelectionMonitorAccessibilityProviding
   private let clipboardFallback: SelectionMonitorClipboardFallbackProviding
+  private let permissionGuide: SelectionMonitorPermissionGuiding
 
   private var debounceTask: Task<Void, Never>?
   private var isEnabled = false
@@ -82,6 +84,12 @@ public final class SelectionMonitor {
     "com.apple.appkit.xpc.openAndSavePanelService",
   ]
 
+  /// Apps with outline/list navigators where double-click opens the selected item.
+  private static let multiClickOpenActionBundleIDs: Set<String> =
+    fileBrowserBundleIDs.union([
+      "com.apple.dt.Xcode",
+    ])
+
   /// Apps that should opt into clipboard fallback when they expose text
   /// selection only globally rather than through detailed AX text nodes.
   public var clipboardFallbackIncludedBundleIDs: Set<String> = []
@@ -89,16 +97,20 @@ public final class SelectionMonitor {
   // MARK: - Lifecycle
 
   public init() {
-    accessibility = SelectionMonitorAccessibility()
+    let permissionGuide = SelectionBarPermissionGuide()
+    accessibility = SelectionMonitorAccessibility(permissionGuide: permissionGuide)
     clipboardFallback = SelectionMonitorClipboardFallback()
+    self.permissionGuide = permissionGuide
   }
 
   init(
     accessibility: SelectionMonitorAccessibilityProviding,
-    clipboardFallback: SelectionMonitorClipboardFallbackProviding
+    clipboardFallback: SelectionMonitorClipboardFallbackProviding,
+    permissionGuide: SelectionMonitorPermissionGuiding = NoopSelectionMonitorPermissionGuide()
   ) {
     self.accessibility = accessibility
     self.clipboardFallback = clipboardFallback
+    self.permissionGuide = permissionGuide
   }
 
   deinit {
@@ -125,9 +137,10 @@ public final class SelectionMonitor {
     }
     isEnabled = true
 
+    let hasRequiredPermissions = requestRequiredPermissionsIfNeeded()
     let trusted = checkAccessibilityPermission(promptIfNeeded: false)
     logger.info(
-      "SelectionMonitor starting — AX trusted: \(trusted, privacy: .public)"
+      "SelectionMonitor starting — AX trusted: \(trusted, privacy: .public), required permissions ready: \(hasRequiredPermissions, privacy: .public)"
     )
 
     setupMonitors()
@@ -140,6 +153,20 @@ public final class SelectionMonitor {
   @discardableResult
   public func checkAccessibilityPermission(promptIfNeeded: Bool) -> Bool {
     accessibility.checkAccessibilityPermission(promptIfNeeded: promptIfNeeded)
+  }
+
+  /// Opens the first missing macOS permission pane needed for global selection monitoring.
+  @discardableResult
+  public func requestRequiredPermissionsIfNeeded() -> Bool {
+    guard !Self.isRunningUnderAutomatedTests else { return true }
+
+    guard accessibility.checkAccessibilityPermission(promptIfNeeded: false) else {
+      permissionGuide.requestAccessibilityPermission()
+      logger.info("Accessibility permission flow opened")
+      return false
+    }
+
+    return requestInputMonitoringAccessIfNeeded()
   }
 
   /// Returns whether the currently focused element is editable.
@@ -160,8 +187,6 @@ public final class SelectionMonitor {
   // MARK: - Private Methods
 
   private func setupMonitors() {
-    requestListenEventAccessIfNeeded()
-
     // Monitor mouse down — track position + dismiss existing bar
     mouseDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) {
       [weak self] event in
@@ -300,18 +325,15 @@ public final class SelectionMonitor {
       return
     }
 
-    if shouldIgnoreMultiClickSelection(
+    let isEditableTextTarget =
+      isMultiClickGesture && accessibility.isEditableTextContext(at: mouseLocation)
+    if shouldIgnoreMultiClickOpenAction(
       frontmostBundleID: frontApp.bundleIdentifier,
-      clickCount: effectiveClickCount
+      clickCount: effectiveClickCount,
+      isEditableTextTarget: isEditableTextTarget
     ) {
-      // Preserve multi-click text selection in editable controls (e.g. filename/search fields)
-      // even inside Finder/open-save panel contexts.
-      if accessibility.isFocusedElementEditable() {
-        logger.debug("Allowing multi-click selection in editable field")
-      } else {
-        logger.debug("Ignoring multi-click selection in file browser context")
-        return
-      }
+      logger.debug("Ignoring multi-click open action outside editable text")
+      return
     }
 
     // Debounce: wait 200ms for selection to settle
@@ -331,11 +353,14 @@ public final class SelectionMonitor {
     }
   }
 
-  private func shouldIgnoreMultiClickSelection(frontmostBundleID: String?, clickCount: Int)
-    -> Bool
-  {
+  func shouldIgnoreMultiClickOpenAction(
+    frontmostBundleID: String?,
+    clickCount: Int,
+    isEditableTextTarget: Bool
+  ) -> Bool {
+    guard !isEditableTextTarget else { return false }
     guard clickCount >= 2, let bundleID = frontmostBundleID else { return false }
-    return Self.fileBrowserBundleIDs.contains(bundleID)
+    return Self.multiClickOpenActionBundleIDs.contains(bundleID)
   }
 
   private func handleSelectAllShortcut(modifierFlags: NSEvent.ModifierFlags) {
@@ -652,12 +677,14 @@ public final class SelectionMonitor {
 
   // MARK: - Input Monitoring Permission
 
-  private func requestListenEventAccessIfNeeded() {
+  private func requestInputMonitoringAccessIfNeeded() -> Bool {
     // Global event monitors require Input Monitoring permission on modern macOS.
     // Avoid triggering permission prompts in automated tests.
-    guard !Self.isRunningUnderAutomatedTests else { return }
-    guard !CGPreflightListenEventAccess() else { return }
-    CGRequestListenEventAccess()
+    guard !Self.isRunningUnderAutomatedTests else { return true }
+    guard !CGPreflightListenEventAccess() else { return true }
+    permissionGuide.requestInputMonitoringPermission()
+    logger.info("Input Monitoring permission flow opened")
+    return false
   }
 
   private static var isRunningUnderAutomatedTests: Bool {
