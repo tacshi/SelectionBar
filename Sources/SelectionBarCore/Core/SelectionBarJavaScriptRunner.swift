@@ -589,12 +589,12 @@ private final class JavaScriptPendingFetch: @unchecked Sendable {
   }
 }
 
-private extension Duration {
-  var dispatchInterval: DispatchTimeInterval {
+extension Duration {
+  fileprivate var dispatchInterval: DispatchTimeInterval {
     .nanoseconds(Int(clamping: nanoseconds))
   }
 
-  var timeInterval: TimeInterval {
+  fileprivate var timeInterval: TimeInterval {
     TimeInterval(nanoseconds) / 1_000_000_000
   }
 
@@ -615,8 +615,8 @@ private extension Duration {
   }
 }
 
-private extension SelectionBarJavaScriptRunnerError {
-  var fetchRejectionMessage: String {
+extension SelectionBarJavaScriptRunnerError {
+  fileprivate var fetchRejectionMessage: String {
     switch self {
     case .runtimeError(let message), .syntaxError(let message):
       return message
