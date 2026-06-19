@@ -1,7 +1,6 @@
 import AppKit
 @preconcurrency import ApplicationServices
 import Foundation
-import PermissionFlow
 import os.log
 
 private let logger = Logger(
@@ -18,13 +17,12 @@ final class SelectionMonitorAccessibility: SelectionMonitorAccessibilityProvidin
 
   @discardableResult
   func checkAccessibilityPermission(promptIfNeeded: Bool) -> Bool {
-    let trusted =
-      PermissionStatusRegistry.provider(for: .accessibility).authorizationState() == .granted
+    let trusted = AXIsProcessTrusted()
     guard !trusted, promptIfNeeded else { return trusted }
 
     permissionGuide.requestAccessibilityPermission()
     logger.info("Accessibility permission flow opened")
-    return PermissionStatusRegistry.provider(for: .accessibility).authorizationState() == .granted
+    return AXIsProcessTrusted()
   }
 
   func isFocusedElementEditable() -> Bool {

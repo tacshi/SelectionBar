@@ -11,8 +11,11 @@ final class SelectionBarPermissionPanelController {
   private let panelGap: CGFloat = 8
   private let sidebarWidth: CGFloat = 230
   private let panelHeight: CGFloat = 132
+  private let initialSettingsWindowLookupGrace: TimeInterval = 3
   private var panel: SelectionBarPermissionPanel?
   private var trackingTimer: Timer?
+  private var hasLocatedSettingsWindow = false
+  private var settingsWindowLookupDeadline: Date?
 
   func show(pane: PermissionFlowPane, appURL: URL?) {
     close()
@@ -25,6 +28,8 @@ final class SelectionBarPermissionPanelController {
       }
     )
     self.panel = panel
+    hasLocatedSettingsWindow = false
+    settingsWindowLookupDeadline = Date().addingTimeInterval(initialSettingsWindowLookupGrace)
 
     trackingTimer = Timer.scheduledTimer(withTimeInterval: trackingInterval, repeats: true) {
       [weak self] _ in
@@ -41,10 +46,21 @@ final class SelectionBarPermissionPanelController {
     trackingTimer = nil
     panel?.close()
     panel = nil
+    hasLocatedSettingsWindow = false
+    settingsWindowLookupDeadline = nil
   }
 
   private func updatePanelFrame() {
-    guard let panel, let settingsFrame = settingsWindowFrame() else { return }
+    guard let panel else { return }
+    guard let settingsFrame = settingsWindowFrame() else {
+      if hasLocatedSettingsWindow || settingsWindowLookupDeadline.map({ Date() >= $0 }) == true {
+        close()
+      }
+      return
+    }
+
+    hasLocatedSettingsWindow = true
+    settingsWindowLookupDeadline = nil
     panel.snap(to: targetFrame(for: settingsFrame))
   }
 
@@ -217,6 +233,8 @@ private struct SelectionBarPermissionPanelView: View {
             .foregroundStyle(.primary, .secondary.opacity(0.35))
         }
         .buttonStyle(.borderless)
+        .accessibilityLabel(Text("Close Permission Helper"))
+        .accessibilityHint(Text("Dismisses the permission helper panel"))
       }
 
       if let appURL {
@@ -242,14 +260,19 @@ private struct SelectionBarPermissionPanelView: View {
     let appName =
       appURL.map { FileManager.default.displayName(atPath: $0.path) }
       ?? String(localized: "SelectionBar")
-    let markdown = "Drag **\(appName)** to the list above to allow **\(paneTitle)**."
-    return
-      (try? AttributedString(
-        markdown: markdown,
-        options: AttributedString.MarkdownParsingOptions(
-          interpretedSyntax: .inlineOnlyPreservingWhitespace
-        )
-      )) ?? AttributedString(markdown)
+
+    var title = AttributedString("Drag ")
+    title += emphasized(appName)
+    title += AttributedString(" to the list above to allow ")
+    title += emphasized(paneTitle)
+    title += AttributedString(".")
+    return title
+  }
+
+  private func emphasized(_ value: String) -> AttributedString {
+    var attributed = AttributedString(value)
+    attributed.inlinePresentationIntent = .stronglyEmphasized
+    return attributed
   }
 }
 

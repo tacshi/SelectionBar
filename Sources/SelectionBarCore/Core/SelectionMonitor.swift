@@ -325,10 +325,12 @@ public final class SelectionMonitor {
       return
     }
 
+    let isEditableTextTarget =
+      isMultiClickGesture && accessibility.isEditableTextContext(at: mouseLocation)
     if shouldIgnoreMultiClickOpenAction(
       frontmostBundleID: frontApp.bundleIdentifier,
       clickCount: effectiveClickCount,
-      isEditableTextTarget: accessibility.isEditableTextContext(at: mouseLocation)
+      isEditableTextTarget: isEditableTextTarget
     ) {
       logger.debug("Ignoring multi-click open action outside editable text")
       return
