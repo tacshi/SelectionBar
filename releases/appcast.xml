@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.8.0</title>
+            <pubDate>Fri, 19 Jun 2026 16:56:28 +1200</pubDate>
+            <sparkle:version>22</sparkle:version>
+            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.8.0</h2><ul><li>Adjust JavaScript runner helper access</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.8.0/SelectionBar-0.8.0.dmg" length="7584687" type="application/octet-stream" sparkle:edSignature="3kywFITeEENTdKQALvQK9PUYygz32WsR/uL3mRM2sXQZnPeP74A0hPaiuBvyncmkDzbRZkYqw92iZrAXCNvjDg=="/>
+        </item>
+        <item>
             <title>0.7.1</title>
             <pubDate>Sun, 17 May 2026 15:06:04 +1200</pubDate>
             <sparkle:version>21</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.7.0</h2><ul><li>fmt</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.7.0/SelectionBar-0.7.0.dmg" length="7144650" type="application/octet-stream" sparkle:edSignature="Zq56mNU15UMz9zBktGp8PUcnUUHn//ndA+9GTCOfQ0nWPRq/i/hkkZrtTOk4c6eGOMGHMjgBQVzkmcWONcSjDQ=="/>
-        </item>
-        <item>
-            <title>0.6.0</title>
-            <pubDate>Wed, 25 Mar 2026 19:34:17 +1300</pubDate>
-            <sparkle:version>19</sparkle:version>
-            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.6.0</h2><ul><li>Bug fixes and improvements</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.6.0/SelectionBar-0.6.0.dmg" length="6809576" type="application/octet-stream" sparkle:edSignature="xe/W57fW+QPDZL8jnsB1w4qq98JuDuaaHOVt9qRO98yfEb3iHitr99EUYLNQMs1DStQkO0qbZwBpyffT5cACBA=="/>
         </item>
     </channel>
 </rss>
