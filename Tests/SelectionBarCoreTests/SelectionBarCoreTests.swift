@@ -386,6 +386,53 @@ struct SelectionBarCoreTests {
     #expect(capture.requests.first?.httpMethod == "GET")
   }
 
+  @Test("JavaScript runner cancels in-flight fetch when caller is cancelled")
+  func javaScriptRunnerCancelsInFlightFetchWhenCallerCancels() async {
+    let loaderStarted = AsyncSignal()
+    let loaderCancelled = AsyncSignal()
+    let runner = SelectionBarJavaScriptRunner(
+      defaultTimeout: .milliseconds(800),
+      defaultAsyncTimeout: .seconds(5),
+      dataLoader: { request in
+        loaderStarted.signal()
+        do {
+          try await Task.sleep(for: .seconds(5))
+        } catch {
+          loaderCancelled.signal()
+          throw error
+        }
+
+        return (
+          Data("late response".utf8),
+          makeJavaScriptHTTPResponse(url: request.url!, statusCode: 200)
+        )
+      }
+    )
+    let script = """
+      async function transform(input) {
+        const response = await fetch('https://api.example.com/slow');
+        return await response.text();
+      }
+      """
+
+    let task = Task {
+      try await runner.run(script: script, input: "")
+    }
+    #expect(await loaderStarted.wait(timeout: .seconds(1)))
+
+    task.cancel()
+
+    do {
+      _ = try await task.value
+      Issue.record("Expected cancellation error.")
+    } catch is CancellationError {
+    } catch {
+      Issue.record("Unexpected error: \(error)")
+    }
+
+    #expect(await loaderCancelled.wait(timeout: .seconds(1)))
+  }
+
   @Test("JavaScript runner fetch POST forwards method headers and body")
   func javaScriptRunnerFetchPostForwardsRequest() async throws {
     let capture = JavaScriptFetchCapture()
@@ -869,6 +916,58 @@ private final class JavaScriptFetchCapture: @unchecked Sendable {
     lock.lock()
     storedRequests.append(request)
     lock.unlock()
+  }
+}
+
+private final class AsyncSignal: @unchecked Sendable {
+  private let lock = NSLock()
+  private var continuation: CheckedContinuation<Bool, Never>?
+  private var timeoutTask: Task<Void, Never>?
+  private var isSignaled = false
+
+  func signal() {
+    lock.lock()
+    if let continuation {
+      self.continuation = nil
+      timeoutTask?.cancel()
+      timeoutTask = nil
+      lock.unlock()
+      continuation.resume(returning: true)
+      return
+    }
+    isSignaled = true
+    lock.unlock()
+  }
+
+  func wait(timeout: Duration) async -> Bool {
+    await withCheckedContinuation { continuation in
+      lock.lock()
+      if isSignaled {
+        lock.unlock()
+        continuation.resume(returning: true)
+        return
+      }
+
+      self.continuation = continuation
+      timeoutTask = Task { [weak self] in
+        try? await Task.sleep(for: timeout)
+        self?.timeout()
+      }
+      lock.unlock()
+    }
+  }
+
+  private func timeout() {
+    lock.lock()
+    guard let continuation else {
+      lock.unlock()
+      return
+    }
+
+    self.continuation = nil
+    timeoutTask = nil
+    lock.unlock()
+    continuation.resume(returning: false)
   }
 }
 

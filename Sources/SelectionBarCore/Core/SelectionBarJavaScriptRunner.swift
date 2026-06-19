@@ -60,15 +60,24 @@ public struct SelectionBarJavaScriptRunner: Sendable {
       throw SelectionBarJavaScriptRunnerError.missingScript
     }
 
-    return try await Task.detached(priority: .userInitiated) {
+    let executionState = JavaScriptExecutionState()
+    let task = Task.detached(priority: .userInitiated) {
       try Self.execute(
         script: trimmedScript,
         input: input,
         syncTimeout: resolvedTimeout,
         asyncTimeout: resolvedAsyncTimeout,
-        dataLoader: dataLoader
+        dataLoader: dataLoader,
+        state: executionState
       )
-    }.value
+    }
+
+    return try await withTaskCancellationHandler {
+      try await task.value
+    } onCancel: {
+      executionState.cancel()
+      task.cancel()
+    }
   }
 
   private static func execute(
@@ -76,9 +85,9 @@ public struct SelectionBarJavaScriptRunner: Sendable {
     input: String,
     syncTimeout: Duration,
     asyncTimeout: Duration,
-    dataLoader: @escaping DataLoader
+    dataLoader: @escaping DataLoader,
+    state: JavaScriptExecutionState
   ) throws -> String {
-    let state = JavaScriptExecutionState()
     let environment = JavaScriptExecutionEnvironment(
       state: state,
       dataLoader: dataLoader,
@@ -91,6 +100,10 @@ public struct SelectionBarJavaScriptRunner: Sendable {
       state.cancel()
       throw SelectionBarJavaScriptRunnerError.timeout
     }
+    if state.isCancelledSnapshot {
+      throw CancellationError()
+    }
+    try Task.checkCancellation()
 
     if let result = state.result {
       return try result.get()
@@ -100,6 +113,10 @@ public struct SelectionBarJavaScriptRunner: Sendable {
       state.cancel()
       throw SelectionBarJavaScriptRunnerError.timeout
     }
+    if state.isCancelledSnapshot {
+      throw CancellationError()
+    }
+    try Task.checkCancellation()
 
     guard let result = state.result else {
       throw SelectionBarJavaScriptRunnerError.runtimeError("JavaScript execution failed.")
@@ -192,14 +209,35 @@ private final class JavaScriptExecutionState: @unchecked Sendable {
 
   func cancel() {
     lock.lock()
+    guard !isCancelled else {
+      lock.unlock()
+      return
+    }
     isCancelled = true
+    let shouldSignalInitial = !isInitialComplete
+    if shouldSignalInitial {
+      isInitialComplete = true
+    }
+    let shouldSignalFinal = storedResult == nil
     let tasks = fetchTasks
     fetchTasks.removeAll()
     lock.unlock()
 
+    if shouldSignalInitial {
+      initialSemaphore.signal()
+    }
+    if shouldSignalFinal {
+      finalSemaphore.signal()
+    }
     for task in tasks {
       task.cancel()
     }
+  }
+
+  var isCancelledSnapshot: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return isCancelled
   }
 
   private var isInitialCompleteSnapshot: Bool {
@@ -309,9 +347,12 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
 
   private func installFetch(in context: JSContext) {
     let fetchBlock: @convention(block) (JSValue, JSValue) -> JSValue = {
-      [weak self] urlValue, initValue in
-      guard let self, let context = JSContext.current() else {
-        return JSValue(undefinedIn: JSContext.current())
+      [weak self, weak context] urlValue, initValue in
+      guard let context = JSContext.current() ?? context else {
+        return JSValue()
+      }
+      guard let self else {
+        return JSValue(undefinedIn: context)
       }
 
       guard let promiseConstructor = context.objectForKeyedSubscript("Promise") else {
@@ -365,7 +406,7 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
         guard !Task.isCancelled else { return }
 
         queue.async { [self] in
-          guard let context = self.context, !Task.isCancelled else { return }
+          guard let context = self.context, !state.isCancelledSnapshot else { return }
           guard let httpResponse = response as? HTTPURLResponse else {
             rejectFetch(pendingFetch, message: "fetch received an invalid response.")
             return
@@ -380,8 +421,9 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
           pendingFetch.resolve.call(withArguments: [responseValue as Any])
         }
       } catch {
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, !state.isCancelledSnapshot else { return }
         queue.async { [self] in
+          guard !state.isCancelledSnapshot else { return }
           rejectFetch(pendingFetch, message: error.localizedDescription)
         }
       }
