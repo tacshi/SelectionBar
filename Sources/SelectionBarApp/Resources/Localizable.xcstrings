@@ -1361,18 +1361,18 @@
         }
       }
     },
-    "Define a synchronous function transform(input) that returns a string.": {
+    "Define transform(input) to return a string or async Promise\u003cstring\u003e. Use await fetch(...) for HTTP/HTTPS requests.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文字列を返す同期関数transform(input)を定義してください。"
+            "value": "文字列または非同期のPromise\u003cstring\u003eを返すtransform(input)を定義してください。HTTP/HTTPSリクエストにはawait fetch(...)を使用できます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "定义一个返回字符串的同步函数transform(input)。"
+            "value": "定义返回字符串或异步 Promise\u003cstring\u003e 的 transform(input)。使用 await fetch(...) 发起 HTTP/HTTPS 请求。"
           }
         }
       }

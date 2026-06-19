@@ -53,7 +53,7 @@ Each action can output to a result window or edit text inline. LLM actions can o
 
 ### Custom JavaScript Actions
 
-7 starter templates with offline, instant execution:
+7 starter templates with JavaScriptCore execution, including async `fetch` support for HTTP/HTTPS requests:
 
 - Title Case, URL Toolkit, JWT Decode, Format JSON, Convert Timestamps, Clean Up Escapes, Wrap as Quote
 

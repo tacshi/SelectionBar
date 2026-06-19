@@ -342,6 +342,183 @@ struct SelectionBarCoreTests {
     #expect(output == "HELLO")
   }
 
+  @Test("JavaScript runner supports async transform returning string")
+  func javaScriptRunnerAsyncTransformReturnsString() async throws {
+    let runner = SelectionBarJavaScriptRunner(
+      defaultTimeout: .milliseconds(800),
+      defaultAsyncTimeout: .seconds(1)
+    )
+    let script = """
+      async function transform(input) {
+        return input.trim().toUpperCase();
+      }
+      """
+
+    let output = try await runner.run(script: script, input: "  async hello ")
+    #expect(output == "ASYNC HELLO")
+  }
+
+  @Test("JavaScript runner fetch GET returns response text")
+  func javaScriptRunnerFetchGetReturnsText() async throws {
+    let capture = JavaScriptFetchCapture()
+    let runner = SelectionBarJavaScriptRunner(
+      defaultTimeout: .milliseconds(800),
+      defaultAsyncTimeout: .seconds(1),
+      dataLoader: { request in
+        capture.append(request)
+        return (
+          Data("network text".utf8),
+          makeJavaScriptHTTPResponse(url: request.url!, statusCode: 200)
+        )
+      }
+    )
+    let script = """
+      async function transform(input) {
+        const response = await fetch('https://api.example.com/value');
+        return await response.text();
+      }
+      """
+
+    let output = try await runner.run(script: script, input: "")
+
+    #expect(output == "network text")
+    #expect(capture.requests.first?.url?.absoluteString == "https://api.example.com/value")
+    #expect(capture.requests.first?.httpMethod == "GET")
+  }
+
+  @Test("JavaScript runner fetch POST forwards method headers and body")
+  func javaScriptRunnerFetchPostForwardsRequest() async throws {
+    let capture = JavaScriptFetchCapture()
+    let runner = SelectionBarJavaScriptRunner(
+      defaultTimeout: .milliseconds(800),
+      defaultAsyncTimeout: .seconds(1),
+      dataLoader: { request in
+        capture.append(request)
+        return (
+          Data("created".utf8),
+          makeJavaScriptHTTPResponse(
+            url: request.url!,
+            statusCode: 201,
+            headers: ["X-Request-ID": "abc"]
+          )
+        )
+      }
+    )
+    let script = """
+      async function transform(input) {
+        const response = await fetch('https://api.example.com/items', {
+          method: 'post',
+          headers: { 'Content-Type': 'text/plain', 'X-Token': 'secret' },
+          body: input
+        });
+        return response.status + ':' + response.headers['X-Request-ID'] + ':' + await response.text();
+      }
+      """
+
+    let output = try await runner.run(script: script, input: "payload")
+    let request = try #require(capture.requests.first)
+
+    #expect(output == "201:abc:created")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Content-Type") == "text/plain")
+    #expect(request.value(forHTTPHeaderField: "X-Token") == "secret")
+    #expect(request.httpBody == Data("payload".utf8))
+  }
+
+  @Test("JavaScript runner fetch json parses valid JSON")
+  func javaScriptRunnerFetchJSONParsesPayload() async throws {
+    let runner = SelectionBarJavaScriptRunner(
+      defaultTimeout: .milliseconds(800),
+      defaultAsyncTimeout: .seconds(1),
+      dataLoader: { request in
+        let data = Data(#"{"message":"ok"}"#.utf8)
+        return (data, makeJavaScriptHTTPResponse(url: request.url!, statusCode: 200))
+      }
+    )
+    let script = """
+      async function transform(input) {
+        const response = await fetch('https://api.example.com/json');
+        const data = await response.json();
+        return data.message;
+      }
+      """
+
+    let output = try await runner.run(script: script, input: "")
+    #expect(output == "ok")
+  }
+
+  @Test("JavaScript runner fetch resolves HTTP errors")
+  func javaScriptRunnerFetchResolvesHTTPErrorResponse() async throws {
+    let runner = SelectionBarJavaScriptRunner(
+      defaultTimeout: .milliseconds(800),
+      defaultAsyncTimeout: .seconds(1),
+      dataLoader: { request in
+        return (
+          Data("server error".utf8),
+          makeJavaScriptHTTPResponse(url: request.url!, statusCode: 500)
+        )
+      }
+    )
+    let script = """
+      async function transform(input) {
+        const response = await fetch('https://api.example.com/fail');
+        return response.ok + ':' + response.status + ':' + await response.text();
+      }
+      """
+
+    let output = try await runner.run(script: script, input: "")
+    #expect(output == "false:500:server error")
+  }
+
+  @Test("JavaScript runner fetch rejects unsupported URL schemes")
+  func javaScriptRunnerFetchRejectsUnsupportedScheme() async {
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let script = """
+      async function transform(input) {
+        await fetch('file:///tmp/example.txt');
+        return input;
+      }
+      """
+
+    await #expect(
+      throws: SelectionBarJavaScriptRunnerError.runtimeError(
+        "fetch supports only http and https URLs.")
+    ) {
+      _ = try await runner.run(script: script, input: "hello")
+    }
+  }
+
+  @Test("JavaScript runner async transform rejects non-string output")
+  func javaScriptRunnerAsyncTransformInvalidReturnType() async {
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let script = """
+      async function transform(input) {
+        return 42;
+      }
+      """
+
+    await #expect(throws: SelectionBarJavaScriptRunnerError.invalidReturnType) {
+      _ = try await runner.run(script: script, input: "hello")
+    }
+  }
+
+  @Test("JavaScript runner returns timeout for unresolved async transform")
+  func javaScriptRunnerAsyncTimeout() async {
+    let runner = SelectionBarJavaScriptRunner(
+      defaultTimeout: .milliseconds(800),
+      defaultAsyncTimeout: .milliseconds(10)
+    )
+    let script = """
+      async function transform(input) {
+        return await new Promise(function() {});
+      }
+      """
+
+    await #expect(throws: SelectionBarJavaScriptRunnerError.timeout) {
+      _ = try await runner.run(script: script, input: "hello")
+    }
+  }
+
   @Test("javascript format JSON template formats valid JSON and keeps invalid input")
   func javaScriptFormatJSONTemplate() async throws {
     let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
@@ -676,4 +853,34 @@ struct SelectionBarCoreTests {
     #expect(store.customActions[1].icon?.value == "wand.and.stars")
   }
 
+}
+
+private final class JavaScriptFetchCapture: @unchecked Sendable {
+  private let lock = NSLock()
+  private var storedRequests: [URLRequest] = []
+
+  var requests: [URLRequest] {
+    lock.lock()
+    defer { lock.unlock() }
+    return storedRequests
+  }
+
+  func append(_ request: URLRequest) {
+    lock.lock()
+    storedRequests.append(request)
+    lock.unlock()
+  }
+}
+
+private func makeJavaScriptHTTPResponse(
+  url: URL,
+  statusCode: Int,
+  headers: [String: String] = [:]
+) -> HTTPURLResponse {
+  HTTPURLResponse(
+    url: url,
+    statusCode: statusCode,
+    httpVersion: nil,
+    headerFields: headers
+  )!
 }

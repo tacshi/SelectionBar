@@ -561,6 +561,30 @@ struct SelectionBarActionHandlerTests {
     }
   }
 
+  @Test("JavaScript async transform processes through action handler")
+  func javaScriptAsyncTransformProcessesThroughActionHandler() async throws {
+    let handler = SelectionBarActionHandler()
+    let keychain = InMemoryKeychain()
+    let store = makeStore(keychain: keychain)
+
+    let action = CustomActionConfig(
+      name: "Async JS",
+      prompt: "",
+      modelProvider: "",
+      modelId: "",
+      kind: .javascript,
+      script: """
+        async function transform(input) {
+          return input.trim().toUpperCase();
+        }
+        """,
+      isEnabled: false
+    )
+
+    let output = try await handler.process(text: "  hello async  ", action: action, settings: store)
+    #expect(output == "HELLO ASYNC")
+  }
+
   @Test("JavaScript invalid return type maps to SelectionBarError")
   func javaScriptInvalidReturnTypeErrorMapping() async {
     let handler = SelectionBarActionHandler()

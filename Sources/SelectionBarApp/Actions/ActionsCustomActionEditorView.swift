@@ -333,8 +333,10 @@ struct ActionsCustomActionEditorView: View {
                 .frame(height: 300)
                 .actionEditorTextBox()
 
-              Text("Define a synchronous function transform(input) that returns a string.")
-                .font(.caption)
+              Text(
+                "Define transform(input) to return a string or async Promise<string>. Use await fetch(...) for HTTP/HTTPS requests."
+              )
+              .font(.caption)
             }
           } else if mode == .custom && actionKind == .pipeline {
             ActionEditorSection("Pipeline") {
