@@ -345,8 +345,8 @@ create_dmg() {
     rm -rf "$dmg_temp"
     mkdir -p "$dmg_temp"
 
-    # Copy app to temp directory
-    cp -R "$app_dir" "$dmg_temp/"
+    # Copy app to temp directory with the public bundle name users install.
+    cp -R "$app_dir" "$dmg_temp/$APP_NAME.app"
 
     # Create symbolic link to Applications folder
     ln -s /Applications "$dmg_temp/Applications"
