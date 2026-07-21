@@ -11,13 +11,17 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: macos-15
+    # macos-26 (Xcode 26.x) is required, not just preferred: PermissionFlow
+    # declares swift-tools-version 6.2, which older toolchains cannot even parse
+    # — dependency resolution fails outright on the macos-15 image's Xcode 16.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
       # Print the toolchain rather than pinning an Xcode path: the runner images
-      # use versioned bundle names (Xcode_16.4.app), so hardcoding one breaks
-      # whenever the image is updated. The macos-15 default is Swift 6.
+      # use versioned bundle names (Xcode_26.5.app) that change without notice,
+      # so hardcoding one breaks whenever the image is updated. The image
+      # default is what this asserts is new enough to build.
       - name: Show toolchain
         run: |
           swift --version
