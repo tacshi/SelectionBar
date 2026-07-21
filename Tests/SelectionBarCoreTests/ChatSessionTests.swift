@@ -457,4 +457,52 @@ struct ChatSessionTests {
       extraHeaders: [:]
     )
   }
+
+  // MARK: - tool result bounds
+
+  @Test("a single oversized PDF page is clamped to the tool-result budget")
+  func formatPDFPagesClampsOversizedPage() {
+    let limit = ChatSession.maxToolResultCharacters
+    let huge = String(repeating: "x", count: limit * 3)
+
+    let result = ChatSession.formatPDFPages(
+      pageStart: 1,
+      pageEnd: 1,
+      totalPages: 1,
+      pageTextProvider: { _ in huge }
+    )
+
+    // One page bigger than the whole budget must not slip through: the result
+    // is replayed into the system prompt on every later turn.
+    #expect(result.count < limit + 500)
+    #expect(result.contains("truncated"))
+  }
+
+  @Test("a single minified source line is clamped to the tool-result budget")
+  func formatSourceLinesClampsOversizedLine() {
+    let limit = ChatSession.maxToolResultCharacters
+    let minified = String(repeating: "y", count: limit * 3)
+
+    let result = ChatSession.formatSourceLines(
+      lineStart: 1,
+      lineEnd: 1,
+      allLines: [minified]
+    )
+
+    #expect(result.count < limit + 500)
+    #expect(result.contains("truncated"))
+  }
+
+  @Test("output within the budget is not marked truncated")
+  func formatSourceLinesKeepsSmallOutputIntact() {
+    let result = ChatSession.formatSourceLines(
+      lineStart: 1,
+      lineEnd: 2,
+      allLines: ["alpha", "beta", "gamma"]
+    )
+
+    #expect(!result.contains("truncated"))
+    #expect(result.contains("1:alpha"))
+    #expect(result.contains("2:beta"))
+  }
 }

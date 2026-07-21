@@ -79,7 +79,12 @@ struct ChatPanelView: View {
       .help(
         isPinned
           ? String(localized: "Unpin", bundle: .localizedModule)
-          : String(localized: "Pin on Top", bundle: .localizedModule))
+          : String(localized: "Pin on Top", bundle: .localizedModule)
+      )
+      .accessibilityLabel(
+        isPinned
+          ? Text("Unpin", bundle: .localizedModule)
+          : Text("Pin on Top", bundle: .localizedModule))
 
       sessionControls
 
@@ -101,6 +106,7 @@ struct ChatPanelView: View {
       .buttonStyle(.plain)
       .focusable(false)
       .help(String(localized: "Close", bundle: .localizedModule))
+      .accessibilityLabel(Text("Close", bundle: .localizedModule))
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
@@ -121,6 +127,7 @@ struct ChatPanelView: View {
         .buttonStyle(.plain)
         .focusable(false)
         .help(String(localized: "New Session", bundle: .localizedModule))
+        .accessibilityLabel(Text("New Session", bundle: .localizedModule))
       } else {
         Menu {
           Button {
@@ -157,6 +164,8 @@ struct ChatPanelView: View {
         .fixedSize()
         .focusable(false)
         .disabled(session.isStreaming)
+        .help(String(localized: "Sessions", bundle: .localizedModule))
+        .accessibilityLabel(Text("Sessions", bundle: .localizedModule))
       }
     }
   }
@@ -192,6 +201,8 @@ struct ChatPanelView: View {
       }
       .buttonStyle(.plain)
       .focusable(false)
+      .accessibilityLabel(Text("Selected Text", bundle: .localizedModule))
+      .accessibilityHint(Text("Shows or hides the selected text", bundle: .localizedModule))
 
       if isContextExpanded {
         Text(selectedText)
@@ -277,6 +288,7 @@ struct ChatPanelView: View {
               .buttonStyle(.plain)
               .foregroundStyle(.secondary)
               .help(String(localized: "Retry", bundle: .localizedModule))
+              .accessibilityLabel(Text("Retry", bundle: .localizedModule))
             }
             .padding(.horizontal, 12)
           }
@@ -334,6 +346,7 @@ struct ChatPanelView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help(String(localized: "Copy Response", bundle: .localizedModule))
+            .accessibilityLabel(Text("Copy Response", bundle: .localizedModule))
 
             if canApply {
               Button {
@@ -345,6 +358,7 @@ struct ChatPanelView: View {
               .buttonStyle(.plain)
               .foregroundStyle(.secondary)
               .help(String(localized: "Apply Response", bundle: .localizedModule))
+              .accessibilityLabel(Text("Apply Response", bundle: .localizedModule))
             }
           }
         }
@@ -394,6 +408,7 @@ struct ChatPanelView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.red)
         .help(String(localized: "Stop", bundle: .localizedModule))
+        .accessibilityLabel(Text("Stop", bundle: .localizedModule))
       } else {
         Button {
           sendMessage()
@@ -408,6 +423,7 @@ struct ChatPanelView: View {
         )
         .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         .help(String(localized: "Send", bundle: .localizedModule))
+        .accessibilityLabel(Text("Send", bundle: .localizedModule))
       }
     }
     .padding(.horizontal, 12)

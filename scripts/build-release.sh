@@ -22,6 +22,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="SelectionBar"
 EXECUTABLE_NAME="SelectionBarApp"
+JS_HELPER_NAME="selectionbar-js-helper"
 INFO_PLIST="$SCRIPT_DIR/Info.plist"
 RELEASES_DIR="$SCRIPT_DIR/releases"
 SPARKLE_BIN="${SPARKLE_BIN:-$HOME/Documents/Sparkle-2.8.1/bin}"
@@ -155,6 +156,7 @@ build_for_arch() {
 
     log_info "Building for $arch..."
     swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" >&2
+    swift build -c release --product "$JS_HELPER_NAME" --arch "$arch" >&2
 
     local build_dir="$SCRIPT_DIR/.build/${arch}-apple-macosx/release"
     local app_dir="$SCRIPT_DIR/$APP_NAME-${output_suffix}.app"
@@ -184,17 +186,28 @@ build_universal() {
 
     swift build -c release --product "$EXECUTABLE_NAME" --arch arm64 >&2
     swift build -c release --product "$EXECUTABLE_NAME" --arch x86_64 >&2
+    swift build -c release --product "$JS_HELPER_NAME" --arch arm64 >&2
+    swift build -c release --product "$JS_HELPER_NAME" --arch x86_64 >&2
 
     local arm64_binary="$SCRIPT_DIR/.build/arm64-apple-macosx/release/$EXECUTABLE_NAME"
     local x86_64_binary="$SCRIPT_DIR/.build/x86_64-apple-macosx/release/$EXECUTABLE_NAME"
+    local arm64_helper="$SCRIPT_DIR/.build/arm64-apple-macosx/release/$JS_HELPER_NAME"
+    local x86_64_helper="$SCRIPT_DIR/.build/x86_64-apple-macosx/release/$JS_HELPER_NAME"
 
     if [[ ! -f "$arm64_binary" ]] || [[ ! -f "$x86_64_binary" ]]; then
         log_error "Failed to build both architectures"
         exit 1
     fi
+    if [[ ! -f "$arm64_helper" ]] || [[ ! -f "$x86_64_helper" ]]; then
+        log_error "Failed to build $JS_HELPER_NAME for both architectures"
+        exit 1
+    fi
 
     mkdir -p "$SCRIPT_DIR/.build/release"
     lipo -create "$arm64_binary" "$x86_64_binary" -output "$SCRIPT_DIR/.build/release/$EXECUTABLE_NAME" >&2
+    # The helper must be universal too, or an Intel Mac silently loses the
+    # killable JavaScript timeout and falls back to in-process execution.
+    lipo -create "$arm64_helper" "$x86_64_helper" -output "$SCRIPT_DIR/.build/release/$JS_HELPER_NAME" >&2
 
     # Copy resource bundles from one of the arch builds (they are the same)
     for bundle in "$SCRIPT_DIR/.build/arm64-apple-macosx/release"/*.bundle; do
@@ -247,6 +260,20 @@ create_app_bundle() {
             break
         fi
     done
+
+    # Embed the JavaScript helper. Scripts run in this child process so a
+    # runaway script can be killed outright instead of pinning a core inside
+    # SelectionBar.
+    if [[ -f "$build_dir/$JS_HELPER_NAME" ]]; then
+        mkdir -p "$app_dir/Contents/Helpers"
+        cp "$build_dir/$JS_HELPER_NAME" "$app_dir/Contents/Helpers/$JS_HELPER_NAME"
+        chmod +x "$app_dir/Contents/Helpers/$JS_HELPER_NAME"
+        install_name_tool -add_rpath "@executable_path/../Frameworks" \
+            "$app_dir/Contents/Helpers/$JS_HELPER_NAME" 2>/dev/null || true
+    else
+        log_error "$JS_HELPER_NAME not found in $build_dir"
+        return 1
+    fi
 
     # Copy Info.plist
     cp "$SCRIPT_DIR/Info.plist" "$app_dir/Contents/"
@@ -321,6 +348,12 @@ sign_app_bundle() {
         fi
     done
 
+    # Sign the embedded JavaScript helper before the outer bundle
+    local js_helper="$app_dir/Contents/Helpers/$JS_HELPER_NAME"
+    if [[ -f "$js_helper" ]]; then
+        codesign --force --sign "$DEVELOPER_ID_APPLICATION" --options runtime --timestamp "$js_helper"
+    fi
+
     # Sign main app with entitlements
     codesign --force --sign "$DEVELOPER_ID_APPLICATION" \
         --entitlements "$SCRIPT_DIR/SelectionBar.entitlements" \
@@ -345,8 +378,8 @@ create_dmg() {
     rm -rf "$dmg_temp"
     mkdir -p "$dmg_temp"
 
-    # Copy app to temp directory
-    cp -R "$app_dir" "$dmg_temp/"
+    # Copy app to temp directory with the public bundle name users install.
+    cp -R "$app_dir" "$dmg_temp/$APP_NAME.app"
 
     # Create symbolic link to Applications folder
     ln -s /Applications "$dmg_temp/Applications"

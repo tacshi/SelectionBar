@@ -202,4 +202,23 @@ struct ChatSessionStoreTests {
     let loadedRecord2 = store.loadSession(forFilePath: "/file.swift", sessionID: record2.id)
     #expect(loadedRecord2?.messages.count == 4)
   }
+
+  @Test("saved transcripts are readable only by the owner")
+  func savedTranscriptsAreOwnerOnly() throws {
+    let directory = makeTempDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = makeStore(directory: directory)
+
+    store.saveSession(makeRecord())
+
+    let files = try FileManager.default.contentsOfDirectory(
+      at: directory, includingPropertiesForKeys: nil)
+    #expect(!files.isEmpty)
+    for file in files {
+      let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+      let permissions = attributes[.posixPermissions] as? NSNumber
+      // Transcripts hold selected text, the conversation and file excerpts.
+      #expect(permissions?.int16Value == 0o600)
+    }
+  }
 }

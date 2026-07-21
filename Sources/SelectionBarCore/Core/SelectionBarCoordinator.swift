@@ -13,6 +13,7 @@ public final class SelectionBarCoordinator {
   private let actionHandler: SelectionBarActionHandler
   private let windowControllerFactory: (AnyView) -> any SelectionBarWindowPresenting
   private let runCommandVisibilityResolver: (String) async -> Bool
+  private let runCommandConfirmationHandler: (String, SelectionBarTerminalApp) async -> Bool
   private let barActionsObserver: (([CustomActionConfig]) -> Void)?
   private var windowController: (any SelectionBarWindowPresenting)?
   private var actionTask: Task<Void, Never>?
@@ -47,7 +48,8 @@ public final class SelectionBarCoordinator {
       monitor: SelectionMonitor(),
       actionHandler: SelectionBarActionHandler(),
       windowControllerFactory: { SelectionBarWindowController(contentView: $0) },
-      runCommandVisibilityResolver: nil
+      runCommandVisibilityResolver: nil,
+      runCommandConfirmationHandler: nil
     )
   }
 
@@ -57,6 +59,7 @@ public final class SelectionBarCoordinator {
     actionHandler: SelectionBarActionHandler,
     windowControllerFactory: @escaping (AnyView) -> any SelectionBarWindowPresenting,
     runCommandVisibilityResolver: ((String) async -> Bool)? = nil,
+    runCommandConfirmationHandler: ((String, SelectionBarTerminalApp) async -> Bool)? = nil,
     barActionsObserver: (([CustomActionConfig]) -> Void)? = nil
   ) {
     self.settingsStore = settingsStore
@@ -68,6 +71,11 @@ public final class SelectionBarCoordinator {
       runCommandVisibilityResolver
       ?? { text in
         await actionHandler.canRunCommand(text: text, settings: settingsStore)
+      }
+    self.runCommandConfirmationHandler =
+      runCommandConfirmationHandler
+      ?? { command, terminalApp in
+        await Self.confirmRunCommand(command, terminalApp: terminalApp)
       }
     self.chatSessionStore = ChatSessionStore()
 
@@ -321,7 +329,7 @@ public final class SelectionBarCoordinator {
         self.showProcessedResult(result)
       } catch {
         guard !Task.isCancelled else { return }
-        logger.error("Translate action failed: \(error.localizedDescription, privacy: .public)")
+        logger.error("Translate action failed: \(error.localizedDescription, privacy: .private)")
         self.showTranslateError()
       }
     }
@@ -428,7 +436,7 @@ public final class SelectionBarCoordinator {
         }
       } catch {
         guard !Task.isCancelled else { return }
-        logger.error("Custom action failed: \(error.localizedDescription, privacy: .public)")
+        logger.error("Custom action failed: \(error.localizedDescription, privacy: .private)")
         self.showActionError(for: action.id)
       }
     }
@@ -694,15 +702,77 @@ public final class SelectionBarCoordinator {
       guard let self else { return }
 
       do {
+        if SelectionBarTerminalCommandService.requiresConfirmation(for: selectedText) {
+          let terminalApp =
+            self.actionHandler.resolvedTerminalApp(from: self.settingsStore)
+            ?? self.settingsStore.selectionBarTerminalApp
+          let command = SelectionBarTerminalCommandService.preparedCommandText(from: selectedText)
+          let approved = await self.runCommandConfirmationHandler(command, terminalApp)
+          guard !Task.isCancelled else { return }
+          guard approved else {
+            logger.info("Run command cancelled at confirmation")
+            self.isRunningCommand = false
+            self.rebuildBarIfVisible()
+            return
+          }
+        }
+
         try await self.actionHandler.runCommand(text: selectedText, settings: self.settingsStore)
         guard !Task.isCancelled else { return }
         self.dismiss()
       } catch {
         guard !Task.isCancelled else { return }
-        logger.error("Run command action failed: \(error.localizedDescription, privacy: .public)")
+        logger.error("Run command action failed: \(error.localizedDescription, privacy: .private)")
         self.showRunCommandError()
       }
     }
+  }
+
+  /// Default confirmation for selections that can chain or expand shell
+  /// commands. Shown modally so the command text is unambiguous — the input is
+  /// arbitrary text the user selected, often on a page they do not control.
+  private static func confirmRunCommand(
+    _ command: String,
+    terminalApp: SelectionBarTerminalApp
+  ) async -> Bool {
+    let alert = NSAlert()
+    alert.alertStyle = .warning
+    alert.messageText = String(
+      localized: "Run this command?",
+      bundle: .localizedModule
+    )
+    alert.informativeText = String(
+      format: String(
+        localized: "This selection can run more than one command. It will be run in %@.",
+        bundle: .localizedModule
+      ),
+      terminalApp.displayName
+    )
+    alert.accessoryView = commandPreviewView(for: command)
+    alert.addButton(withTitle: String(localized: "Run", bundle: .localizedModule))
+    alert.addButton(withTitle: String(localized: "Cancel", bundle: .localizedModule))
+    // NSAlert makes the first button the default, so Return would otherwise run
+    // a command the user was being asked to vet. Clear it: running requires a
+    // deliberate click, while Escape still cancels via Cancel's own binding.
+    alert.buttons.first?.keyEquivalent = ""
+    alert.buttons.last?.keyEquivalent = "\u{1b}"
+
+    NSApp.activate(ignoringOtherApps: true)
+    return alert.runModal() == .alertFirstButtonReturn
+  }
+
+  private static func commandPreviewView(for command: String) -> NSView {
+    let textView = NSTextView()
+    textView.string = command
+    textView.isEditable = false
+    textView.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+    textView.textContainerInset = NSSize(width: 6, height: 6)
+
+    let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 340, height: 68))
+    scrollView.documentView = textView
+    scrollView.hasVerticalScroller = true
+    scrollView.borderType = .bezelBorder
+    return scrollView
   }
 
   private func handleSearchSelected() {

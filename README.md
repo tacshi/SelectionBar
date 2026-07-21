@@ -1,5 +1,9 @@
 # SelectionBar
 
+[![CI](https://github.com/tacshi/SelectionBar/actions/workflows/ci.yml/badge.svg)](https://github.com/tacshi/SelectionBar/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/tacshi/SelectionBar/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 A macOS menu bar app that provides a floating toolbar on text selection for quick actions — copy, search, translate, speak, chat with AI, and run custom LLM/JavaScript/key-binding actions.
 
 ## Features
@@ -45,9 +49,9 @@ Chat with AI about selected text in a floating panel with streaming responses an
 
 ### Custom LLM Actions
 
-6 built-in prompt templates, plus support for creating your own:
+5 built-in prompt templates, plus support for creating your own:
 
-- Polish, Clean Up, Extract Actions, Summarize, Bulletize, Draft Email
+- Polish, Extract Actions, Summarize, Bulletize, Draft Email
 
 Each action can output to a result window or edit text inline. LLM actions can optionally include bounded source context from the current file, PDF, or web page using `{{CONTEXT}}`, `{{SOURCE_URL}}`, `{{APP_NAME}}`, and `{{BUNDLE_ID}}`.
 
@@ -56,6 +60,10 @@ Each action can output to a result window or edit text inline. LLM actions can o
 7 starter templates with JavaScriptCore execution, including async `fetch` support for HTTP/HTTPS requests:
 
 - Title Case, URL Toolkit, JWT Decode, Format JSON, Convert Timestamps, Clean Up Escapes, Wrap as Quote
+
+Scripts run in a separate helper process (`Contents/Helpers/selectionbar-js-helper`),
+so a script that never terminates is killed at its deadline instead of tying up
+SelectionBar. If the helper is missing, execution falls back to running in-process.
 
 ### Key Binding Actions
 
@@ -83,6 +91,13 @@ Require a modifier key (Option, Command, Control, or Shift) to activate the tool
 
 ## Installation
 
+### Download
+
+Grab the latest signed build from the
+[releases page](https://github.com/tacshi/SelectionBar/releases/latest), open the
+DMG, and drag **SelectionBar.app** into `/Applications`. The app updates itself
+via Sparkle after that.
+
 ### Build from Source
 
 ```bash
@@ -104,6 +119,39 @@ open SelectionBar.app
 
 Hold a configured modifier key while selecting text to activate the toolbar. When enabled, the toolbar will not appear unless the modifier key is held down.
 
+## Troubleshooting
+
+### The toolbar never appears
+
+SelectionBar reads selections through the Accessibility API, so it needs
+Accessibility permission — and macOS silently does nothing when that permission
+is missing.
+
+1. Open **System Settings > Privacy & Security > Accessibility**.
+2. Make sure **SelectionBar** is listed and toggled on.
+3. If it is already on but nothing happens, toggle it off and on again — macOS
+   invalidates the grant whenever the app binary changes, which happens on every
+   update and on every local rebuild.
+4. Quit and relaunch SelectionBar.
+
+Check **Ignored Apps** in settings too: the toolbar is suppressed in any app
+listed there, and in password fields (macOS blocks synthetic events while secure
+input is active).
+
+### The toolbar appears but shows no text in some apps
+
+A few apps (Electron and Java-based ones especially) do not expose selections
+through the Accessibility API. For those, add the app under **Clipboard Fallback**
+in settings — SelectionBar will synthesize a copy and restore your clipboard
+afterwards.
+
+### AI actions fail with an HTTP error
+
+Confirm the provider's API key is saved (**Providers** tab, use *Test
+Connection*) and that the model ID is one your account can reach. For custom
+OpenAI-compatible endpoints, the base URL must include the version path, e.g.
+`https://example.com/v1`.
+
 ## Supported Providers
 
 | Provider | Capabilities | Setup |
@@ -116,10 +164,12 @@ Hold a configured modifier key while selecting text to activate the toolbar. Whe
 
 ## Architecture
 
-Two-target SPM package:
+SPM package with four targets:
 
 - **SelectionBarApp** - SwiftUI menu bar app, settings UI, provider configuration
 - **SelectionBarCore** - Core library with selection monitoring, action handling, floating toolbar, chat
+- **SelectionBarJavaScriptEngine** - JavaScriptCore execution engine, shared by the app and the helper
+- **SelectionBarJSHelper** - One-shot child process that runs a single JavaScript action and exits
 
 ### Data Flow
 
@@ -143,6 +193,18 @@ Two-target SPM package:
 
 English, Japanese, Simplified Chinese.
 
+## Contributing
+
+Issues and pull requests are welcome. Before opening a PR:
+
+```bash
+xcrun swift-format --recursive --in-place Sources Tests Package.swift
+swift build
+swift test
+```
+
+CI runs the same three steps on every pull request.
+
 ## License
 
-MIT License
+[MIT](LICENSE)

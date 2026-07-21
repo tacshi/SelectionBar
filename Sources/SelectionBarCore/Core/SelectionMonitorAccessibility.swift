@@ -11,8 +11,31 @@ final class SelectionMonitorAccessibility: SelectionMonitorAccessibilityProvidin
   private let focusedWindowChromeHeight: CGFloat = 40
   private let permissionGuide: SelectionMonitorPermissionGuiding
 
+  /// Upper bound on any single accessibility round-trip. Without this, AX calls
+  /// wait indefinitely for the target app to answer, so one hung app hangs
+  /// SelectionBar's main thread on every mouse-up.
+  private static let messagingTimeout: Float = 0.25
+  private static var didConfigureMessagingTimeout = false
+
   init(permissionGuide: SelectionMonitorPermissionGuiding = SelectionBarPermissionGuide()) {
     self.permissionGuide = permissionGuide
+    Self.configureMessagingTimeoutIfNeeded()
+  }
+
+  /// Setting the timeout on the system-wide element makes it the default for
+  /// every accessibility message this process sends.
+  private static func configureMessagingTimeoutIfNeeded() {
+    guard !didConfigureMessagingTimeout else { return }
+    didConfigureMessagingTimeout = true
+    let result = AXUIElementSetMessagingTimeout(
+      AXUIElementCreateSystemWide(),
+      messagingTimeout
+    )
+    if result != .success {
+      logger.error(
+        "AX: failed to set messaging timeout, error: \(result.rawValue, privacy: .public)"
+      )
+    }
   }
 
   @discardableResult

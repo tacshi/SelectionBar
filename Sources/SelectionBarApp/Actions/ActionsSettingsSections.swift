@@ -419,75 +419,22 @@ private struct ActionsBuiltInSettingsContent: View {
   @ViewBuilder
   private func builtInKeyBindingsSection(settings: SelectionBarSettingsStore) -> some View {
     Section {
-      if settings.builtInKeyBindingActions.isEmpty {
-        Text("No key bindings configured")
-          .foregroundStyle(.secondary)
-      } else {
-        List {
-          ForEach(settings.builtInKeyBindingActions) { config in
-            let canEnable = settings.canEnableCustomAction(config)
-            ActionsActionListRow(
-              config: config,
-              canEnable: canEnable,
-              enablementIssue: nil,
-              onEdit: {
-                editingAction = ActionsEditorItem(
-                  destination: .builtInKeyBindingActions,
-                  mode: .builtInKeyBinding,
-                  config: config
-                )
-              },
-              onDelete: {
-                settings.builtInKeyBindingActions.removeAll { $0.id == config.id }
-              },
-              onToggle: { enabled in
-                if let index = settings.builtInKeyBindingActions.firstIndex(where: {
-                  $0.id == config.id
-                }) {
-                  if enabled
-                    && !settings.canEnableCustomAction(settings.builtInKeyBindingActions[index])
-                  {
-                    editingAction = ActionsEditorItem(
-                      destination: .builtInKeyBindingActions,
-                      mode: .builtInKeyBinding,
-                      config: settings.builtInKeyBindingActions[index]
-                    )
-                    return
-                  }
-                  settings.builtInKeyBindingActions[index].isEnabled = enabled
-                }
-              }
-            )
-          }
-          .onMove { indices, newOffset in
-            settings.builtInKeyBindingActions.move(fromOffsets: indices, toOffset: newOffset)
-          }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .frame(minHeight: 120)
-      }
-
-      Menu {
+      ActionsActionListContent(
+        settingsStore: settings,
+        actions: \.builtInKeyBindingActions,
+        destination: .builtInKeyBindingActions,
+        mode: .builtInKeyBinding,
+        emptyMessage: "No key bindings configured",
+        listMinHeight: 120,
+        showsEnablementIssue: false,
+        addMenuTitle: "Add Key Binding",
+        editingAction: $editingAction
+      ) {
         Button {
           editingAction = ActionsEditorItem(
             destination: .builtInKeyBindingActions,
             mode: .builtInKeyBinding,
-            config: CustomActionConfig(
-              id: UUID(),
-              name: "",
-              prompt: CustomActionConfig.defaultPromptTemplate,
-              modelProvider: "",
-              modelId: "",
-              kind: .keyBinding,
-              outputMode: .resultWindow,
-              script: CustomActionConfig.defaultJavaScriptTemplate,
-              keyBinding: "",
-              isEnabled: false,
-              isBuiltIn: true,
-              templateId: nil,
-              icon: nil
-            )
+            config: .newAction(kind: .keyBinding, isBuiltIn: true)
           )
         } label: {
           Label("Key Binding", systemImage: "keyboard")
@@ -500,21 +447,7 @@ private struct ActionsBuiltInSettingsContent: View {
             editingAction = ActionsEditorItem(
               destination: .builtInKeyBindingActions,
               mode: .builtInKeyBinding,
-              config: CustomActionConfig(
-                id: UUID(),
-                name: template.localizedName,
-                prompt: CustomActionConfig.defaultPromptTemplate,
-                modelProvider: "",
-                modelId: "",
-                kind: .keyBinding,
-                outputMode: .resultWindow,
-                script: CustomActionConfig.defaultJavaScriptTemplate,
-                keyBinding: template.keyBinding,
-                isEnabled: false,
-                isBuiltIn: true,
-                templateId: nil,
-                icon: template.effectiveIcon
-              )
+              config: .from(template: template, kind: .keyBinding, isBuiltIn: true)
             )
           } label: {
             HStack(spacing: 8) {
@@ -523,8 +456,6 @@ private struct ActionsBuiltInSettingsContent: View {
             }
           }
         }
-      } label: {
-        Label("Add Key Binding", systemImage: "plus.circle")
       }
     } header: {
       Label("Key Bindings", systemImage: "keyboard")
@@ -571,76 +502,22 @@ private struct ActionsCustomSettingsContent: View {
   var body: some View {
     Form {
       Section {
-        if settingsStore.customActions.isEmpty {
-          Text("No actions configured")
-            .foregroundStyle(.secondary)
-        } else {
-          List {
-            ForEach(settingsStore.customActions) { config in
-              let canEnable = settingsStore.canEnableCustomAction(config)
-              let enablementIssue = settingsStore.customActionEnablementIssue(config)
-              ActionsActionListRow(
-                config: config,
-                canEnable: canEnable,
-                enablementIssue: enablementIssue,
-                onEdit: {
-                  editingAction = ActionsEditorItem(
-                    destination: .customActions,
-                    mode: .custom,
-                    config: config
-                  )
-                },
-                onDelete: {
-                  settingsStore.customActions.removeAll { $0.id == config.id }
-                },
-                onToggle: { enabled in
-                  if let index = settingsStore.customActions.firstIndex(where: {
-                    $0.id == config.id
-                  }) {
-                    if enabled
-                      && !settingsStore.canEnableCustomAction(settingsStore.customActions[index])
-                    {
-                      editingAction = ActionsEditorItem(
-                        destination: .customActions,
-                        mode: .custom,
-                        config: settingsStore.customActions[index]
-                      )
-                      return
-                    }
-                    settingsStore.customActions[index].isEnabled = enabled
-                  }
-                }
-              )
-            }
-            .onMove { indices, newOffset in
-              settingsStore.customActions.move(fromOffsets: indices, toOffset: newOffset)
-            }
-          }
-          .listStyle(.plain)
-          .scrollContentBackground(.hidden)
-          .frame(minHeight: 180)
-        }
-
-        Menu {
+        ActionsActionListContent(
+          settingsStore: settingsStore,
+          actions: \.customActions,
+          destination: .customActions,
+          mode: .custom,
+          emptyMessage: "No actions configured",
+          listMinHeight: 180,
+          showsEnablementIssue: true,
+          addMenuTitle: "Add Action",
+          editingAction: $editingAction
+        ) {
           Button {
             editingAction = ActionsEditorItem(
               destination: .customActions,
               mode: .custom,
-              config: CustomActionConfig(
-                id: UUID(),
-                name: "",
-                prompt: CustomActionConfig.defaultPromptTemplate,
-                modelProvider: "",
-                modelId: "",
-                kind: .javascript,
-                outputMode: .resultWindow,
-                script: CustomActionConfig.defaultJavaScriptTemplate,
-                keyBinding: "",
-                isEnabled: false,
-                isBuiltIn: false,
-                templateId: nil,
-                icon: nil
-              )
+              config: .newAction(kind: .javascript)
             )
           } label: {
             Label("Custom", systemImage: "square.and.pencil")
@@ -650,21 +527,7 @@ private struct ActionsCustomSettingsContent: View {
             editingAction = ActionsEditorItem(
               destination: .customActions,
               mode: .custom,
-              config: CustomActionConfig(
-                id: UUID(),
-                name: "",
-                prompt: CustomActionConfig.defaultPromptTemplate,
-                modelProvider: "",
-                modelId: "",
-                kind: .pipeline,
-                outputMode: .resultWindow,
-                script: CustomActionConfig.defaultJavaScriptTemplate,
-                keyBinding: "",
-                isEnabled: false,
-                isBuiltIn: false,
-                templateId: nil,
-                icon: nil
-              )
+              config: .newAction(kind: .pipeline)
             )
           } label: {
             Label("Pipeline", systemImage: "app.connected.to.app.below.fill")
@@ -677,21 +540,7 @@ private struct ActionsCustomSettingsContent: View {
               editingAction = ActionsEditorItem(
                 destination: .customActions,
                 mode: .custom,
-                config: CustomActionConfig(
-                  id: UUID(),
-                  name: template.localizedName,
-                  prompt: CustomActionConfig.defaultPromptTemplate,
-                  modelProvider: "",
-                  modelId: "",
-                  kind: .javascript,
-                  outputMode: template.outputMode,
-                  script: template.script,
-                  keyBinding: "",
-                  isEnabled: false,
-                  isBuiltIn: false,
-                  templateId: nil,
-                  icon: template.effectiveIcon
-                )
+                config: .from(template: template, kind: .javascript)
               )
             } label: {
               HStack(spacing: 8) {
@@ -708,21 +557,7 @@ private struct ActionsCustomSettingsContent: View {
               editingAction = ActionsEditorItem(
                 destination: .customActions,
                 mode: .custom,
-                config: CustomActionConfig(
-                  id: UUID(),
-                  name: template.localizedName,
-                  prompt: template.prompt,
-                  modelProvider: template.modelProvider,
-                  modelId: template.modelId,
-                  kind: .llm,
-                  outputMode: .resultWindow,
-                  script: CustomActionConfig.defaultJavaScriptTemplate,
-                  keyBinding: "",
-                  isEnabled: false,
-                  isBuiltIn: false,
-                  templateId: nil,
-                  icon: template.effectiveIcon
-                )
+                config: .from(template: template, kind: .llm)
               )
             } label: {
               HStack(spacing: 8) {
@@ -731,8 +566,6 @@ private struct ActionsCustomSettingsContent: View {
               }
             }
           }
-        } label: {
-          Label("Add Action", systemImage: "plus.circle")
         }
       } footer: {
         Text(
@@ -1142,6 +975,83 @@ private struct ActionProfileEditorView: View {
   }
 }
 
+/// Shared action list body: empty state, reorderable rows, and the "add" menu.
+///
+/// The built-in key binding list and the custom action list differ only in which array of
+/// `CustomActionConfig` they operate on, the editor destination/mode they open, and the
+/// contents of their add menu.
+private struct ActionsActionListContent<AddMenuItems: View>: View {
+  let settingsStore: SelectionBarSettingsStore
+  let actions: ReferenceWritableKeyPath<SelectionBarSettingsStore, [CustomActionConfig]>
+  let destination: ActionEditorDestination
+  let mode: ActionEditorMode
+  let emptyMessage: LocalizedStringKey
+  let listMinHeight: CGFloat
+  let showsEnablementIssue: Bool
+  let addMenuTitle: LocalizedStringKey
+  @Binding var editingAction: ActionsEditorItem?
+  @ViewBuilder let addMenuItems: AddMenuItems
+
+  private var configs: [CustomActionConfig] {
+    settingsStore[keyPath: actions]
+  }
+
+  private func editorItem(for config: CustomActionConfig) -> ActionsEditorItem {
+    ActionsEditorItem(destination: destination, mode: mode, config: config)
+  }
+
+  var body: some View {
+    if configs.isEmpty {
+      Text(emptyMessage)
+        .foregroundStyle(.secondary)
+    } else {
+      List {
+        ForEach(configs) { config in
+          let canEnable = settingsStore.canEnableCustomAction(config)
+          let enablementIssue =
+            showsEnablementIssue ? settingsStore.customActionEnablementIssue(config) : nil
+          ActionsActionListRow(
+            config: config,
+            canEnable: canEnable,
+            enablementIssue: enablementIssue,
+            onEdit: {
+              editingAction = editorItem(for: config)
+            },
+            onDelete: {
+              settingsStore[keyPath: actions].removeAll { $0.id == config.id }
+            },
+            onToggle: { enabled in
+              if let index = settingsStore[keyPath: actions].firstIndex(where: {
+                $0.id == config.id
+              }) {
+                if enabled
+                  && !settingsStore.canEnableCustomAction(settingsStore[keyPath: actions][index])
+                {
+                  editingAction = editorItem(for: settingsStore[keyPath: actions][index])
+                  return
+                }
+                settingsStore[keyPath: actions][index].isEnabled = enabled
+              }
+            }
+          )
+        }
+        .onMove { indices, newOffset in
+          settingsStore[keyPath: actions].move(fromOffsets: indices, toOffset: newOffset)
+        }
+      }
+      .listStyle(.plain)
+      .scrollContentBackground(.hidden)
+      .frame(minHeight: listMinHeight)
+    }
+
+    Menu {
+      addMenuItems
+    } label: {
+      Label(addMenuTitle, systemImage: "plus.circle")
+    }
+  }
+}
+
 private struct ActionsActionListRow: View {
   let config: CustomActionConfig
   let canEnable: Bool
@@ -1199,7 +1109,11 @@ private struct ChatSessionsSettingsSection: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
               Text(
-                "\(session.messages.count) messages \u{00B7} \(session.lastAccessedAt.formatted(.relative(presentation: .named)))"
+                String(
+                  format: String(localized: "%d messages \u{00B7} %@"),
+                  session.messages.count,
+                  session.lastAccessedAt.formatted(.relative(presentation: .named))
+                )
               )
               .font(.caption2)
               .foregroundStyle(.secondary)
@@ -1246,7 +1160,15 @@ private struct ActionsActionRow: View {
   let onDelete: () -> Void
   let onToggle: (Bool) -> Void
 
-  @State private var isEnabled: Bool
+  /// Mirrors the store rather than shadowing it in `@State`: the parents reject
+  /// some enable attempts (opening the editor instead of writing the setting),
+  /// and a local copy would stay stuck ON — leaving the row's Edit and Delete
+  /// buttons permanently disabled.
+  private var isEnabled: Bool { config.isEnabled }
+
+  private var isEnabledBinding: Binding<Bool> {
+    Binding(get: { config.isEnabled }, set: { onToggle($0) })
+  }
 
   private var subtitleTone: Color {
     if config.kind == .llm, !isEnabled, enablementIssue != nil {
@@ -1321,7 +1243,6 @@ private struct ActionsActionRow: View {
     self.onEdit = onEdit
     self.onDelete = onDelete
     self.onToggle = onToggle
-    self._isEnabled = State(initialValue: config.isEnabled)
   }
 
   var body: some View {
@@ -1346,16 +1267,16 @@ private struct ActionsActionRow: View {
 
       Spacer()
 
-      Toggle(isOn: $isEnabled) {
+      Toggle(isOn: isEnabledBinding) {
         EmptyView()
       }
       .toggleStyle(.switch)
       .controlSize(.small)
       .labelsHidden()
       .disabled(!canEnable && !isEnabled)
-      .onChange(of: isEnabled) { _, newValue in
-        onToggle(newValue)
-      }
+      .accessibilityLabel(
+        Text(String(format: String(localized: "Enable %@"), config.localizedName))
+      )
 
       Button(action: onEdit) {
         Image(systemName: "square.and.pencil")
@@ -1366,6 +1287,9 @@ private struct ActionsActionRow: View {
       }
       .buttonStyle(.borderless)
       .disabled(isEnabled)
+      .accessibilityLabel(
+        Text(String(format: String(localized: "Edit %@"), config.localizedName))
+      )
 
       Button(action: onDelete) {
         Image(systemName: "trash")
@@ -1376,9 +1300,9 @@ private struct ActionsActionRow: View {
       }
       .buttonStyle(.borderless)
       .disabled(isEnabled)
-    }
-    .onChange(of: config.isEnabled) { _, newValue in
-      isEnabled = newValue
+      .accessibilityLabel(
+        Text(String(format: String(localized: "Delete %@"), config.localizedName))
+      )
     }
   }
 }

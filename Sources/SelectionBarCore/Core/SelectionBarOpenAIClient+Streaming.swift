@@ -47,9 +47,16 @@ extension SelectionBarOpenAIClient {
           if let httpResponse = response as? HTTPURLResponse,
             !(200...299).contains(httpResponse.statusCode)
           {
+            // Cap the body: a misbehaving endpoint can stream an unbounded
+            // error response, and the text ends up in a log line anyway.
+            let errorBodyLimit = 4096
             var errorBody = ""
             for try await line in bytes.lines {
               errorBody += line
+              if errorBody.count >= errorBodyLimit {
+                errorBody = String(errorBody.prefix(errorBodyLimit)) + "…"
+                break
+              }
             }
             throw SelectionBarError.httpError(httpResponse.statusCode, errorBody)
           }
@@ -81,10 +88,17 @@ extension SelectionBarOpenAIClient {
             if let deltas = choice?.delta.toolCalls {
               for delta in deltas {
                 let idx = delta.index ?? 0
-                if let id = delta.id {
-                  accumulatedToolCalls[idx] = (id: id, name: "", arguments: "")
+                if accumulatedToolCalls[idx] == nil {
+                  // Only seed on first sight of this index. OpenAI sends `id`
+                  // once, but several OpenAI-compatible backends repeat it on
+                  // every chunk — reseeding there would discard the name and
+                  // arguments accumulated so far.
+                  accumulatedToolCalls[idx] = (id: delta.id ?? "", name: "", arguments: "")
                 }
                 if var tc = accumulatedToolCalls[idx] {
+                  if tc.id.isEmpty, let id = delta.id {
+                    tc.id = id
+                  }
                   if let name = delta.function?.name {
                     tc.name += name
                   }

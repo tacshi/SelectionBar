@@ -61,24 +61,46 @@ public struct SelectionBarJavaScriptRunner: Sendable {
     }
 
     let executionState = JavaScriptExecutionState()
-    let task = Task.detached(priority: .userInitiated) {
-      try Self.execute(
-        script: trimmedScript,
-        input: input,
-        syncTimeout: resolvedTimeout,
-        asyncTimeout: resolvedAsyncTimeout,
-        dataLoader: dataLoader,
-        state: executionState
-      )
-    }
+    let dataLoader = self.dataLoader
 
     return try await withTaskCancellationHandler {
-      try await task.value
+      try await withCheckedThrowingContinuation {
+        (continuation: CheckedContinuation<String, any Error>) in
+        Self.executionQueue.async {
+          do {
+            let value = try Self.execute(
+              script: trimmedScript,
+              input: input,
+              syncTimeout: resolvedTimeout,
+              asyncTimeout: resolvedAsyncTimeout,
+              dataLoader: dataLoader,
+              state: executionState
+            )
+            continuation.resume(returning: value)
+          } catch {
+            continuation.resume(throwing: error)
+          }
+        }
+      }
     } onCancel: {
+      // Cancellation is delivered through the shared state, which signals the
+      // semaphores `execute` is parked on. There is no Task to cancel: the work
+      // deliberately runs off the cooperative pool.
       executionState.cancel()
-      task.cancel()
     }
   }
+
+  /// `execute` parks a thread on a semaphore for as long as the script runs,
+  /// and the `fetch` bridge needs cooperative-pool threads to service its
+  /// `Task`s. Running the blocking part on a `Task.detached` consumed a pool
+  /// thread, so on a machine with few cores several concurrent actions could
+  /// occupy the entire pool and deadlock every `fetch` until its timeout fired.
+  /// A dedicated queue keeps the blocking waits off the cooperative pool.
+  private static let executionQueue = DispatchQueue(
+    label: "selectionbar.javascript.execution",
+    qos: .userInitiated,
+    attributes: .concurrent
+  )
 
   private static func execute(
     script: String,
@@ -267,6 +289,9 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
   private var context: JSContext?
   private var retainedObjects: [AnyObject] = []
 
+  /// Upper bound on a single `fetch` response body handed to the script.
+  static let maxFetchResponseBytes = 5 * 1024 * 1024
+
   init(
     state: JavaScriptExecutionState,
     dataLoader: @escaping SelectionBarJavaScriptRunner.DataLoader,
@@ -296,8 +321,11 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
     }
 
     self.context = context
-    context.exceptionHandler = { _, exception in
-      self.state.setException(exception?.toString() ?? "Unknown JavaScript exception.")
+    // The handler must not capture `self` strongly: `self` owns the context,
+    // and the context owns the handler, so a strong capture leaks the whole
+    // JSContext and its JSVirtualMachine on every action run.
+    context.exceptionHandler = { [weak self] _, exception in
+      self?.state.setException(exception?.toString() ?? "Unknown JavaScript exception.")
     }
     installFetch(in: context)
 
@@ -493,7 +521,12 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
     requestURL: URL?,
     context: JSContext
   ) -> JSValue {
-    let bodyText = String(decoding: data, as: UTF8.self)
+    // Cap what a script can pull into the JS heap in one call — a script action
+    // fetching a large asset would otherwise decode the whole thing to a string.
+    let cappedData =
+      data.count > Self.maxFetchResponseBytes
+      ? data.prefix(Self.maxFetchResponseBytes) : data[...]
+    let bodyText = String(decoding: cappedData, as: UTF8.self)
     let headersValue = JSValue(newObjectIn: context)
 
     for (key, value) in response.allHeaderFields {

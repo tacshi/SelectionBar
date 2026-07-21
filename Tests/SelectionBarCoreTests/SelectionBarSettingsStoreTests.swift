@@ -236,6 +236,7 @@ struct SelectionBarSettingsStoreTests {
     )
     store.builtInKeyBindingActions = [action]
 
+    store.flushPendingWrites()
     let reloaded = SelectionBarSettingsStore(
       defaults: defaults,
       storageKey: "test.settings",
@@ -266,6 +267,7 @@ struct SelectionBarSettingsStoreTests {
 
     store.actionProfiles = [profile]
 
+    store.flushPendingWrites()
     let reloaded = SelectionBarSettingsStore(
       defaults: defaults,
       storageKey: "test.settings",
@@ -824,6 +826,7 @@ struct SelectionBarSettingsStoreTests {
     store.selectionBarSearchEngine = .custom
     store.selectionBarSearchCustomScheme = "myapp"
 
+    store.flushPendingWrites()
     let reloaded = SelectionBarSettingsStore(
       defaults: defaults,
       storageKey: "test.settings",
@@ -860,6 +863,7 @@ struct SelectionBarSettingsStoreTests {
 
     #expect(callbackCount == 2)
 
+    store.flushPendingWrites()
     let reloaded = SelectionBarSettingsStore(
       defaults: defaults,
       storageKey: "test.settings",
@@ -907,6 +911,7 @@ struct SelectionBarSettingsStoreTests {
 
     #expect(callbackCount == 1)
 
+    store.flushPendingWrites()
     let reloaded = SelectionBarSettingsStore(
       defaults: defaults,
       storageKey: "test.settings",
@@ -942,6 +947,7 @@ struct SelectionBarSettingsStoreTests {
 
     store.selectionBarTerminalApp = .ghostty
 
+    store.flushPendingWrites()
     let reloaded = SelectionBarSettingsStore(
       defaults: defaults,
       storageKey: "test.settings",
@@ -977,6 +983,7 @@ struct SelectionBarSettingsStoreTests {
       [.terminal, .warp]
     }
 
+    store.flushPendingWrites()
     let reloaded = SelectionBarSettingsStore(
       defaults: defaults,
       storageKey: "test.settings",

@@ -8,6 +8,11 @@ import Testing
 @Suite("SelectionBarCoordinator Tests")
 @MainActor
 struct SelectionBarCoordinatorTests {
+  /// Long enough that "did not block on it" is unambiguous even when the
+  /// machine running the tests is busy.
+  private static let resolverDelay = Duration.milliseconds(600)
+  private static let resolverDelaySeconds = 0.6
+
   @Test("selection popup is not blocked by run command visibility resolution")
   func selectionPopupIsNotBlockedByRunCommandVisibilityResolution() async throws {
     let store = makeStore(keychain: InMemoryKeychain())
@@ -18,7 +23,7 @@ struct SelectionBarCoordinatorTests {
       actionHandler: SelectionBarActionHandler(),
       windowControllerFactory: { _ in windowPresenter },
       runCommandVisibilityResolver: { _ in
-        try? await Task.sleep(for: .milliseconds(200))
+        try? await Task.sleep(for: Self.resolverDelay)
         return false
       }
     )
@@ -27,11 +32,15 @@ struct SelectionBarCoordinatorTests {
     coordinator.handleTextSelectedForTesting(text: "git status", at: NSPoint(x: 80, y: 120))
     let elapsed = CFAbsoluteTimeGetCurrent() - start
 
-    #expect(elapsed < 0.05)
+    // The point is that showing the bar does not await the resolver, so this is
+    // compared against the resolver's own delay rather than a fixed wall-clock
+    // budget — a loaded CI runner can easily exceed a tight absolute bound
+    // without the code having blocked on anything.
+    #expect(elapsed < Self.resolverDelaySeconds / 2)
     #expect(windowPresenter.showNearCalls == 1)
     #expect(windowPresenter.updateCalls == 0)
 
-    try await Task.sleep(for: .milliseconds(260))
+    try await Task.sleep(for: Self.resolverDelay + .milliseconds(60))
 
     #expect(windowPresenter.updateCalls == 0)
   }

@@ -16,6 +16,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="SelectionBar"
+JS_HELPER_NAME="selectionbar-js-helper"
 EXECUTABLE_NAME="SelectionBarApp"
 APP_DIR="$SCRIPT_DIR/$APP_NAME.app"
 ICON_ICNS_SOURCE="$SCRIPT_DIR/Assets/AppIcon.icns"
@@ -80,9 +81,19 @@ if [ "$DO_CLEAN" = true ]; then
 fi
 
 if [ "$DO_FORMAT" = true ]; then
-  if command -v swift-format >/dev/null 2>&1; then
+  # Prefer the toolchain formatter, which is what CI runs. A Homebrew
+  # swift-format on PATH can be a different version and format differently,
+  # so it is only the fallback.
+  SWIFT_FORMAT=""
+  if xcrun --find swift-format >/dev/null 2>&1; then
+    SWIFT_FORMAT="$(xcrun --find swift-format)"
+  elif command -v swift-format >/dev/null 2>&1; then
+    SWIFT_FORMAT="$(command -v swift-format)"
+  fi
+
+  if [ -n "$SWIFT_FORMAT" ]; then
     echo "🎨 Formatting Swift code..."
-    swift-format --recursive --in-place "$SCRIPT_DIR/Sources" "$SCRIPT_DIR/Tests" "$SCRIPT_DIR/Package.swift"
+    "$SWIFT_FORMAT" --recursive --in-place "$SCRIPT_DIR/Sources" "$SCRIPT_DIR/Tests" "$SCRIPT_DIR/Package.swift"
   else
     echo "⚠️  swift-format not found; skipping formatting"
   fi
@@ -96,6 +107,15 @@ fi
 
 cd "$SCRIPT_DIR"
 swift build "${BUILD_ARGS[@]}"
+
+# The JavaScript helper is a separate product; without building it explicitly
+# the bundle would ship without it and silently fall back to uninterruptible
+# in-process script execution.
+JS_HELPER_ARGS=("-c" "$CONFIGURATION" "--product" "$JS_HELPER_NAME")
+if [ -n "$ARCH" ]; then
+  JS_HELPER_ARGS+=("--arch" "$ARCH")
+fi
+swift build "${JS_HELPER_ARGS[@]}"
 
 BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 BINARY_PATH="$BIN_DIR/$EXECUTABLE_NAME"
@@ -137,6 +157,20 @@ done
 if [ "$SPARKLE_COPIED" = false ]; then
   echo "⚠️  Sparkle.framework not found in build output"
 fi
+
+# Embed the JavaScript helper. Scripts run in this child process so a runaway
+# script can be killed outright instead of pinning a core inside SelectionBar.
+JS_HELPER_SRC="$BIN_DIR/$JS_HELPER_NAME"
+if [ ! -f "$JS_HELPER_SRC" ]; then
+  echo "❌ $JS_HELPER_NAME not found at: $JS_HELPER_SRC"
+  exit 1
+fi
+echo "   Embedding JavaScript helper"
+mkdir -p "$APP_DIR/Contents/Helpers"
+cp "$JS_HELPER_SRC" "$APP_DIR/Contents/Helpers/$JS_HELPER_NAME"
+chmod +x "$APP_DIR/Contents/Helpers/$JS_HELPER_NAME"
+install_name_tool -add_rpath "@executable_path/../Frameworks" \
+  "$APP_DIR/Contents/Helpers/$JS_HELPER_NAME" 2>/dev/null || true
 
 # Copy static Info.plist
 cp "$SCRIPT_DIR/Info.plist" "$APP_DIR/Contents/"
@@ -221,6 +255,12 @@ if [ "$DO_SIGN" = true ]; then
         [ -f "$exe" ] && codesign --force --sign "$SIGN_IDENTITY" --options runtime "$exe"
       done
       codesign --force --sign "$SIGN_IDENTITY" --options runtime "$SPARKLE_FRAMEWORK"
+    fi
+
+    # Sign the embedded JavaScript helper before the outer bundle
+    JS_HELPER="$APP_DIR/Contents/Helpers/$JS_HELPER_NAME"
+    if [ -f "$JS_HELPER" ]; then
+      codesign --force --sign "$SIGN_IDENTITY" --options runtime "$JS_HELPER"
     fi
 
     # Sign main app with entitlements

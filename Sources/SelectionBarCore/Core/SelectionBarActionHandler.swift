@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SelectionBarJavaScriptEngine
 
 /// Handles built-in Selection Bar actions.
 @MainActor
@@ -134,7 +135,7 @@ public final class SelectionBarActionHandler {
 
     case .javascript:
       do {
-        let result = try await SelectionBarJavaScriptRunner().run(
+        let result = try await SelectionBarJavaScriptExecutor().run(
           script: action.script,
           input: text
         )
@@ -290,7 +291,7 @@ public final class SelectionBarActionHandler {
     await clipboardService.replaceSelectedText(with: text)
   }
 
-  private func resolvedTerminalApp(
+  func resolvedTerminalApp(
     from settings: SelectionBarSettingsStore
   ) -> SelectionBarTerminalApp? {
     let availableTerminalApps = settings.availableSelectionBarTerminalApps()
@@ -537,7 +538,11 @@ public enum SelectionBarError: LocalizedError, Sendable, Equatable {
       return "Invalid response from provider."
     case .httpError(let statusCode, let body):
       if let body, !body.isEmpty {
-        return "Provider returned HTTP \(statusCode): \(body)"
+        // Gateways commonly echo the request back on 4xx — including the
+        // Authorization header and the user's selected text. Keep enough to
+        // diagnose, not enough to leak a whole request.
+        let truncated = body.count > 500 ? String(body.prefix(500)) + "…" : body
+        return "Provider returned HTTP \(statusCode): \(truncated)"
       }
       return "Provider returned HTTP \(statusCode)."
     case .javaScriptMissingScript:
