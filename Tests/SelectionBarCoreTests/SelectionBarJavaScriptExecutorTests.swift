@@ -4,6 +4,12 @@ import Testing
 @testable import SelectionBarCore
 @testable import SelectionBarJavaScriptEngine
 
+/// Generous on purpose — these tests spawn a child process and assert behavior,
+/// not speed. `killsHelperPastDeadline` sets its own short deadline because
+/// that is what it is testing.
+private let helperTestSyncTimeout = Duration.seconds(10)
+private let helperTestAsyncTimeout = Duration.seconds(30)
+
 @Suite("SelectionBarJavaScriptExecutor Tests")
 struct SelectionBarJavaScriptExecutorTests {
   /// Writes an executable shell script to a temp dir and returns its URL.
@@ -21,8 +27,8 @@ struct SelectionBarJavaScriptExecutorTests {
   @Test("falls back to the in-process engine when no helper is bundled")
   func fallsBackWhenHelperMissing() async throws {
     let executor = SelectionBarJavaScriptExecutor(
-      syncTimeout: .milliseconds(800),
-      asyncTimeout: .seconds(1),
+      syncTimeout: helperTestSyncTimeout,
+      asyncTimeout: helperTestAsyncTimeout,
       helperURLProvider: { nil }
     )
 
@@ -38,8 +44,8 @@ struct SelectionBarJavaScriptExecutorTests {
   func fallsBackWhenHelperUnlaunchable() async throws {
     let missing = URL(fileURLWithPath: "/nonexistent/selectionbar-js-helper")
     let executor = SelectionBarJavaScriptExecutor(
-      syncTimeout: .milliseconds(800),
-      asyncTimeout: .seconds(1),
+      syncTimeout: helperTestSyncTimeout,
+      asyncTimeout: helperTestAsyncTimeout,
       helperURLProvider: { missing }
     )
 
@@ -58,8 +64,8 @@ struct SelectionBarJavaScriptExecutorTests {
     let helperURL = helper.url
 
     let executor = SelectionBarJavaScriptExecutor(
-      syncTimeout: .milliseconds(800),
-      asyncTimeout: .seconds(1),
+      syncTimeout: helperTestSyncTimeout,
+      asyncTimeout: helperTestAsyncTimeout,
       helperURLProvider: { helperURL }
     )
 
@@ -75,8 +81,8 @@ struct SelectionBarJavaScriptExecutorTests {
     let helperURL = helper.url
 
     let executor = SelectionBarJavaScriptExecutor(
-      syncTimeout: .milliseconds(800),
-      asyncTimeout: .seconds(1),
+      syncTimeout: helperTestSyncTimeout,
+      asyncTimeout: helperTestAsyncTimeout,
       helperURLProvider: { helperURL }
     )
 
@@ -96,8 +102,8 @@ struct SelectionBarJavaScriptExecutorTests {
     let helperURL = helper.url
 
     let executor = SelectionBarJavaScriptExecutor(
-      syncTimeout: .milliseconds(800),
-      asyncTimeout: .seconds(1),
+      syncTimeout: helperTestSyncTimeout,
+      asyncTimeout: helperTestAsyncTimeout,
       helperURLProvider: { helperURL }
     )
 

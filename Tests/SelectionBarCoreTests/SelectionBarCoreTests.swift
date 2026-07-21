@@ -3,6 +3,18 @@ import Foundation
 import SelectionBarCore
 import Testing
 
+/// Timeouts for the JavaScript runner tests.
+///
+/// Deliberately generous: these tests assert *behavior* — that a fetch resolves,
+/// that cancellation propagates — not how fast JavaScriptCore starts up. A CI
+/// runner is several times slower than a developer machine, and the original
+/// 800ms/1s values were tight enough that spinning up a JSVirtualMachine could
+/// blow through them. Tests that assert timeout behavior pass their own short
+/// values explicitly.
+private let jsTestSyncTimeout = Duration.seconds(10)
+private let jsTestAsyncTimeout = Duration.seconds(30)
+private let jsTestSignalTimeout = Duration.seconds(10)
+
 @Suite("SelectionBarCore Tests")
 @MainActor
 struct SelectionBarCoreTests {
@@ -331,7 +343,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript runner returns transformed text")
   func javaScriptRunnerReturnsOutput() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let script = """
       function transform(input) {
         return input.trim().toUpperCase();
@@ -345,8 +357,8 @@ struct SelectionBarCoreTests {
   @Test("JavaScript runner supports async transform returning string")
   func javaScriptRunnerAsyncTransformReturnsString() async throws {
     let runner = SelectionBarJavaScriptRunner(
-      defaultTimeout: .milliseconds(800),
-      defaultAsyncTimeout: .seconds(1)
+      defaultTimeout: jsTestSyncTimeout,
+      defaultAsyncTimeout: jsTestAsyncTimeout
     )
     let script = """
       async function transform(input) {
@@ -362,8 +374,8 @@ struct SelectionBarCoreTests {
   func javaScriptRunnerFetchGetReturnsText() async throws {
     let capture = JavaScriptFetchCapture()
     let runner = SelectionBarJavaScriptRunner(
-      defaultTimeout: .milliseconds(800),
-      defaultAsyncTimeout: .seconds(1),
+      defaultTimeout: jsTestSyncTimeout,
+      defaultAsyncTimeout: jsTestAsyncTimeout,
       dataLoader: { request in
         capture.append(request)
         return (
@@ -391,8 +403,8 @@ struct SelectionBarCoreTests {
     let loaderStarted = AsyncSignal()
     let loaderCancelled = AsyncSignal()
     let runner = SelectionBarJavaScriptRunner(
-      defaultTimeout: .milliseconds(800),
-      defaultAsyncTimeout: .seconds(5),
+      defaultTimeout: jsTestSyncTimeout,
+      defaultAsyncTimeout: jsTestAsyncTimeout,
       dataLoader: { request in
         loaderStarted.signal()
         do {
@@ -418,7 +430,7 @@ struct SelectionBarCoreTests {
     let task = Task {
       try await runner.run(script: script, input: "")
     }
-    #expect(await loaderStarted.wait(timeout: .seconds(1)))
+    #expect(await loaderStarted.wait(timeout: jsTestSignalTimeout))
 
     task.cancel()
 
@@ -430,15 +442,15 @@ struct SelectionBarCoreTests {
       Issue.record("Unexpected error: \(error)")
     }
 
-    #expect(await loaderCancelled.wait(timeout: .seconds(1)))
+    #expect(await loaderCancelled.wait(timeout: jsTestSignalTimeout))
   }
 
   @Test("JavaScript runner fetch POST forwards method headers and body")
   func javaScriptRunnerFetchPostForwardsRequest() async throws {
     let capture = JavaScriptFetchCapture()
     let runner = SelectionBarJavaScriptRunner(
-      defaultTimeout: .milliseconds(800),
-      defaultAsyncTimeout: .seconds(1),
+      defaultTimeout: jsTestSyncTimeout,
+      defaultAsyncTimeout: jsTestAsyncTimeout,
       dataLoader: { request in
         capture.append(request)
         return (
@@ -475,8 +487,8 @@ struct SelectionBarCoreTests {
   @Test("JavaScript runner fetch json parses valid JSON")
   func javaScriptRunnerFetchJSONParsesPayload() async throws {
     let runner = SelectionBarJavaScriptRunner(
-      defaultTimeout: .milliseconds(800),
-      defaultAsyncTimeout: .seconds(1),
+      defaultTimeout: jsTestSyncTimeout,
+      defaultAsyncTimeout: jsTestAsyncTimeout,
       dataLoader: { request in
         let data = Data(#"{"message":"ok"}"#.utf8)
         return (data, makeJavaScriptHTTPResponse(url: request.url!, statusCode: 200))
@@ -497,8 +509,8 @@ struct SelectionBarCoreTests {
   @Test("JavaScript runner fetch resolves HTTP errors")
   func javaScriptRunnerFetchResolvesHTTPErrorResponse() async throws {
     let runner = SelectionBarJavaScriptRunner(
-      defaultTimeout: .milliseconds(800),
-      defaultAsyncTimeout: .seconds(1),
+      defaultTimeout: jsTestSyncTimeout,
+      defaultAsyncTimeout: jsTestAsyncTimeout,
       dataLoader: { request in
         return (
           Data("server error".utf8),
@@ -519,7 +531,7 @@ struct SelectionBarCoreTests {
 
   @Test("JavaScript runner fetch rejects unsupported URL schemes")
   func javaScriptRunnerFetchRejectsUnsupportedScheme() async {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let script = """
       async function transform(input) {
         await fetch('file:///tmp/example.txt');
@@ -537,7 +549,7 @@ struct SelectionBarCoreTests {
 
   @Test("JavaScript runner async transform rejects non-string output")
   func javaScriptRunnerAsyncTransformInvalidReturnType() async {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let script = """
       async function transform(input) {
         return 42;
@@ -552,7 +564,7 @@ struct SelectionBarCoreTests {
   @Test("JavaScript runner returns timeout for unresolved async transform")
   func javaScriptRunnerAsyncTimeout() async {
     let runner = SelectionBarJavaScriptRunner(
-      defaultTimeout: .milliseconds(800),
+      defaultTimeout: jsTestSyncTimeout,
       defaultAsyncTimeout: .milliseconds(10)
     )
     let script = """
@@ -568,7 +580,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript format JSON template formats valid JSON and keeps invalid input")
   func javaScriptFormatJSONTemplate() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let template = CustomActionConfig.createJavaScriptFormatJSONTemplate()
 
     let formatted = try await runner.run(
@@ -612,7 +624,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript URL toolkit template parses URL components and query params")
   func javaScriptURLToolkitTemplate() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let template = CustomActionConfig.createJavaScriptURLToolkitTemplate()
 
     #expect(template.outputMode == .resultWindow)
@@ -632,7 +644,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript JWT decode template decodes header and payload")
   func javaScriptJWTDecodeTemplate() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let template = CustomActionConfig.createJavaScriptJWTDecodeTemplate()
 
     #expect(template.outputMode == .resultWindow)
@@ -654,7 +666,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript timestamp converter template handles epoch and ISO inputs")
   func javaScriptTimestampConverterTemplate() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let template = CustomActionConfig.createJavaScriptTimestampConverterTemplate()
 
     #expect(template.outputMode == .resultWindow)
@@ -680,7 +692,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript timestamp converter template preserves microsecond precision")
   func javaScriptTimestampConverterMicrosecondPrecision() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let template = CustomActionConfig.createJavaScriptTimestampConverterTemplate()
 
     let output = try await runner.run(
@@ -697,7 +709,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript clean escapes template decodes escaped text")
   func javaScriptCleanEscapesTemplate() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let template = CustomActionConfig.createJavaScriptCleanEscapesTemplate()
     #expect(template.icon?.value == "eraser.xmark")
 
@@ -718,7 +730,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript runner fails when transform function is missing")
   func javaScriptRunnerMissingTransform() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let script = "const notTransform = (input) => input;"
 
     do {
@@ -733,7 +745,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript runner fails when return type is not string")
   func javaScriptRunnerInvalidReturnType() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let script = """
       function transform(input) {
         return 42;
@@ -752,7 +764,7 @@ struct SelectionBarCoreTests {
 
   @Test("javascript runner returns timeout error for long-running script")
   func javaScriptRunnerTimeout() async throws {
-    let runner = SelectionBarJavaScriptRunner(defaultTimeout: .milliseconds(800))
+    let runner = SelectionBarJavaScriptRunner(defaultTimeout: jsTestSyncTimeout)
     let script = """
       function transform(input) {
         const start = Date.now();
