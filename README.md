@@ -198,7 +198,7 @@ English, Japanese, Simplified Chinese.
 Issues and pull requests are welcome. Before opening a PR:
 
 ```bash
-swift-format --recursive --in-place Sources Tests Package.swift
+xcrun swift-format --recursive --in-place Sources Tests Package.swift
 swift build
 swift test
 ```

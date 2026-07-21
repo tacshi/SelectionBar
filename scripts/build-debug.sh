@@ -81,9 +81,19 @@ if [ "$DO_CLEAN" = true ]; then
 fi
 
 if [ "$DO_FORMAT" = true ]; then
-  if command -v swift-format >/dev/null 2>&1; then
+  # Prefer the toolchain formatter, which is what CI runs. A Homebrew
+  # swift-format on PATH can be a different version and format differently,
+  # so it is only the fallback.
+  SWIFT_FORMAT=""
+  if xcrun --find swift-format >/dev/null 2>&1; then
+    SWIFT_FORMAT="$(xcrun --find swift-format)"
+  elif command -v swift-format >/dev/null 2>&1; then
+    SWIFT_FORMAT="$(command -v swift-format)"
+  fi
+
+  if [ -n "$SWIFT_FORMAT" ]; then
     echo "🎨 Formatting Swift code..."
-    swift-format --recursive --in-place "$SCRIPT_DIR/Sources" "$SCRIPT_DIR/Tests" "$SCRIPT_DIR/Package.swift"
+    "$SWIFT_FORMAT" --recursive --in-place "$SCRIPT_DIR/Sources" "$SCRIPT_DIR/Tests" "$SCRIPT_DIR/Package.swift"
   else
     echo "⚠️  swift-format not found; skipping formatting"
   fi

@@ -25,7 +25,9 @@ swift test
 swift test --filter SelectionBarCoreTests.testName
 
 # Format code (also run automatically by build-debug.sh)
-swift-format --recursive --in-place Sources Tests Package.swift
+# Use xcrun so this matches the toolchain formatter CI runs — a Homebrew
+# swift-format can be a different version and disagree.
+xcrun swift-format --recursive --in-place Sources Tests Package.swift
 ```
 
 ## Architecture
@@ -54,7 +56,9 @@ JavaScript actions go through `SelectionBarJavaScriptExecutor`, which spawns the
 
 ## CI
 
-`.github/workflows/ci.yml` runs `swift-format lint --strict`, `swift build`, and `swift test` on every push to main and every PR. Run all three locally before pushing.
+`.github/workflows/ci.yml` runs `xcrun swift-format lint --strict`, `swift build`, and `swift test` on every push to main and every PR. Run all three locally before pushing.
+
+`swift-format` is not on `PATH` on the GitHub runners; it ships inside the Swift toolchain, so CI invokes it through `xcrun`. The workflow deliberately does not pin an Xcode path — runner images use versioned bundle names (`Xcode_16.4.app`) that change without notice.
 
 ### Localization
 

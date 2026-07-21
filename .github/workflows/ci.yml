@@ -15,8 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app
+      # Print the toolchain rather than pinning an Xcode path: the runner images
+      # use versioned bundle names (Xcode_16.4.app), so hardcoding one breaks
+      # whenever the image is updated. The macos-15 default is Swift 6.
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcrun --find swift-format
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -25,8 +30,10 @@ jobs:
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
           restore-keys: ${{ runner.os }}-spm-
 
+      # `swift-format` is not on PATH on the runners, but the Swift toolchain
+      # ships it — so this always matches the compiler being used to build.
       - name: Check formatting
-        run: swift-format lint --recursive --strict Sources Tests Package.swift
+        run: xcrun swift-format lint --recursive --strict Sources Tests Package.swift
 
       - name: Build
         run: swift build
