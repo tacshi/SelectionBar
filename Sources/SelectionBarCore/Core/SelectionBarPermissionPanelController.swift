@@ -233,8 +233,8 @@ private struct SelectionBarPermissionPanelView: View {
             .foregroundStyle(.primary, .secondary.opacity(0.35))
         }
         .buttonStyle(.borderless)
-        .accessibilityLabel(Text("Close Permission Helper"))
-        .accessibilityHint(Text("Dismisses the permission helper panel"))
+        .accessibilityLabel(Text("Close Permission Helper", bundle: .localizedModule))
+        .accessibilityHint(Text("Dismisses the permission helper panel", bundle: .localizedModule))
       }
 
       if let appURL {
@@ -259,20 +259,21 @@ private struct SelectionBarPermissionPanelView: View {
   private var title: AttributedString {
     let appName =
       appURL.map { FileManager.default.displayName(atPath: $0.path) }
-      ?? String(localized: "SelectionBar")
+      ?? String(localized: "SelectionBar", bundle: .localizedModule)
 
-    var title = AttributedString("Drag ")
-    title += emphasized(appName)
-    title += AttributedString(" to the list above to allow ")
-    title += emphasized(paneTitle)
-    title += AttributedString(".")
+    // One format string rather than concatenated fragments: Japanese and
+    // Chinese need a different word order than "Drag X to … allow Y."
+    let format = String(
+      localized: "Drag %@ to the list above to allow %@.",
+      bundle: .localizedModule
+    )
+    var title = AttributedString(String(format: format, appName, paneTitle))
+    for value in [appName, paneTitle] {
+      if let range = title.range(of: value) {
+        title[range].inlinePresentationIntent = .stronglyEmphasized
+      }
+    }
     return title
-  }
-
-  private func emphasized(_ value: String) -> AttributedString {
-    var attributed = AttributedString(value)
-    attributed.inlinePresentationIntent = .stronglyEmphasized
-    return attributed
   }
 }
 
@@ -443,7 +444,7 @@ private struct SelectionBarAppDragCardContent: View {
       VStack(spacing: 0) {
         Image(systemName: "hand.draw")
           .font(.system(size: 14))
-        Text("Drag")
+        Text("Drag", bundle: .localizedModule)
           .font(.system(size: 8, weight: .light))
       }
       .foregroundStyle(.secondary)
@@ -462,21 +463,21 @@ extension PermissionFlowPane {
   fileprivate var selectionBarDisplayTitle: String {
     switch self {
     case .accessibility:
-      return String(localized: "Accessibility")
+      return String(localized: "Accessibility", bundle: .localizedModule)
     case .inputMonitoring:
-      return String(localized: "Input Monitoring")
+      return String(localized: "Input Monitoring", bundle: .localizedModule)
     case .appManagement:
-      return String(localized: "App Management")
+      return String(localized: "App Management", bundle: .localizedModule)
     case .bluetooth:
-      return String(localized: "Bluetooth")
+      return String(localized: "Bluetooth", bundle: .localizedModule)
     case .developerTools:
-      return String(localized: "Developer Tools")
+      return String(localized: "Developer Tools", bundle: .localizedModule)
     case .fullDiskAccess:
-      return String(localized: "Full Disk Access")
+      return String(localized: "Full Disk Access", bundle: .localizedModule)
     case .mediaAppleMusic:
-      return String(localized: "Media & Apple Music")
+      return String(localized: "Media & Apple Music", bundle: .localizedModule)
     case .screenRecording:
-      return String(localized: "Screen Recording")
+      return String(localized: "Screen Recording", bundle: .localizedModule)
     }
   }
 }

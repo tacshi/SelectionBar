@@ -114,17 +114,31 @@ public final class SelectionMonitor {
   }
 
   deinit {
-    if let monitor = mouseUpMonitor {
+    // `deinit` can run on any thread when the last release happens off-main,
+    // but `NSEvent.removeMonitor` is main-thread-only — so hop rather than
+    // calling it inline.
+    let monitors = [mouseUpMonitor, mouseDownMonitor, keyDownMonitor].compactMap { $0 }
+    let observer = appSwitchObserver
+    guard !monitors.isEmpty || observer != nil else { return }
+
+    if Thread.isMainThread {
+      MainActor.assumeIsolated {
+        Self.removeMonitors(monitors, appSwitchObserver: observer)
+      }
+    } else {
+      DispatchQueue.main.async {
+        Self.removeMonitors(monitors, appSwitchObserver: observer)
+      }
+    }
+  }
+
+  @MainActor
+  private static func removeMonitors(_ monitors: [Any], appSwitchObserver: Any?) {
+    for monitor in monitors {
       NSEvent.removeMonitor(monitor)
     }
-    if let monitor = mouseDownMonitor {
-      NSEvent.removeMonitor(monitor)
-    }
-    if let monitor = keyDownMonitor {
-      NSEvent.removeMonitor(monitor)
-    }
-    if let observer = appSwitchObserver {
-      NSWorkspace.shared.notificationCenter.removeObserver(observer)
+    if let appSwitchObserver {
+      NSWorkspace.shared.notificationCenter.removeObserver(appSwitchObserver)
     }
   }
 

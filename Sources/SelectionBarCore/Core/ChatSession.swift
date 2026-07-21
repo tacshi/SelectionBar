@@ -153,7 +153,10 @@ public final class ChatSession {
 
     let assistantMessage = ChatMessage(role: .assistant, content: "")
     messages.append(assistantMessage)
-    let assistantIndex = messages.count - 1
+    // Track by id, not index: `reset()` and `restoreMessages()` can replace the
+    // whole array while this task is suspended, and a stale index would either
+    // write to the wrong message or trap.
+    let assistantID = assistantMessage.id
 
     isStreaming = true
     currentStreamingContent = ""
@@ -181,7 +184,7 @@ public final class ChatSession {
             switch event {
             case .content(let token):
               self.currentStreamingContent += token
-              self.messages[assistantIndex].content = self.currentStreamingContent
+              self.setContent(self.currentStreamingContent, forMessage: assistantID)
             case .toolCall(let tc):
               toolCalls.append(tc)
             }
@@ -217,7 +220,7 @@ public final class ChatSession {
             for tc in toolCalls {
               let result = await self.executeToolCall(tc)
               logger.info("\(tc.function.name) returned \(result.count) chars")
-              self.sourceReadHistory.append(result)
+              self.appendSourceReadHistory(result)
               apiMessages.append(
                 OpenAICompatibleCompletionRequest.Message(
                   role: "tool",
@@ -242,7 +245,7 @@ public final class ChatSession {
 
           // Clear the pre-tool-call text so the follow-up response starts fresh
           self.currentStreamingContent = ""
-          self.messages[assistantIndex].content = ""
+          self.setContent("", forMessage: assistantID)
         }
 
         self.isStreaming = false
@@ -262,12 +265,32 @@ public final class ChatSession {
         self.pendingSourceRead = false
         self.streamTask = nil
         // Remove empty assistant message on error
-        if self.messages[assistantIndex].content.isEmpty {
-          self.messages.remove(at: assistantIndex)
+        if let index = self.messages.firstIndex(where: { $0.id == assistantID }),
+          self.messages[index].content.isEmpty
+        {
+          self.messages.remove(at: index)
         }
         self.onStreamingComplete?()
       }
     }
+  }
+
+  /// The whole history is re-sent in the system prompt on every turn and
+  /// persisted with the session, so it has to stay bounded — otherwise a long
+  /// conversation over a large file grows token cost and memory without limit.
+  static let maxSourceReadHistoryCharacters = 60_000
+
+  private func appendSourceReadHistory(_ entry: String) {
+    sourceReadHistory.append(entry)
+    var total = sourceReadHistory.reduce(0) { $0 + $1.count }
+    while total > Self.maxSourceReadHistoryCharacters, sourceReadHistory.count > 1 {
+      total -= sourceReadHistory.removeFirst().count
+    }
+  }
+
+  private func setContent(_ content: String, forMessage id: UUID) {
+    guard let index = messages.firstIndex(where: { $0.id == id }) else { return }
+    messages[index].content = content
   }
 
   public func approveSourceRead() {
@@ -334,9 +357,9 @@ public final class ChatSession {
   private func executeToolCall(_ tc: ToolCall) async -> String {
     switch tc.function.name {
     case "read_source":
-      return readSourceLines(arguments: tc.function.arguments)
+      return await readSourceLines(arguments: tc.function.arguments)
     case "read_pdf_pages":
-      return readPDFPages(arguments: tc.function.arguments)
+      return await readPDFPages(arguments: tc.function.arguments)
     case "read_page":
       return await readPageExcerpt(arguments: tc.function.arguments)
     default:
@@ -430,23 +453,25 @@ public final class ChatSession {
     }
   }
 
-  private func readSourceLines(arguments: String) -> String {
+  private func readSourceLines(arguments: String) async -> String {
     guard let sourceURL, sourceIsFilePath else {
       return "Error: Source is not a readable file."
     }
-
-    guard let content = try? String(contentsOfFile: sourceURL, encoding: .utf8) else {
-      return "Error: Could not read file."
-    }
-
-    let allLines = content.components(separatedBy: .newlines)
 
     guard let range = ChatSession.parseSourceLineRange(from: arguments) else {
       return "Error: Invalid arguments. Provide line_start and line_end as integers."
     }
 
-    return ChatSession.formatSourceLines(
-      lineStart: range.start, lineEnd: range.end, allLines: allLines)
+    // Reading and splitting a whole file is slow enough to freeze the UI on a
+    // large log; ChatSession is @MainActor, so push it off.
+    return await Task.detached(priority: .userInitiated) {
+      guard let content = try? String(contentsOfFile: sourceURL, encoding: .utf8) else {
+        return "Error: Could not read file."
+      }
+      let allLines = content.components(separatedBy: .newlines)
+      return ChatSession.formatSourceLines(
+        lineStart: range.start, lineEnd: range.end, allLines: allLines)
+    }.value
   }
 
   // MARK: - PDF reading
@@ -461,25 +486,28 @@ public final class ChatSession {
     }
   }
 
-  private func readPDFPages(arguments: String) -> String {
+  private func readPDFPages(arguments: String) async -> String {
     guard let sourceURL, sourceIsFilePath else {
       return "Error: Source is not a readable file."
-    }
-
-    guard let doc = PDFDocument(url: URL(fileURLWithPath: sourceURL)) else {
-      return "Error: Could not open PDF document."
     }
 
     guard let range = ChatSession.parsePDFPageRange(from: arguments) else {
       return "Error: Invalid arguments. Provide page_start and page_end as integers."
     }
 
-    return ChatSession.formatPDFPages(
-      pageStart: range.start,
-      pageEnd: range.end,
-      totalPages: doc.pageCount,
-      pageTextProvider: { doc.page(at: $0 - 1)?.string }
-    )
+    // Extracting text from a large PDF blocks for seconds — keep it off the
+    // main actor.
+    return await Task.detached(priority: .userInitiated) {
+      guard let doc = PDFDocument(url: URL(fileURLWithPath: sourceURL)) else {
+        return "Error: Could not open PDF document."
+      }
+      return ChatSession.formatPDFPages(
+        pageStart: range.start,
+        pageEnd: range.end,
+        totalPages: doc.pageCount,
+        pageTextProvider: { doc.page(at: $0 - 1)?.string }
+      )
+    }.value
   }
 
   // MARK: - Web page reading
@@ -504,6 +532,11 @@ public final class ChatSession {
   }
 
   // MARK: - Testable static helpers
+
+  /// Upper bound on a single tool result. `read_page` already clamps itself;
+  /// the file and PDF readers need the same ceiling because whatever they
+  /// return is replayed in the system prompt on every later turn.
+  nonisolated static let maxToolResultCharacters = 20_000
 
   /// Parse `max_chars` from JSON arguments, defaulting to 5000 and clamping to [500, 20000].
   static func parseMaxChars(from arguments: String) -> Int {
@@ -552,7 +585,7 @@ public final class ChatSession {
   }
 
   /// Format PDF pages with clamping and separator output.
-  static func formatPDFPages(
+  nonisolated static func formatPDFPages(
     pageStart: Int,
     pageEnd: Int,
     totalPages: Int,
@@ -566,12 +599,36 @@ public final class ChatSession {
     }
 
     var pages: [String] = []
+    var characters = 0
+    var lastPage = start
+    var didTruncate = false
     for i in start...end {
-      let pageText = pageTextProvider(i) ?? "(empty page)"
+      var pageText = pageTextProvider(i) ?? "(empty page)"
+      // Clamp the page itself, not just the running total: a single scanned
+      // page can be larger than the whole budget, and checking only after
+      // appending would let it through untouched.
+      let remaining = max(0, maxToolResultCharacters - characters)
+      if pageText.count > remaining {
+        pageText = String(pageText.prefix(remaining))
+        didTruncate = true
+      }
       pages.append("--- Page \(i) ---\n\(pageText)")
+      characters += pageText.count
+      lastPage = i
+      // The whole history is replayed into every subsequent request, so an
+      // unbounded read would blow up token cost and memory.
+      if characters >= maxToolResultCharacters {
+        didTruncate = didTruncate || i < end
+        break
+      }
     }
 
-    return "Pages \(start)-\(end) of \(totalPages):\n\(pages.joined(separator: "\n\n"))"
+    let body = pages.joined(separator: "\n\n")
+    if didTruncate || lastPage < end {
+      return
+        "Pages \(start)-\(lastPage) of \(totalPages) (truncated at \(maxToolResultCharacters) characters; request fewer pages for more detail):\n\(body)"
+    }
+    return "Pages \(start)-\(end) of \(totalPages):\n\(body)"
   }
 
   /// Parse `line_start` / `line_end` from JSON arguments.
@@ -585,7 +642,9 @@ public final class ChatSession {
   }
 
   /// Format source lines with clamping and numbered output.
-  static func formatSourceLines(lineStart: Int, lineEnd: Int, allLines: [String]) -> String {
+  nonisolated static func formatSourceLines(lineStart: Int, lineEnd: Int, allLines: [String])
+    -> String
+  {
     let start = max(1, lineStart)
     let end = min(allLines.count, lineEnd)
 
@@ -594,10 +653,33 @@ public final class ChatSession {
     }
 
     let slice = allLines[(start - 1)..<end]
-    let numbered = slice.enumerated().map { offset, line in
-      "\(start + offset):\(line)"
-    }.joined(separator: "\n")
+    var numbered = ""
+    var lastLine = start
+    var didTruncate = false
+    for (offset, line) in slice.enumerated() {
+      let prefix = numbered.isEmpty ? "" : "\n"
+      let entry = "\(prefix)\(start + offset):\(line)"
+      // Clamp the line itself: one minified source line can exceed the whole
+      // budget on its own, so checking only after appending lets it through.
+      let remaining = max(0, maxToolResultCharacters - numbered.count)
+      if entry.count > remaining {
+        numbered += String(entry.prefix(remaining))
+        lastLine = start + offset
+        didTruncate = true
+        break
+      }
+      numbered += entry
+      lastLine = start + offset
+      if numbered.count >= maxToolResultCharacters {
+        didTruncate = didTruncate || (start + offset) < end
+        break
+      }
+    }
 
+    if didTruncate || lastLine < end {
+      return
+        "Lines \(start)-\(lastLine) of \(allLines.count) (truncated at \(maxToolResultCharacters) characters; request a narrower range for more detail):\n\(numbered)"
+    }
     return "Lines \(start)-\(end) of \(allLines.count):\n\(numbered)"
   }
 

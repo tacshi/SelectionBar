@@ -6,23 +6,34 @@ private let logger = Logger(subsystem: "com.selectionbar", category: "SelectionB
 
 @MainActor
 final class SelectionBarClipboardService {
+  /// How long to leave our text on the pasteboard after posting Cmd+V. Apps
+  /// with heavier event loops (Electron, JetBrains) can take well over 200ms to
+  /// actually read it; restoring too early makes them paste the *old* clipboard.
+  private static let pasteSettleDelay = Duration.milliseconds(500)
+
   func replaceSelectedText(with text: String) async {
     let pasteboard = NSPasteboard.general
 
-    let savedItems = savePasteboardContents(pasteboard)
-    let savedChangeCount = pasteboard.changeCount
+    let snapshot = PasteboardSnapshot(capturing: pasteboard)
 
-    pasteboard.clearContents()
+    let ownedChangeCount = pasteboard.clearContents()
     pasteboard.setString(text, forType: .string)
 
     try? await Task.sleep(for: .milliseconds(50))
 
     simulatePaste()
 
-    try? await Task.sleep(for: .milliseconds(200))
+    try? await Task.sleep(for: Self.pasteSettleDelay)
 
-    if pasteboard.changeCount == savedChangeCount + 1 {
-      restorePasteboardContents(pasteboard, items: savedItems)
+    // Only put the old clipboard back if what we wrote is still there. A
+    // clipboard manager bumping the change count no longer blocks the restore —
+    // we compare against the text itself, so our output does not leak into the
+    // user's clipboard history any longer than necessary.
+    let stillOurs =
+      pasteboard.changeCount == ownedChangeCount
+      || pasteboard.string(forType: .string) == text
+    if stillOurs {
+      snapshot.restore(to: pasteboard)
     }
   }
 
@@ -87,29 +98,4 @@ final class SelectionBarClipboardService {
     return true
   }
 
-  /// Save all pasteboard items (types + data).
-  private func savePasteboardContents(_ pasteboard: NSPasteboard) -> [(
-    NSPasteboard.PasteboardType, Data
-  )] {
-    var items: [(NSPasteboard.PasteboardType, Data)] = []
-    guard let types = pasteboard.types else { return items }
-    for type in types {
-      if let data = pasteboard.data(forType: type) {
-        items.append((type, data))
-      }
-    }
-    return items
-  }
-
-  /// Restore saved pasteboard items.
-  private func restorePasteboardContents(
-    _ pasteboard: NSPasteboard,
-    items: [(NSPasteboard.PasteboardType, Data)]
-  ) {
-    guard !items.isEmpty else { return }
-    pasteboard.clearContents()
-    for (type, data) in items {
-      pasteboard.setData(data, forType: type)
-    }
-  }
 }

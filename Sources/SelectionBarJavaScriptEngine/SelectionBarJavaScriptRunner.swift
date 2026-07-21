@@ -267,6 +267,9 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
   private var context: JSContext?
   private var retainedObjects: [AnyObject] = []
 
+  /// Upper bound on a single `fetch` response body handed to the script.
+  static let maxFetchResponseBytes = 5 * 1024 * 1024
+
   init(
     state: JavaScriptExecutionState,
     dataLoader: @escaping SelectionBarJavaScriptRunner.DataLoader,
@@ -296,8 +299,11 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
     }
 
     self.context = context
-    context.exceptionHandler = { _, exception in
-      self.state.setException(exception?.toString() ?? "Unknown JavaScript exception.")
+    // The handler must not capture `self` strongly: `self` owns the context,
+    // and the context owns the handler, so a strong capture leaks the whole
+    // JSContext and its JSVirtualMachine on every action run.
+    context.exceptionHandler = { [weak self] _, exception in
+      self?.state.setException(exception?.toString() ?? "Unknown JavaScript exception.")
     }
     installFetch(in: context)
 
@@ -493,7 +499,12 @@ private final class JavaScriptExecutionEnvironment: @unchecked Sendable {
     requestURL: URL?,
     context: JSContext
   ) -> JSValue {
-    let bodyText = String(decoding: data, as: UTF8.self)
+    // Cap what a script can pull into the JS heap in one call — a script action
+    // fetching a large asset would otherwise decode the whole thing to a string.
+    let cappedData =
+      data.count > Self.maxFetchResponseBytes
+      ? data.prefix(Self.maxFetchResponseBytes) : data[...]
+    let bodyText = String(decoding: cappedData, as: UTF8.self)
     let headersValue = JSValue(newObjectIn: context)
 
     for (key, value) in response.allHeaderFields {

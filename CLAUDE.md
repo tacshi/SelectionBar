@@ -30,10 +30,14 @@ swift-format --recursive --in-place Sources Tests Package.swift
 
 ## Architecture
 
-Two-target SPM package — no Xcode project files:
+Four-target SPM package — no Xcode project files:
 
 - **SelectionBarApp** (executable) — SwiftUI menu bar app, settings UI, provider configuration. Depends on SelectionBarCore and Sparkle.
-- **SelectionBarCore** (library) — Selection monitoring, action execution, floating toolbar, settings persistence. No external dependencies.
+- **SelectionBarCore** (library) — Selection monitoring, action execution, floating toolbar, settings persistence. Depends on SelectionBarJavaScriptEngine.
+- **SelectionBarJavaScriptEngine** (library) — JavaScriptCore execution plus the helper wire protocol. No external dependencies.
+- **SelectionBarJSHelper** (executable) — One-shot child process: reads a request on stdin, runs one script, writes the response to stdout, exits. Embedded at `Contents/Helpers/selectionbar-js-helper` by the build scripts.
+
+JavaScript actions go through `SelectionBarJavaScriptExecutor`, which spawns the helper and enforces a hard deadline (JavaScriptCore cannot be interrupted from Swift, so the timeout has to be a process kill). It falls back to the in-process `SelectionBarJavaScriptRunner` when the helper is absent — which is the case under `swift build`/`swift test`.
 
 ### Data Flow
 
@@ -46,6 +50,11 @@ Two-target SPM package — no Xcode project files:
 - **Providers:** OpenAI, OpenRouter, DeepL, ElevenLabs, plus user-defined OpenAI-compatible endpoints via `CustomLLMProvider`.
 - **Settings lifecycle:** `didSet` hooks on store properties trigger callbacks (`onEnabledChanged`, `onIgnoredAppsChanged`, etc.) that the coordinator observes.
 - **Tests:** Swift Testing framework (not XCTest). Test helpers in `Tests/SelectionBarCoreTests/Support/TestDoubles.swift` — `InMemoryKeychain`, isolated UserDefaults suites per test.
+- **Settings persistence is coalesced.** `didSet` schedules a save ~250ms later rather than writing immediately. Tests that construct a second store to read values back must call `store.flushPendingWrites()` first; the app flushes on `applicationWillTerminate`.
+
+## CI
+
+`.github/workflows/ci.yml` runs `swift-format lint --strict`, `swift build`, and `swift test` on every push to main and every PR. Run all three locally before pushing.
 
 ### Localization
 

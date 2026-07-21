@@ -17,4 +17,9 @@ final class SelectionBarAppDelegate: NSObject, NSApplicationDelegate {
     PermissionFlowInputMonitoringStatus.register()
     SelectionBarAppManager.shared.updaterManager.checkForUpdatesInBackground()
   }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    // Settings writes are coalesced; make sure the last edit lands on disk.
+    SelectionBarAppManager.shared.appState.settingsStore.flushPendingWrites()
+  }
 }

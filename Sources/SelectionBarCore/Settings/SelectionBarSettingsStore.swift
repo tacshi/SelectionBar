@@ -21,6 +21,10 @@ public final class SelectionBarSettingsStore {
   private var isReconcilingActions = false
   @ObservationIgnored
   private var persistenceSuppressionDepth = 0
+  @ObservationIgnored
+  private var pendingSaveTask: Task<Void, Never>?
+
+  private static let saveCoalescingInterval = Duration.milliseconds(250)
 
   public static let defaultIgnoredApps: [IgnoredApp] = []
   public static let defaultClipboardFallbackIncludedAppCandidates: [IgnoredApp] = [
@@ -919,43 +923,107 @@ public final class SelectionBarSettingsStore {
     return updated
   }
 
-  private func save() {
-    let data = StoredSettings(
-      selectionBarEnabled: selectionBarEnabled,
-      selectionBarDoNotDisturbEnabled: selectionBarDoNotDisturbEnabled,
-      selectionBarActivationModifier: selectionBarActivationModifier.rawValue,
-      selectionBarLookupEnabled: selectionBarLookupEnabled,
-      selectionBarLookupProvider: selectionBarLookupProvider.rawValue,
-      selectionBarLookupCustomScheme: selectionBarLookupCustomScheme,
-      selectionBarSearchEngine: selectionBarSearchEngine.rawValue,
-      selectionBarSearchCustomScheme: selectionBarSearchCustomScheme,
-      selectionBarTerminalApp: selectionBarTerminalApp.rawValue,
-      selectionBarSpeakEnabled: selectionBarSpeakEnabled,
-      selectionBarSpeakVoiceIdentifier: selectionBarSpeakVoiceIdentifier,
-      selectionBarSpeakProviderId: selectionBarSpeakProviderId,
-      elevenLabsVoiceId: elevenLabsVoiceId,
-      elevenLabsModelId: elevenLabsModelId,
-      availableElevenLabsVoices: availableElevenLabsVoices,
-      selectionBarChatEnabled: selectionBarChatEnabled,
-      selectionBarChatProviderId: selectionBarChatProviderId,
-      selectionBarChatModelId: selectionBarChatModelId,
-      selectionBarChatSessionLimit: selectionBarChatSessionLimit,
-      selectionBarTranslationEnabled: selectionBarTranslationEnabled,
-      selectionBarTranslationProviderId: selectionBarTranslationProviderId,
-      selectionBarIgnoredApps: selectionBarIgnoredApps,
-      selectionBarClipboardFallbackIncludedApps: selectionBarClipboardFallbackIncludedApps,
-      openAIModel: openAIModel,
-      openAITranslationModel: openAITranslationModel,
-      availableOpenAIModels: availableOpenAIModels,
-      openRouterModel: openRouterModel,
-      openRouterTranslationModel: openRouterTranslationModel,
-      availableOpenRouterModels: availableOpenRouterModels,
-      selectionBarTranslationTargetLanguage: selectionBarTranslationTargetLanguage,
-      customLLMProviders: customLLMProviders,
-      customActions: customActions,
-      builtInKeyBindingActions: builtInKeyBindingActions,
-      actionProfiles: actionProfiles
+  /// Single source of truth binding each persisted property to its
+  /// `StoredSettings` field, default value, and load-time sanitizer.
+  ///
+  /// Adding a setting means adding a stored property, a `StoredSettings`
+  /// field, and one row here. Omitting the row is the only remaining way to
+  /// forget persistence, and omitting the `StoredSettings` field is a
+  /// compile error.
+  private static let persistedFields: [PersistedField] = [
+    bind(\.selectionBarEnabled, \.selectionBarEnabled, default: false),
+    bind(\.selectionBarDoNotDisturbEnabled, \.selectionBarDoNotDisturbEnabled, default: false),
+    bind(\.selectionBarActivationModifier, \.selectionBarActivationModifier, default: .option),
+    bind(\.selectionBarLookupEnabled, \.selectionBarLookupEnabled, default: true),
+    bind(\.selectionBarLookupProvider, \.selectionBarLookupProvider, default: .systemDictionary),
+    bind(\.selectionBarLookupCustomScheme, \.selectionBarLookupCustomScheme, default: ""),
+    bind(\.selectionBarSearchEngine, \.selectionBarSearchEngine, default: .google),
+    bind(\.selectionBarSearchCustomScheme, \.selectionBarSearchCustomScheme, default: ""),
+    bind(\.selectionBarTerminalApp, \.selectionBarTerminalApp, default: .terminal),
+    bind(\.selectionBarSpeakEnabled, \.selectionBarSpeakEnabled, default: true),
+    bind(\.selectionBarSpeakVoiceIdentifier, \.selectionBarSpeakVoiceIdentifier, default: ""),
+    bind(
+      \.selectionBarSpeakProviderId, \.selectionBarSpeakProviderId,
+      default: SelectionBarSpeakSystemProvider.apple.rawValue),
+    bind(\.elevenLabsVoiceId, \.elevenLabsVoiceId, default: ""),
+    bind(\.elevenLabsModelId, \.elevenLabsModelId, default: "eleven_v3"),
+    bind(\.availableElevenLabsVoices, \.availableElevenLabsVoices, default: []),
+    bind(\.selectionBarChatEnabled, \.selectionBarChatEnabled, default: false),
+    bind(\.selectionBarChatProviderId, \.selectionBarChatProviderId, default: ""),
+    bind(\.selectionBarChatModelId, \.selectionBarChatModelId, default: ""),
+    bind(\.selectionBarChatSessionLimit, \.selectionBarChatSessionLimit, default: 50),
+    bind(\.selectionBarTranslationEnabled, \.selectionBarTranslationEnabled, default: true),
+    bind(
+      \.selectionBarTranslationProviderId, \.selectionBarTranslationProviderId,
+      default: SelectionBarTranslationAppProvider.bob.rawValue),
+    bind(\.selectionBarIgnoredApps, \.selectionBarIgnoredApps, default: defaultIgnoredApps),
+    bind(
+      \.selectionBarClipboardFallbackIncludedApps, \.selectionBarClipboardFallbackIncludedApps,
+      default: defaultClipboardFallbackIncludedApps),
+    bind(\.openAIModel, \.openAIModel, default: defaultOpenAIModel),
+    bind(\.openAITranslationModel, \.openAITranslationModel, default: ""),
+    bind(\.availableOpenAIModels, \.availableOpenAIModels, default: []),
+    bind(\.openRouterModel, \.openRouterModel, default: defaultOpenRouterModel),
+    bind(\.openRouterTranslationModel, \.openRouterTranslationModel, default: ""),
+    bind(\.availableOpenRouterModels, \.availableOpenRouterModels, default: []),
+    bind(
+      \.selectionBarTranslationTargetLanguage, \.selectionBarTranslationTargetLanguage,
+      default: TranslationLanguageCatalog.defaultTargetLanguage),
+    bind(\.customLLMProviders, \.customLLMProviders, default: []),
+    bind(
+      \.customActions, \.customActions, default: [],
+      sanitize: { $0.filter { action in action.kind != .keyBinding } }),
+    bind(
+      \.builtInKeyBindingActions, \.builtInKeyBindingActions, default: [],
+      sanitize: { $0.filter { action in action.kind == .keyBinding } }),
+    bind(\.actionProfiles, \.actionProfiles, default: []),
+  ]
+
+  /// One persisted setting, reduced to a capture/apply pair.
+  private struct PersistedField {
+    let capture: @MainActor (SelectionBarSettingsStore, inout StoredSettings) -> Void
+    let apply: @MainActor (StoredSettings, SelectionBarSettingsStore) -> Void
+  }
+
+  /// Binds a property whose in-memory type is stored verbatim in the payload.
+  private static func bind<Value>(
+    _ property: ReferenceWritableKeyPath<SelectionBarSettingsStore, Value>,
+    _ stored: WritableKeyPath<StoredSettings, Value?>,
+    default defaultValue: @autoclosure @escaping @MainActor () -> Value,
+    sanitize: @escaping @MainActor (Value) -> Value = { $0 }
+  ) -> PersistedField {
+    PersistedField(
+      capture: { store, payload in
+        payload[keyPath: stored] = store[keyPath: property]
+      },
+      apply: { payload, store in
+        store[keyPath: property] = sanitize(payload[keyPath: stored] ?? defaultValue())
+      }
     )
+  }
+
+  /// Binds an enum property persisted as its `rawValue`, falling back to
+  /// `defaultValue` when the field is missing or holds an unknown case.
+  private static func bind<Value: RawRepresentable>(
+    _ property: ReferenceWritableKeyPath<SelectionBarSettingsStore, Value>,
+    _ stored: WritableKeyPath<StoredSettings, String?>,
+    default defaultValue: Value
+  ) -> PersistedField where Value.RawValue == String {
+    PersistedField(
+      capture: { store, payload in
+        payload[keyPath: stored] = store[keyPath: property].rawValue
+      },
+      apply: { payload, store in
+        store[keyPath: property] = Value(rawValue: payload[keyPath: stored] ?? "") ?? defaultValue
+      }
+    )
+  }
+
+  private func save() {
+    var data = StoredSettings()
+    for field in Self.persistedFields {
+      field.capture(self, &data)
+    }
 
     if let encoded = try? JSONEncoder().encode(data) {
       defaults.set(encoded, forKey: storageKey)
@@ -971,56 +1039,9 @@ public final class SelectionBarSettingsStore {
     }
 
     withPersistenceSuppressed {
-      selectionBarEnabled = settings.selectionBarEnabled ?? false
-      selectionBarDoNotDisturbEnabled = settings.selectionBarDoNotDisturbEnabled ?? false
-      selectionBarActivationModifier =
-        SelectionBarActivationModifier(rawValue: settings.selectionBarActivationModifier ?? "")
-        ?? .option
-      selectionBarLookupEnabled = settings.selectionBarLookupEnabled ?? true
-      selectionBarLookupProvider =
-        SelectionBarLookupProvider(rawValue: settings.selectionBarLookupProvider ?? "")
-        ?? .systemDictionary
-      selectionBarLookupCustomScheme = settings.selectionBarLookupCustomScheme ?? ""
-      selectionBarSearchEngine =
-        SelectionBarSearchEngine(rawValue: settings.selectionBarSearchEngine ?? "")
-        ?? .google
-      selectionBarSearchCustomScheme = settings.selectionBarSearchCustomScheme ?? ""
-      selectionBarTerminalApp =
-        SelectionBarTerminalApp(rawValue: settings.selectionBarTerminalApp ?? "") ?? .terminal
-      selectionBarSpeakEnabled = settings.selectionBarSpeakEnabled ?? true
-      selectionBarSpeakVoiceIdentifier = settings.selectionBarSpeakVoiceIdentifier ?? ""
-      selectionBarSpeakProviderId =
-        settings.selectionBarSpeakProviderId
-        ?? SelectionBarSpeakSystemProvider.apple.rawValue
-      elevenLabsVoiceId = settings.elevenLabsVoiceId ?? ""
-      elevenLabsModelId = settings.elevenLabsModelId ?? "eleven_v3"
-      availableElevenLabsVoices = settings.availableElevenLabsVoices ?? []
-      selectionBarChatEnabled = settings.selectionBarChatEnabled ?? false
-      selectionBarChatProviderId = settings.selectionBarChatProviderId ?? ""
-      selectionBarChatModelId = settings.selectionBarChatModelId ?? ""
-      selectionBarChatSessionLimit = settings.selectionBarChatSessionLimit ?? 50
-      selectionBarTranslationEnabled = settings.selectionBarTranslationEnabled ?? true
-      selectionBarTranslationProviderId =
-        settings.selectionBarTranslationProviderId
-        ?? SelectionBarTranslationAppProvider.bob.rawValue
-      selectionBarIgnoredApps = settings.selectionBarIgnoredApps ?? Self.defaultIgnoredApps
-      selectionBarClipboardFallbackIncludedApps =
-        settings.selectionBarClipboardFallbackIncludedApps
-        ?? Self.defaultClipboardFallbackIncludedApps
-      openAIModel = settings.openAIModel ?? Self.defaultOpenAIModel
-      openAITranslationModel = settings.openAITranslationModel ?? ""
-      availableOpenAIModels = settings.availableOpenAIModels ?? []
-      openRouterModel = settings.openRouterModel ?? Self.defaultOpenRouterModel
-      openRouterTranslationModel = settings.openRouterTranslationModel ?? ""
-      availableOpenRouterModels = settings.availableOpenRouterModels ?? []
-      selectionBarTranslationTargetLanguage =
-        settings.selectionBarTranslationTargetLanguage
-        ?? TranslationLanguageCatalog.defaultTargetLanguage
-      customLLMProviders = settings.customLLMProviders ?? []
-      customActions = (settings.customActions ?? []).filter { $0.kind != .keyBinding }
-      builtInKeyBindingActions =
-        (settings.builtInKeyBindingActions ?? []).filter { $0.kind == .keyBinding }
-      actionProfiles = settings.actionProfiles ?? []
+      for field in Self.persistedFields {
+        field.apply(settings, self)
+      }
     }
   }
 
@@ -1032,6 +1053,29 @@ public final class SelectionBarSettingsStore {
 
   private func persistIfNeeded() {
     guard persistenceSuppressionDepth == 0 else { return }
+    scheduleSave()
+  }
+
+  /// Every `didSet` re-encodes the whole settings blob — including custom
+  /// actions, providers and cached model lists — so a text field bound to a
+  /// setting would otherwise write the entire payload on each keystroke.
+  /// Coalesce instead, and flush on the paths that need durability.
+  private func scheduleSave() {
+    pendingSaveTask?.cancel()
+    pendingSaveTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: Self.saveCoalescingInterval)
+      guard !Task.isCancelled, let self else { return }
+      self.pendingSaveTask = nil
+      self.save()
+    }
+  }
+
+  /// Writes any coalesced changes immediately. Call before the process can go
+  /// away, and from tests that read the persisted payload back.
+  public func flushPendingWrites() {
+    guard pendingSaveTask != nil else { return }
+    pendingSaveTask?.cancel()
+    pendingSaveTask = nil
     save()
   }
 
@@ -1053,39 +1097,41 @@ public final class SelectionBarSettingsStore {
   }
 }
 
+/// Codable persistence payload. Field names and order define the on-disk JSON;
+/// every field is optional so older payloads decode with per-field defaults.
 private struct StoredSettings: Codable {
-  let selectionBarEnabled: Bool?
-  let selectionBarDoNotDisturbEnabled: Bool?
-  let selectionBarActivationModifier: String?
-  let selectionBarLookupEnabled: Bool?
-  let selectionBarLookupProvider: String?
-  let selectionBarLookupCustomScheme: String?
-  let selectionBarSearchEngine: String?
-  let selectionBarSearchCustomScheme: String?
-  let selectionBarTerminalApp: String?
-  let selectionBarSpeakEnabled: Bool?
-  let selectionBarSpeakVoiceIdentifier: String?
-  let selectionBarSpeakProviderId: String?
-  let elevenLabsVoiceId: String?
-  let elevenLabsModelId: String?
-  let availableElevenLabsVoices: [ElevenLabsVoice]?
-  let selectionBarChatEnabled: Bool?
-  let selectionBarChatProviderId: String?
-  let selectionBarChatModelId: String?
-  let selectionBarChatSessionLimit: Int?
-  let selectionBarTranslationEnabled: Bool?
-  let selectionBarTranslationProviderId: String?
-  let selectionBarIgnoredApps: [IgnoredApp]?
-  let selectionBarClipboardFallbackIncludedApps: [IgnoredApp]?
-  let openAIModel: String?
-  let openAITranslationModel: String?
-  let availableOpenAIModels: [String]?
-  let openRouterModel: String?
-  let openRouterTranslationModel: String?
-  let availableOpenRouterModels: [String]?
-  let selectionBarTranslationTargetLanguage: String?
-  let customLLMProviders: [CustomLLMProvider]?
-  let customActions: [CustomActionConfig]?
-  let builtInKeyBindingActions: [CustomActionConfig]?
-  let actionProfiles: [SelectionBarActionProfile]?
+  var selectionBarEnabled: Bool?
+  var selectionBarDoNotDisturbEnabled: Bool?
+  var selectionBarActivationModifier: String?
+  var selectionBarLookupEnabled: Bool?
+  var selectionBarLookupProvider: String?
+  var selectionBarLookupCustomScheme: String?
+  var selectionBarSearchEngine: String?
+  var selectionBarSearchCustomScheme: String?
+  var selectionBarTerminalApp: String?
+  var selectionBarSpeakEnabled: Bool?
+  var selectionBarSpeakVoiceIdentifier: String?
+  var selectionBarSpeakProviderId: String?
+  var elevenLabsVoiceId: String?
+  var elevenLabsModelId: String?
+  var availableElevenLabsVoices: [ElevenLabsVoice]?
+  var selectionBarChatEnabled: Bool?
+  var selectionBarChatProviderId: String?
+  var selectionBarChatModelId: String?
+  var selectionBarChatSessionLimit: Int?
+  var selectionBarTranslationEnabled: Bool?
+  var selectionBarTranslationProviderId: String?
+  var selectionBarIgnoredApps: [IgnoredApp]?
+  var selectionBarClipboardFallbackIncludedApps: [IgnoredApp]?
+  var openAIModel: String?
+  var openAITranslationModel: String?
+  var availableOpenAIModels: [String]?
+  var openRouterModel: String?
+  var openRouterTranslationModel: String?
+  var availableOpenRouterModels: [String]?
+  var selectionBarTranslationTargetLanguage: String?
+  var customLLMProviders: [CustomLLMProvider]?
+  var customActions: [CustomActionConfig]?
+  var builtInKeyBindingActions: [CustomActionConfig]?
+  var actionProfiles: [SelectionBarActionProfile]?
 }

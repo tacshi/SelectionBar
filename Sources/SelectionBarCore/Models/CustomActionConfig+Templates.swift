@@ -1,6 +1,58 @@
 import Foundation
 
 extension CustomActionConfig {
+  /// A blank, disabled action of the given kind, ready to be filled in by the action editor.
+  public static func newAction(
+    kind: CustomActionKind,
+    isBuiltIn: Bool = false
+  ) -> CustomActionConfig {
+    CustomActionConfig(
+      id: UUID(),
+      name: "",
+      prompt: Self.defaultPromptTemplate,
+      modelProvider: "",
+      modelId: "",
+      kind: kind,
+      outputMode: .resultWindow,
+      script: Self.defaultJavaScriptTemplate,
+      keyBinding: "",
+      isEnabled: false,
+      isBuiltIn: isBuiltIn,
+      templateId: nil,
+      icon: nil
+    )
+  }
+
+  /// A new, disabled action seeded from a starter template.
+  ///
+  /// The template's localized name and icon are copied verbatim, and the fields that
+  /// matter for `kind` (script, prompt, model, key binding) are carried over.
+  public static func from(
+    template: CustomActionConfig,
+    kind: CustomActionKind,
+    isBuiltIn: Bool = false
+  ) -> CustomActionConfig {
+    var config = newAction(kind: kind, isBuiltIn: isBuiltIn)
+    config.name = template.localizedName
+    config.icon = template.effectiveIcon
+
+    switch kind {
+    case .keyBinding:
+      config.keyBinding = template.keyBinding
+    case .javascript:
+      config.outputMode = template.outputMode
+      config.script = template.script
+    case .llm:
+      config.prompt = template.prompt
+      config.modelProvider = template.modelProvider
+      config.modelId = template.modelId
+    case .pipeline:
+      config.pipelineSteps = template.pipelineSteps
+    }
+
+    return config
+  }
+
   public static func createAllBuiltInTemplates() -> [CustomActionConfig] {
     [
       createPolishTemplate(),
@@ -34,6 +86,7 @@ extension CustomActionConfig {
       prompt: polishPrompt,
       modelProvider: "openai",
       modelId: "gpt-4o-mini",
+      kind: .llm,
       isEnabled: false,
       isBuiltIn: true,
       templateId: "polish"
@@ -62,6 +115,7 @@ extension CustomActionConfig {
       prompt: cleanUpPrompt,
       modelProvider: "openai",
       modelId: "gpt-4o-mini",
+      kind: .llm,
       isEnabled: false,
       isBuiltIn: true,
       templateId: "cleanup"
@@ -90,6 +144,7 @@ extension CustomActionConfig {
       prompt: actionItemsPrompt,
       modelProvider: "openai",
       modelId: "gpt-4o-mini",
+      kind: .llm,
       isEnabled: false,
       isBuiltIn: true,
       templateId: "action-items"
@@ -117,6 +172,7 @@ extension CustomActionConfig {
       prompt: summaryPrompt,
       modelProvider: "openai",
       modelId: "gpt-4o-mini",
+      kind: .llm,
       isEnabled: false,
       isBuiltIn: true,
       templateId: "summary"
@@ -144,6 +200,7 @@ extension CustomActionConfig {
       prompt: bulletPointsPrompt,
       modelProvider: "openai",
       modelId: "gpt-4o-mini",
+      kind: .llm,
       isEnabled: false,
       isBuiltIn: true,
       templateId: "bullet-points"
@@ -172,6 +229,7 @@ extension CustomActionConfig {
       prompt: emailDraftPrompt,
       modelProvider: "openai",
       modelId: "gpt-4o-mini",
+      kind: .llm,
       isEnabled: false,
       isBuiltIn: true,
       templateId: "email-draft"

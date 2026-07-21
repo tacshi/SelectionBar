@@ -215,7 +215,7 @@ struct SelectionBarCoreTests {
 
     #expect(decoded == original)
     #expect(decoded.kind == .pipeline)
-    #expect(decoded.defaultIconSFSymbolName == "list.number")
+    #expect(decoded.defaultIconSFSymbolName == "app.connected.to.app.below.fill")
     #expect(decoded.pipelineSteps.map(\.id) == [firstStepID, secondStepID])
     #expect(decoded.pipelineSteps.map(\.actionID) == [firstActionID, secondActionID])
   }

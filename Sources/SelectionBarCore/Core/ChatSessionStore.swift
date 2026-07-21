@@ -66,7 +66,13 @@ public final class ChatSessionStore {
   private func ensureDirectoryExists() {
     let fm = FileManager.default
     if !fm.fileExists(atPath: sessionsDirectory.path) {
-      try? fm.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+      // Owner-only: transcripts contain the selected text, the full
+      // conversation and any file excerpts the model was allowed to read.
+      try? fm.createDirectory(
+        at: sessionsDirectory,
+        withIntermediateDirectories: true,
+        attributes: [.posixPermissions: 0o700]
+      )
     }
   }
 
@@ -85,7 +91,11 @@ public final class ChatSessionStore {
       return
     }
     do {
-      try data.write(to: fileURL, options: .atomic)
+      try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+      // `.atomic` writes via a temp file, so permissions have to be applied
+      // after the replace rather than before it.
+      try? FileManager.default.setAttributes(
+        [.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
     } catch {
       logger.error(
         "Failed to save session: \(error.localizedDescription, privacy: .public)")

@@ -14,7 +14,7 @@ final class SelectionMonitorClipboardFallback: SelectionMonitorClipboardFallback
     let pasteboard = NSPasteboard.general
 
     let savedChangeCount = pasteboard.changeCount
-    let savedItems = savePasteboardContents(pasteboard)
+    let snapshot = PasteboardSnapshot(capturing: pasteboard)
 
     let secureInput = IsSecureEventInputEnabled()
     simulateCopy(secureInput: secureInput)
@@ -35,16 +35,57 @@ final class SelectionMonitorClipboardFallback: SelectionMonitorClipboardFallback
       } else {
         logger.debug("Clipboard fallback failed: pasteboard did not change after Cmd+C")
       }
+      // The target app may still service the synthesized Cmd+C after we stop
+      // waiting. Without this, a late copy silently replaces the user's
+      // clipboard for good.
+      scheduleLateRestore(pasteboard, snapshot: snapshot, expecting: savedChangeCount)
       return nil
     }
 
     let copiedText = pasteboard.string(forType: .string)
-    restorePasteboardContents(pasteboard, items: savedItems)
+    snapshot.restore(to: pasteboard)
 
     guard let copiedText else { return nil }
     let trimmed = copiedText.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return nil }
     return trimmed
+  }
+
+  /// How long to keep watching for a synthesized copy that arrived after the
+  /// poll loop gave up. Kept short: everything in this window is attributed to
+  /// our own Cmd+C, so a genuine user copy landing here would be undone.
+  private static let lateRestoreWindow = Duration.milliseconds(600)
+  private static let lateRestorePollInterval = Duration.milliseconds(100)
+
+  /// Keeps watching the pasteboard after the poll loop gave up, and puts the
+  /// user's clipboard back if the synthesized copy arrives late.
+  ///
+  /// Only a *single* change is treated as ours. If the change count has moved
+  /// by more than one, something else — the user, or a clipboard manager — has
+  /// also written, and the clipboard is left alone rather than reverted.
+  private func scheduleLateRestore(
+    _ pasteboard: NSPasteboard,
+    snapshot: PasteboardSnapshot,
+    expecting savedChangeCount: Int
+  ) {
+    guard !snapshot.isEmpty else { return }
+    let polls = Int(
+      Self.lateRestoreWindow / Self.lateRestorePollInterval
+    )
+    Task { @MainActor in
+      for _ in 1...max(1, polls) {
+        try? await Task.sleep(for: Self.lateRestorePollInterval)
+        let changeCount = pasteboard.changeCount
+        guard changeCount != savedChangeCount else { continue }
+        guard changeCount == savedChangeCount + 1 else {
+          logger.debug("Clipboard changed more than once — leaving it alone")
+          return
+        }
+        logger.debug("Late clipboard change detected — restoring saved contents")
+        snapshot.restore(to: pasteboard)
+        return
+      }
+    }
   }
 
   private func simulateCopy(secureInput: Bool) {
@@ -92,27 +133,4 @@ final class SelectionMonitorClipboardFallback: SelectionMonitorClipboardFallback
     cmdUp.post(tap: .cgSessionEventTap)
   }
 
-  private func savePasteboardContents(_ pasteboard: NSPasteboard) -> [(
-    NSPasteboard.PasteboardType, Data
-  )] {
-    var items: [(NSPasteboard.PasteboardType, Data)] = []
-    guard let types = pasteboard.types else { return items }
-    for type in types {
-      if let data = pasteboard.data(forType: type) {
-        items.append((type, data))
-      }
-    }
-    return items
-  }
-
-  private func restorePasteboardContents(
-    _ pasteboard: NSPasteboard,
-    items: [(NSPasteboard.PasteboardType, Data)]
-  ) {
-    guard !items.isEmpty else { return }
-    pasteboard.clearContents()
-    for (type, data) in items {
-      pasteboard.setData(data, forType: type)
-    }
-  }
 }

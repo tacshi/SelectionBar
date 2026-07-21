@@ -168,48 +168,7 @@ struct ActionsCustomActionEditorView: View {
         Spacer()
 
         Button("Save") {
-          let resolvedKind: CustomActionKind = mode == .builtInKeyBinding ? .keyBinding : actionKind
-          let resolvedPrompt =
-            mode == .builtInKeyBinding || resolvedKind == .pipeline
-            ? CustomActionConfig.defaultPromptTemplate : prompt
-          let resolvedModelProvider =
-            mode == .builtInKeyBinding || resolvedKind == .pipeline ? "" : (modelProvider ?? "")
-          let resolvedModelId =
-            mode == .builtInKeyBinding || resolvedKind == .pipeline ? "" : (modelId ?? "")
-          let resolvedOutputMode =
-            mode == .builtInKeyBinding ? .resultWindow : outputMode
-          let resolvedScript =
-            mode == .builtInKeyBinding || resolvedKind == .pipeline
-            ? CustomActionConfig.defaultJavaScriptTemplate
-            : script
-          let normalizedKeyBinding =
-            resolvedKind == .keyBinding
-            ? SelectionBarKeyboardShortcutParser.normalize(keyBinding)
-              ?? keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
-            : ""
-          let resolvedKeyBindingOverrides =
-            mode == .builtInKeyBinding ? normalizedKeyBindingOverrides() : []
-
-          let newConfig = CustomActionConfig(
-            id: config.id,
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-              ? String(localized: "Custom Action") : name,
-            prompt: resolvedPrompt,
-            modelProvider: resolvedModelProvider,
-            modelId: resolvedModelId,
-            kind: resolvedKind,
-            outputMode: resolvedOutputMode,
-            script: resolvedScript,
-            keyBinding: normalizedKeyBinding,
-            keyBindingOverrides: resolvedKeyBindingOverrides,
-            isEnabled: config.isEnabled,
-            isBuiltIn: mode == .builtInKeyBinding,
-            templateId: nil,
-            icon: iconForSave(),
-            includesSourceContext: resolvedKind == .llm && includesSourceContext,
-            pipelineSteps: resolvedKind == .pipeline ? pipelineSteps : []
-          )
-          onSave(newConfig)
+          onSave(makeConfig())
         }
         .keyboardShortcut(.return)
         .disabled(!canSave)
@@ -694,7 +653,89 @@ struct ActionsCustomActionEditorView: View {
     pipelineSteps.swapAt(source, destination)
   }
 
-  private func normalizedKeyBindingOverrides() -> [CustomActionKeyBindingOverride] {
+  /// Derives the configuration represented by the editor's current form state.
+  func makeConfig() -> CustomActionConfig {
+    ActionEditorConfigInput(
+      existingConfig: config,
+      mode: mode,
+      name: name,
+      prompt: prompt,
+      modelProvider: modelProvider,
+      modelId: modelId,
+      actionKind: actionKind,
+      outputMode: outputMode,
+      script: script,
+      keyBinding: keyBinding,
+      keyBindingOverrides: keyBindingOverrides,
+      pipelineSteps: pipelineSteps,
+      includesSourceContext: includesSourceContext,
+      selectedSFSymbol: selectedSFSymbol
+    ).makeConfig()
+  }
+}
+
+/// Pure snapshot of the action editor's form state, used to derive a `CustomActionConfig`.
+struct ActionEditorConfigInput {
+  var existingConfig: CustomActionConfig = CustomActionConfig()
+  var mode: ActionEditorMode = .custom
+  var name: String = ""
+  var prompt: String = ""
+  var modelProvider: String?
+  var modelId: String?
+  var actionKind: CustomActionKind = .javascript
+  var outputMode: CustomActionOutputMode = .resultWindow
+  var script: String = CustomActionConfig.defaultJavaScriptTemplate
+  var keyBinding: String = ""
+  var keyBindingOverrides: [CustomActionKeyBindingOverride] = []
+  var pipelineSteps: [CustomActionPipelineStep] = []
+  var includesSourceContext: Bool = false
+  var selectedSFSymbol: String = "sparkles"
+
+  func makeConfig() -> CustomActionConfig {
+    let resolvedKind: CustomActionKind = mode == .builtInKeyBinding ? .keyBinding : actionKind
+    let resolvedPrompt =
+      mode == .builtInKeyBinding || resolvedKind == .pipeline
+      ? CustomActionConfig.defaultPromptTemplate : prompt
+    let resolvedModelProvider =
+      mode == .builtInKeyBinding || resolvedKind == .pipeline ? "" : (modelProvider ?? "")
+    let resolvedModelId =
+      mode == .builtInKeyBinding || resolvedKind == .pipeline ? "" : (modelId ?? "")
+    let resolvedOutputMode: CustomActionOutputMode =
+      mode == .builtInKeyBinding ? .resultWindow : outputMode
+    let resolvedScript =
+      mode == .builtInKeyBinding || resolvedKind == .pipeline
+      ? CustomActionConfig.defaultJavaScriptTemplate
+      : script
+    let normalizedKeyBinding =
+      resolvedKind == .keyBinding
+      ? SelectionBarKeyboardShortcutParser.normalize(keyBinding)
+        ?? keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
+      : ""
+    let resolvedKeyBindingOverrides =
+      mode == .builtInKeyBinding ? normalizedKeyBindingOverrides() : []
+
+    return CustomActionConfig(
+      id: existingConfig.id,
+      name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        ? String(localized: "Custom Action") : name,
+      prompt: resolvedPrompt,
+      modelProvider: resolvedModelProvider,
+      modelId: resolvedModelId,
+      kind: resolvedKind,
+      outputMode: resolvedOutputMode,
+      script: resolvedScript,
+      keyBinding: normalizedKeyBinding,
+      keyBindingOverrides: resolvedKeyBindingOverrides,
+      isEnabled: existingConfig.isEnabled,
+      isBuiltIn: mode == .builtInKeyBinding,
+      templateId: nil,
+      icon: iconForSave(),
+      includesSourceContext: resolvedKind == .llm && includesSourceContext,
+      pipelineSteps: resolvedKind == .pipeline ? pipelineSteps : []
+    )
+  }
+
+  func normalizedKeyBindingOverrides() -> [CustomActionKeyBindingOverride] {
     var seenBundleIDs: Set<String> = []
     var normalized: [CustomActionKeyBindingOverride] = []
 
@@ -734,412 +775,9 @@ struct ActionsCustomActionEditorView: View {
   }
 
   private func defaultIcon(for kind: CustomActionKind) -> String {
-    var baseline = config
+    var baseline = existingConfig
     baseline.kind = kind
     baseline.templateId = nil
     return baseline.defaultIconSFSymbolName
   }
-}
-
-private struct ActionEditorTextBoxStyle: ViewModifier {
-  func body(content: Content) -> some View {
-    content
-      .background(Color(nsColor: .textBackgroundColor), in: .rect(cornerRadius: 8))
-      .clipShape(.rect(cornerRadius: 8))
-      .overlay {
-        RoundedRectangle(cornerRadius: 8)
-          .stroke(Color(nsColor: .tertiaryLabelColor).opacity(0.75), lineWidth: 1.5)
-      }
-  }
-}
-
-extension View {
-  fileprivate func actionEditorTextBox() -> some View {
-    modifier(ActionEditorTextBoxStyle())
-  }
-}
-
-private struct ActionEditorSection<Content: View>: View {
-  let title: LocalizedStringKey?
-  let content: Content
-
-  init(_ title: LocalizedStringKey? = nil, @ViewBuilder content: () -> Content) {
-    self.title = title
-    self.content = content()
-  }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      if let title {
-        Text(title)
-          .font(.headline)
-          .foregroundStyle(.secondary)
-      }
-
-      content
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-  }
-}
-
-private struct ActionEditorRow<Content: View>: View {
-  let title: LocalizedStringKey
-  let content: Content
-
-  init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
-    self.title = title
-    self.content = content()
-  }
-
-  var body: some View {
-    HStack(spacing: 12) {
-      Text(title)
-      Spacer(minLength: 16)
-      content
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-  }
-}
-
-private struct ShortcutRecorderField: View {
-  @Binding var keyBinding: String
-  var width: CGFloat?
-
-  @State private var isRecording = false
-  @State private var localMonitor: Any?
-
-  private var displayText: String {
-    if isRecording {
-      return String(localized: "Press Shortcut")
-    }
-    let parsed = SelectionBarKeyboardShortcutParser.parse(keyBinding)
-    if let parsed {
-      return parsed.displayString
-    }
-    let trimmed = keyBinding.trimmingCharacters(in: .whitespacesAndNewlines)
-    return trimmed.isEmpty ? String(localized: "Record Shortcut") : trimmed
-  }
-
-  var body: some View {
-    HStack(spacing: 6) {
-      Button {
-        if isRecording {
-          stopRecording()
-        } else {
-          startRecording()
-        }
-      } label: {
-        HStack(spacing: 6) {
-          Text(displayText)
-            .frame(maxWidth: .infinity, alignment: .leading)
-          if isRecording {
-            Image(systemName: "record.circle")
-              .foregroundStyle(.red)
-          }
-        }
-      }
-      .buttonStyle(.bordered)
-      .controlSize(.large)
-      .tint(isRecording ? .red : nil)
-      .frame(width: width)
-
-      if !keyBinding.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-        Button {
-          keyBinding = ""
-        } label: {
-          Image(systemName: "xmark.circle.fill")
-            .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-        .help(String(localized: "Remove"))
-      }
-    }
-    .onDisappear {
-      stopRecording()
-    }
-  }
-
-  private func startRecording() {
-    guard !isRecording else { return }
-    isRecording = true
-
-    localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
-      guard isRecording else { return event }
-      guard !event.isARepeat else { return nil }
-
-      if event.keyCode == UInt16(kVK_Escape) {
-        stopRecording()
-        return nil
-      }
-
-      if event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete) {
-        let modifiers = ShortcutRecorderEventMapper.modifierFlags(from: event.modifierFlags)
-        if modifiers.isEmpty {
-          keyBinding = ""
-          stopRecording()
-          return nil
-        }
-      }
-
-      let shortcut = ShortcutRecorderEventMapper.shortcut(from: event)
-      guard let shortcut else {
-        NSSound.beep()
-        return nil
-      }
-
-      keyBinding = shortcut.canonicalString
-      stopRecording()
-      return nil
-    }
-  }
-
-  private func stopRecording() {
-    if let localMonitor {
-      NSEvent.removeMonitor(localMonitor)
-      self.localMonitor = nil
-    }
-    isRecording = false
-  }
-}
-
-private enum ShortcutRecorderEventMapper {
-  static func shortcut(from event: NSEvent) -> SelectionBarKeyboardShortcut? {
-    let eventFlags = modifierFlags(from: event.modifierFlags)
-    return SelectionBarKeyboardShortcutParser.parse(
-      keyCode: CGKeyCode(event.keyCode),
-      flags: eventFlags
-    )
-  }
-
-  static func modifierFlags(from modifiers: NSEvent.ModifierFlags) -> CGEventFlags {
-    let relevant = modifiers.intersection([.command, .option, .shift, .control, .function])
-    var flags: CGEventFlags = []
-
-    if relevant.contains(.command) {
-      flags.insert(.maskCommand)
-    }
-    if relevant.contains(.option) {
-      flags.insert(.maskAlternate)
-    }
-    if relevant.contains(.shift) {
-      flags.insert(.maskShift)
-    }
-    if relevant.contains(.control) {
-      flags.insert(.maskControl)
-    }
-    if relevant.contains(.function) {
-      flags.insert(.maskSecondaryFn)
-    }
-
-    return flags
-  }
-}
-
-private struct KeyBindingOverrideAppIcon: View {
-  let bundleID: String
-  let size: CGFloat
-
-  var body: some View {
-    if let icon = resolveIcon() {
-      Image(nsImage: icon)
-        .resizable()
-        .aspectRatio(contentMode: .fit)
-    } else {
-      Image(systemName: "app")
-        .foregroundStyle(.secondary)
-    }
-  }
-
-  private func resolveIcon() -> NSImage? {
-    guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
-      return nil
-    }
-    let icon = NSWorkspace.shared.icon(forFile: url.path)
-    icon.size = NSSize(width: size, height: size)
-    return icon
-  }
-}
-
-private struct KeyBindingOverrideAppPickerSelection: Identifiable, Hashable {
-  let bundleID: String
-  let name: String
-
-  var id: String { bundleID }
-}
-
-private struct KeyBindingOverrideAppPickerSheet: View {
-  let existingBundleIDs: Set<String>
-  let onSelect: (KeyBindingOverrideAppPickerSelection) -> Void
-
-  @Environment(\.dismiss) private var dismiss
-  @State private var searchText = ""
-  @State private var discoveredApps: [DiscoveredApp] = []
-  @State private var selectedBundleID: String?
-
-  private struct DiscoveredApp: Identifiable {
-    let id: String
-    let name: String
-    let icon: NSImage?
-  }
-
-  private var filteredApps: [DiscoveredApp] {
-    if searchText.isEmpty {
-      return discoveredApps
-    }
-    return discoveredApps.filter {
-      $0.name.localizedStandardContains(searchText)
-        || $0.id.localizedStandardContains(searchText)
-    }
-  }
-
-  var body: some View {
-    VStack(spacing: 0) {
-      HStack {
-        Button("Cancel") { dismiss() }
-          .keyboardShortcut(.escape)
-        Spacer()
-        Text("Choose Applications")
-          .font(.headline)
-        Spacer()
-        Button("Add") {
-          guard let selectedBundleID else { return }
-          guard let selected = discoveredApps.first(where: { $0.id == selectedBundleID }) else {
-            return
-          }
-          onSelect(
-            KeyBindingOverrideAppPickerSelection(
-              bundleID: selected.id,
-              name: selected.name
-            )
-          )
-          dismiss()
-        }
-        .keyboardShortcut(.return)
-        .disabled(selectedBundleID == nil)
-      }
-      .padding()
-
-      Divider()
-
-      HStack {
-        Image(systemName: "magnifyingglass")
-          .foregroundStyle(.secondary)
-        TextField("Search", text: $searchText)
-          .textFieldStyle(.plain)
-      }
-      .padding(8)
-      .background(Color(nsColor: .controlBackgroundColor))
-      .clipShape(.rect(cornerRadius: 8))
-      .padding(.horizontal)
-      .padding(.top, 8)
-
-      List(filteredApps, selection: $selectedBundleID) { app in
-        HStack(spacing: 8) {
-          if let icon = app.icon {
-            Image(nsImage: icon)
-              .resizable()
-              .frame(width: 24, height: 24)
-          } else {
-            Image(systemName: "app")
-              .frame(width: 24, height: 24)
-          }
-
-          VStack(alignment: .leading, spacing: 1) {
-            Text(app.name)
-            Text(app.id)
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-        }
-        .tag(app.id)
-      }
-      .listStyle(.bordered)
-    }
-    .frame(width: 460, height: 500)
-    .onAppear {
-      discoveredApps = scanApplications()
-    }
-  }
-
-  private func scanApplications() -> [DiscoveredApp] {
-    var apps: [DiscoveredApp] = []
-    var seenBundleIDs = Set<String>()
-
-    let searchPaths = [
-      "/Applications",
-      "/System/Applications",
-      NSHomeDirectory().appending("/Applications"),
-    ]
-
-    for searchPath in searchPaths {
-      let url = URL(filePath: searchPath)
-      guard
-        let contents = try? FileManager.default.contentsOfDirectory(
-          at: url,
-          includingPropertiesForKeys: nil
-        )
-      else {
-        continue
-      }
-
-      for itemURL in contents where itemURL.pathExtension == "app" {
-        guard let bundle = Bundle(url: itemURL),
-          let bundleID = bundle.bundleIdentifier,
-          !existingBundleIDs.contains(bundleID),
-          !seenBundleIDs.contains(bundleID)
-        else {
-          continue
-        }
-
-        seenBundleIDs.insert(bundleID)
-
-        let name =
-          bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-          ?? bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
-          ?? itemURL.deletingPathExtension().lastPathComponent
-        let icon = NSWorkspace.shared.icon(forFile: itemURL.path)
-        apps.append(DiscoveredApp(id: bundleID, name: name, icon: icon))
-      }
-    }
-
-    return apps.sorted { lhs, rhs in
-      lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-    }
-  }
-}
-
-private enum SFSymbolCatalog {
-  static let names: [String] = {
-    let paths = [
-      "/System/Library/CoreServices/CoreGlyphs.bundle/Contents/Resources/symbol_order.plist",
-      "/System/Library/PrivateFrameworks/SFSymbols.framework/Versions/A/Resources/CoreGlyphs.bundle/Contents/Resources/symbol_order.plist",
-    ]
-
-    for path in paths {
-      guard let symbols = NSArray(contentsOfFile: path) as? [String], !symbols.isEmpty else {
-        continue
-      }
-      return symbols
-    }
-
-    return [
-      "sparkles",
-      "wand.and.stars",
-      "text.badge.checkmark",
-      "eraser",
-      "checklist",
-      "list.bullet",
-      "text.alignleft",
-      "doc.text",
-      "quote.bubble",
-      "envelope",
-      "lightbulb",
-      "magnifyingglass",
-      "bolt",
-      "gearshape",
-      "paperplane",
-      "bookmark",
-      "pencil",
-    ]
-  }()
 }

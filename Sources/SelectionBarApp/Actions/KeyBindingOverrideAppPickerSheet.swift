@@ -1,16 +1,48 @@
 import AppKit
+import Foundation
 import SelectionBarCore
 import SwiftUI
 
-struct ApplicationPickerSheet: View {
+struct KeyBindingOverrideAppIcon: View {
+  let bundleID: String
+  let size: CGFloat
+
+  var body: some View {
+    if let icon = resolveIcon() {
+      Image(nsImage: icon)
+        .resizable()
+        .aspectRatio(contentMode: .fit)
+    } else {
+      Image(systemName: "app")
+        .foregroundStyle(.secondary)
+    }
+  }
+
+  private func resolveIcon() -> NSImage? {
+    guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+      return nil
+    }
+    let icon = NSWorkspace.shared.icon(forFile: url.path)
+    icon.size = NSSize(width: size, height: size)
+    return icon
+  }
+}
+
+struct KeyBindingOverrideAppPickerSelection: Identifiable, Hashable {
+  let bundleID: String
+  let name: String
+
+  var id: String { bundleID }
+}
+
+struct KeyBindingOverrideAppPickerSheet: View {
   let existingBundleIDs: Set<String>
-  var selectionLimit: Int? = nil
-  let onAppsSelected: ([IgnoredApp]) -> Void
+  let onSelect: (KeyBindingOverrideAppPickerSelection) -> Void
 
   @Environment(\.dismiss) private var dismiss
   @State private var searchText = ""
   @State private var discoveredApps: [DiscoveredApp] = []
-  @State private var selectedBundleIDs: Set<String> = []
+  @State private var selectedBundleID: String?
 
   private var filteredApps: [DiscoveredApp] {
     if searchText.isEmpty {
@@ -32,13 +64,20 @@ struct ApplicationPickerSheet: View {
           .font(.headline)
         Spacer()
         Button("Add") {
-          let apps = discoveredApps.filter { selectedBundleIDs.contains($0.id) }
-            .map { IgnoredApp(id: $0.id, name: $0.name) }
-          onAppsSelected(apps)
+          guard let selectedBundleID else { return }
+          guard let selected = discoveredApps.first(where: { $0.id == selectedBundleID }) else {
+            return
+          }
+          onSelect(
+            KeyBindingOverrideAppPickerSelection(
+              bundleID: selected.id,
+              name: selected.name
+            )
+          )
           dismiss()
         }
         .keyboardShortcut(.return)
-        .disabled(selectedBundleIDs.isEmpty)
+        .disabled(selectedBundleID == nil)
       }
       .padding()
 
@@ -56,8 +95,8 @@ struct ApplicationPickerSheet: View {
       .padding(.horizontal)
       .padding(.top, 8)
 
-      List(filteredApps, selection: $selectedBundleIDs) { app in
-        HStack {
+      List(filteredApps, selection: $selectedBundleID) { app in
+        HStack(spacing: 8) {
           if let icon = app.icon {
             Image(nsImage: icon)
               .resizable()
@@ -66,6 +105,7 @@ struct ApplicationPickerSheet: View {
             Image(systemName: "app")
               .frame(width: 24, height: 24)
           }
+
           VStack(alignment: .leading, spacing: 1) {
             Text(app.name)
             Text(app.id)
@@ -77,14 +117,9 @@ struct ApplicationPickerSheet: View {
       }
       .listStyle(.bordered)
     }
-    .frame(width: 420, height: 450)
+    .frame(width: 460, height: 500)
     .task {
       discoveredApps = await InstalledApplications.scan(excluding: existingBundleIDs)
-    }
-    .onChange(of: selectedBundleIDs) { oldValue, newValue in
-      guard let selectionLimit, newValue.count > selectionLimit else { return }
-      let newest = newValue.subtracting(oldValue)
-      selectedBundleIDs = Set(newest.prefix(selectionLimit))
     }
   }
 

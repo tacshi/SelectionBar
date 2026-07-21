@@ -9,6 +9,9 @@ let package = Package(
   ],
   products: [
     .executable(name: "SelectionBarApp", targets: ["SelectionBarApp"]),
+    // Bundled into the app at Contents/Helpers so JavaScript actions run in a
+    // process that can be killed outright when a script will not stop.
+    .executable(name: "selectionbar-js-helper", targets: ["SelectionBarJSHelper"]),
     .library(name: "SelectionBarCore", targets: ["SelectionBarCore"]),
   ],
   dependencies: [
@@ -30,9 +33,21 @@ let package = Package(
         .process("Resources")
       ]
     ),
+    // The JavaScriptCore engine, shared by the in-process fallback in
+    // SelectionBarCore and by the out-of-process helper.
+    .target(
+      name: "SelectionBarJavaScriptEngine",
+      path: "Sources/SelectionBarJavaScriptEngine"
+    ),
+    .executableTarget(
+      name: "SelectionBarJSHelper",
+      dependencies: ["SelectionBarJavaScriptEngine"],
+      path: "Sources/SelectionBarJSHelper"
+    ),
     .target(
       name: "SelectionBarCore",
       dependencies: [
+        "SelectionBarJavaScriptEngine",
         .product(name: "PermissionFlow", package: "PermissionFlow"),
         .product(name: "MarkdownUI", package: "swift-markdown-ui"),
       ],
@@ -43,13 +58,20 @@ let package = Package(
     ),
     .testTarget(
       name: "SelectionBarCoreTests",
-      dependencies: ["SelectionBarCore"],
+      dependencies: ["SelectionBarCore", "SelectionBarJavaScriptEngine"],
       path: "Tests/SelectionBarCoreTests"
     ),
     .testTarget(
       name: "SelectionBarAppTests",
       dependencies: ["SelectionBarApp", "SelectionBarCore"],
-      path: "Tests/SelectionBarAppTests"
+      path: "Tests/SelectionBarAppTests",
+      linkerSettings: [
+        // The xctest bundle sits at Products/Debug/SelectionBarAppTests.xctest/
+        // Contents/MacOS/, but Sparkle.framework is built into Products/Debug.
+        // Without this rpath entry the bundle cannot be dlopen'd and `swift
+        // test` fails before running a single test.
+        .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../.."])
+      ]
     ),
   ]
 )
