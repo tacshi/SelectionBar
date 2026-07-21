@@ -4,11 +4,11 @@ import Testing
 @testable import SelectionBarCore
 @testable import SelectionBarJavaScriptEngine
 
-/// Generous on purpose — these tests spawn a child process and assert behavior,
-/// not speed. `killsHelperPastDeadline` sets its own short deadline because
-/// that is what it is testing.
-private let helperTestSyncTimeout = Duration.seconds(10)
-private let helperTestAsyncTimeout = Duration.seconds(30)
+/// These tests spawn a child process and assert behavior, not speed, so the
+/// values only need to clear a loaded machine. `killsHelperPastDeadline` sets
+/// its own short deadline because that is what it is testing.
+private let helperTestSyncTimeout = Duration.seconds(5)
+private let helperTestAsyncTimeout = Duration.seconds(10)
 
 @Suite("SelectionBarJavaScriptExecutor Tests")
 struct SelectionBarJavaScriptExecutorTests {

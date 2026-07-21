@@ -5,15 +5,17 @@ import Testing
 
 /// Timeouts for the JavaScript runner tests.
 ///
-/// Deliberately generous: these tests assert *behavior* — that a fetch resolves,
-/// that cancellation propagates — not how fast JavaScriptCore starts up. A CI
-/// runner is several times slower than a developer machine, and the original
-/// 800ms/1s values were tight enough that spinning up a JSVirtualMachine could
-/// blow through them. Tests that assert timeout behavior pass their own short
+/// These tests assert *behavior* — that a fetch resolves, that cancellation
+/// propagates — not how fast JavaScriptCore starts up, so the values only need
+/// to be comfortably clear of a loaded machine. They are not a workaround for
+/// slowness: when these tests timed out on CI the cause was the runner blocking
+/// cooperative-pool threads, which is fixed in SelectionBarJavaScriptRunner.
+/// Kept modest so a future regression of that kind surfaces quickly instead of
+/// stalling the suite. Tests that assert timeout behavior pass their own short
 /// values explicitly.
-private let jsTestSyncTimeout = Duration.seconds(10)
-private let jsTestAsyncTimeout = Duration.seconds(30)
-private let jsTestSignalTimeout = Duration.seconds(10)
+private let jsTestSyncTimeout = Duration.seconds(5)
+private let jsTestAsyncTimeout = Duration.seconds(10)
+private let jsTestSignalTimeout = Duration.seconds(5)
 
 @Suite("SelectionBarCore Tests")
 @MainActor

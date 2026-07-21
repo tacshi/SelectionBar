@@ -61,24 +61,46 @@ public struct SelectionBarJavaScriptRunner: Sendable {
     }
 
     let executionState = JavaScriptExecutionState()
-    let task = Task.detached(priority: .userInitiated) {
-      try Self.execute(
-        script: trimmedScript,
-        input: input,
-        syncTimeout: resolvedTimeout,
-        asyncTimeout: resolvedAsyncTimeout,
-        dataLoader: dataLoader,
-        state: executionState
-      )
-    }
+    let dataLoader = self.dataLoader
 
     return try await withTaskCancellationHandler {
-      try await task.value
+      try await withCheckedThrowingContinuation {
+        (continuation: CheckedContinuation<String, any Error>) in
+        Self.executionQueue.async {
+          do {
+            let value = try Self.execute(
+              script: trimmedScript,
+              input: input,
+              syncTimeout: resolvedTimeout,
+              asyncTimeout: resolvedAsyncTimeout,
+              dataLoader: dataLoader,
+              state: executionState
+            )
+            continuation.resume(returning: value)
+          } catch {
+            continuation.resume(throwing: error)
+          }
+        }
+      }
     } onCancel: {
+      // Cancellation is delivered through the shared state, which signals the
+      // semaphores `execute` is parked on. There is no Task to cancel: the work
+      // deliberately runs off the cooperative pool.
       executionState.cancel()
-      task.cancel()
     }
   }
+
+  /// `execute` parks a thread on a semaphore for as long as the script runs,
+  /// and the `fetch` bridge needs cooperative-pool threads to service its
+  /// `Task`s. Running the blocking part on a `Task.detached` consumed a pool
+  /// thread, so on a machine with few cores several concurrent actions could
+  /// occupy the entire pool and deadlock every `fetch` until its timeout fired.
+  /// A dedicated queue keeps the blocking waits off the cooperative pool.
+  private static let executionQueue = DispatchQueue(
+    label: "selectionbar.javascript.execution",
+    qos: .userInitiated,
+    attributes: .concurrent
+  )
 
   private static func execute(
     script: String,
