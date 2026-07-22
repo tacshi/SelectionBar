@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>0.8.1</title>
+            <pubDate>Wed, 22 Jul 2026 16:58:20 +1200</pubDate>
+            <sparkle:version>25</sparkle:version>
+            <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 0.8.1</h2><ul><li>Fix build (#25)</li><li>Improve (#24)</li><li>Adjust JavaScript runner helper access</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.8.1/SelectionBar-0.8.1.dmg" length="8029976" type="application/octet-stream" sparkle:edSignature="aiHVusxjDbE23r7Apocyb0/7u8IBHaj3v6XAITCcWrlsS2grNJyAZdrM7wBt6bd+lBhL6qFy6z22OgjaUE6IBA=="/>
+        </item>
+        <item>
             <title>0.8.0</title>
             <pubDate>Fri, 19 Jun 2026 16:56:28 +1200</pubDate>
             <sparkle:version>22</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 0.7.1</h2><ul><li>Fix selection bar text context detection (#21)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.7.1/SelectionBar-0.7.1.dmg" length="7148231" type="application/octet-stream" sparkle:edSignature="ki76ekVUDxPyp5CCWEPDorP2ceCxbwZmtscalj7ZwO/+NwwYVj9XZNlaFkkJmBNtlN4g5won4OhkjkjuXWdgAg=="/>
-        </item>
-        <item>
-            <title>0.7.0</title>
-            <pubDate>Sun, 17 May 2026 13:31:43 +1200</pubDate>
-            <sparkle:version>20</sparkle:version>
-            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.7.0</h2><ul><li>fmt</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.7.0/SelectionBar-0.7.0.dmg" length="7144650" type="application/octet-stream" sparkle:edSignature="Zq56mNU15UMz9zBktGp8PUcnUUHn//ndA+9GTCOfQ0nWPRq/i/hkkZrtTOk4c6eGOMGHMjgBQVzkmcWONcSjDQ=="/>
         </item>
     </channel>
 </rss>
