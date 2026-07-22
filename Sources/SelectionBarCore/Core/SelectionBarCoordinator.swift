@@ -513,7 +513,7 @@ public final class SelectionBarCoordinator {
     let frontmostPID = frontmostApp?.processIdentifier
     logger.info("Chat: frontmost app bundle ID: \(frontmostBundleID ?? "nil", privacy: .public)")
 
-    Task {
+    Task { [self] in
       let sourceURL = await SourceContextService.resolveSource(
         bundleID: frontmostBundleID, pid: frontmostPID)
       logger.info("Chat: source: \(sourceURL ?? "nil", privacy: .public)")

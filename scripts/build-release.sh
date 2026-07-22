@@ -155,79 +155,112 @@ build_for_arch() {
     local output_suffix="$2"
 
     log_info "Building for $arch..."
-    swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" >&2
-    swift build -c release --product "$JS_HELPER_NAME" --arch "$arch" >&2
+    swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" >&2 || return 1
+    swift build -c release --product "$JS_HELPER_NAME" --arch "$arch" >&2 || return 1
 
-    local build_dir="$SCRIPT_DIR/.build/${arch}-apple-macosx/release"
+    local build_dir
+    build_dir=$(swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" --show-bin-path) \
+        || return 1
     local app_dir="$SCRIPT_DIR/$APP_NAME-${output_suffix}.app"
 
     # Verify build succeeded
     if [[ ! -x "$build_dir/$EXECUTABLE_NAME" ]]; then
         log_error "Build failed for $arch: binary not found at $build_dir/$EXECUTABLE_NAME"
-        exit 1
+        return 1
+    fi
+    if [[ ! -x "$build_dir/$JS_HELPER_NAME" ]]; then
+        log_error "Build failed for $arch: helper not found at $build_dir/$JS_HELPER_NAME"
+        return 1
     fi
 
-    create_app_bundle "$build_dir" "$app_dir" >&2
+    create_app_bundle "$build_dir" "$app_dir" >&2 || return 1
 
     # Sign
-    sign_app_bundle "$app_dir" >&2
+    sign_app_bundle "$app_dir" >&2 || return 1
 
     # Create DMG
     local dmg_name="$APP_NAME-$VERSION-${output_suffix}.dmg"
     local dmg_path="$RELEASES_DIR/$dmg_name"
-    create_dmg "$app_dir" "$dmg_path" "$APP_NAME"
+    create_dmg "$app_dir" "$dmg_path" "$APP_NAME" || return 1
 
-    echo "$dmg_path"
+    BUILT_ARCHIVE="$dmg_path"
 }
 
 # Build universal binary
 build_universal() {
     log_info "Building universal binary (arm64 + x86_64)..."
 
-    swift build -c release --product "$EXECUTABLE_NAME" --arch arm64 >&2
-    swift build -c release --product "$EXECUTABLE_NAME" --arch x86_64 >&2
-    swift build -c release --product "$JS_HELPER_NAME" --arch arm64 >&2
-    swift build -c release --product "$JS_HELPER_NAME" --arch x86_64 >&2
+    local staging_dir="$SCRIPT_DIR/.build/universal-staging"
+    local build_dir="$SCRIPT_DIR/.build/release"
+    rm -rf "$staging_dir" "$build_dir"
+    mkdir -p "$staging_dir/arm64" "$staging_dir/x86_64" "$build_dir"
 
-    local arm64_binary="$SCRIPT_DIR/.build/arm64-apple-macosx/release/$EXECUTABLE_NAME"
-    local x86_64_binary="$SCRIPT_DIR/.build/x86_64-apple-macosx/release/$EXECUTABLE_NAME"
-    local arm64_helper="$SCRIPT_DIR/.build/arm64-apple-macosx/release/$JS_HELPER_NAME"
-    local x86_64_helper="$SCRIPT_DIR/.build/x86_64-apple-macosx/release/$JS_HELPER_NAME"
+    local arch
+    for arch in arm64 x86_64; do
+        swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" >&2 || return 1
+        swift build -c release --product "$JS_HELPER_NAME" --arch "$arch" >&2 || return 1
 
-    if [[ ! -f "$arm64_binary" ]] || [[ ! -f "$x86_64_binary" ]]; then
-        log_error "Failed to build both architectures"
-        exit 1
-    fi
-    if [[ ! -f "$arm64_helper" ]] || [[ ! -f "$x86_64_helper" ]]; then
-        log_error "Failed to build $JS_HELPER_NAME for both architectures"
-        exit 1
-    fi
+        local arch_build_dir
+        arch_build_dir=$(
+            swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" --show-bin-path
+        ) || return 1
 
-    mkdir -p "$SCRIPT_DIR/.build/release"
-    lipo -create "$arm64_binary" "$x86_64_binary" -output "$SCRIPT_DIR/.build/release/$EXECUTABLE_NAME" >&2
-    # The helper must be universal too, or an Intel Mac silently loses the
-    # killable JavaScript timeout and falls back to in-process execution.
-    lipo -create "$arm64_helper" "$x86_64_helper" -output "$SCRIPT_DIR/.build/release/$JS_HELPER_NAME" >&2
+        if [[ ! -x "$arch_build_dir/$EXECUTABLE_NAME" ]]; then
+            log_error "Failed to build $EXECUTABLE_NAME for $arch"
+            return 1
+        fi
+        if [[ ! -x "$arch_build_dir/$JS_HELPER_NAME" ]]; then
+            log_error "Failed to build $JS_HELPER_NAME for $arch"
+            return 1
+        fi
 
-    # Copy resource bundles from one of the arch builds (they are the same)
-    for bundle in "$SCRIPT_DIR/.build/arm64-apple-macosx/release"/*.bundle; do
-        if [[ -d "$bundle" ]]; then
-            cp -r "$bundle" "$SCRIPT_DIR/.build/release/"
+        # New SwiftPM build systems may use one Release directory for every
+        # architecture. Preserve each slice before the next build replaces it.
+        cp "$arch_build_dir/$EXECUTABLE_NAME" "$staging_dir/$arch/$EXECUTABLE_NAME"
+        cp "$arch_build_dir/$JS_HELPER_NAME" "$staging_dir/$arch/$JS_HELPER_NAME"
+
+        if [[ "$arch" == "arm64" ]]; then
+            # Resource bundles are architecture-independent.
+            for bundle in "$arch_build_dir"/*.bundle; do
+                if [[ -d "$bundle" ]]; then
+                    cp -R "$bundle" "$build_dir/"
+                fi
+            done
         fi
     done
 
-    local build_dir="$SCRIPT_DIR/.build/release"
+    local arm64_binary="$staging_dir/arm64/$EXECUTABLE_NAME"
+    local x86_64_binary="$staging_dir/x86_64/$EXECUTABLE_NAME"
+    local arm64_helper="$staging_dir/arm64/$JS_HELPER_NAME"
+    local x86_64_helper="$staging_dir/x86_64/$JS_HELPER_NAME"
+
+    if [[ ! -f "$arm64_binary" ]] || [[ ! -f "$x86_64_binary" ]]; then
+        log_error "Failed to build both architectures"
+        return 1
+    fi
+    if [[ ! -f "$arm64_helper" ]] || [[ ! -f "$x86_64_helper" ]]; then
+        log_error "Failed to build $JS_HELPER_NAME for both architectures"
+        return 1
+    fi
+
+    lipo -create "$arm64_binary" "$x86_64_binary" -output "$build_dir/$EXECUTABLE_NAME" >&2 \
+        || return 1
+    # The helper must be universal too, or an Intel Mac silently loses the
+    # killable JavaScript timeout and falls back to in-process execution.
+    lipo -create "$arm64_helper" "$x86_64_helper" -output "$build_dir/$JS_HELPER_NAME" >&2 \
+        || return 1
+
     local app_dir="$SCRIPT_DIR/$APP_NAME.app"
 
-    create_app_bundle "$build_dir" "$app_dir" >&2
-    sign_app_bundle "$app_dir" >&2
+    create_app_bundle "$build_dir" "$app_dir" >&2 || return 1
+    sign_app_bundle "$app_dir" >&2 || return 1
 
     # Create DMG
     local dmg_name="$APP_NAME-$VERSION.dmg"
     local dmg_path="$RELEASES_DIR/$dmg_name"
-    create_dmg "$app_dir" "$dmg_path" "$APP_NAME"
+    create_dmg "$app_dir" "$dmg_path" "$APP_NAME" || return 1
 
-    echo "$dmg_path"
+    BUILT_ARCHIVE="$dmg_path"
 }
 
 # Create app bundle from build directory
@@ -549,23 +582,27 @@ swift-format --recursive --in-place . 2>/dev/null || true
 # Declare arrays for archives
 declare -a ARCHIVE_PATHS
 declare -a ARCHIVE_NAMES
+BUILT_ARCHIVE=""
 
 if [[ "$BUILD_ALL_ARCHS" == "true" ]]; then
     # Build all three variants
     log_info "Building all architecture variants..."
 
     # ARM64
-    ARCHIVE_ARM64=$(build_for_arch "arm64" "arm64")
+    build_for_arch "arm64" "arm64" || exit 1
+    ARCHIVE_ARM64="$BUILT_ARCHIVE"
     ARCHIVE_PATHS+=("$ARCHIVE_ARM64")
     ARCHIVE_NAMES+=("$(basename "$ARCHIVE_ARM64")")
 
     # x86_64
-    ARCHIVE_X86=$(build_for_arch "x86_64" "intel")
+    build_for_arch "x86_64" "intel" || exit 1
+    ARCHIVE_X86="$BUILT_ARCHIVE"
     ARCHIVE_PATHS+=("$ARCHIVE_X86")
     ARCHIVE_NAMES+=("$(basename "$ARCHIVE_X86")")
 
     # Universal
-    ARCHIVE_UNIVERSAL=$(build_universal)
+    build_universal || exit 1
+    ARCHIVE_UNIVERSAL="$BUILT_ARCHIVE"
     ARCHIVE_PATHS+=("$ARCHIVE_UNIVERSAL")
     ARCHIVE_NAMES+=("$(basename "$ARCHIVE_UNIVERSAL")")
 
@@ -575,10 +612,12 @@ if [[ "$BUILD_ALL_ARCHS" == "true" ]]; then
 else
     # Build single architecture
     if [[ -n "$ARCH" ]]; then
-        ARCHIVE_PATH=$(build_for_arch "$ARCH" "$ARCH")
+        build_for_arch "$ARCH" "$ARCH" || exit 1
+        ARCHIVE_PATH="$BUILT_ARCHIVE"
         PRIMARY_APP="$SCRIPT_DIR/$APP_NAME-${ARCH}.app"
     else
-        ARCHIVE_PATH=$(build_universal)
+        build_universal || exit 1
+        ARCHIVE_PATH="$BUILT_ARCHIVE"
         PRIMARY_APP="$SCRIPT_DIR/$APP_NAME.app"
     fi
     ARCHIVE_PATHS+=("$ARCHIVE_PATH")
