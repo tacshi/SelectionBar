@@ -1,10 +1,17 @@
 # SelectionBar
 
+<p align="center">
+  <img src="Assets/AppIcon.svg" width="128" height="128" alt="SelectionBar app icon">
+</p>
+
 [![CI](https://github.com/tacshi/SelectionBar/actions/workflows/ci.yml/badge.svg)](https://github.com/tacshi/SelectionBar/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/tacshi/SelectionBar)](https://github.com/tacshi/SelectionBar/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/tacshi/SelectionBar/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A macOS menu bar app that provides a floating toolbar on text selection for quick actions — copy, search, translate, speak, chat with AI, and run custom LLM/JavaScript/key-binding actions.
+A macOS menu bar app that shows a floating toolbar when you select text. Copy,
+search, look up, translate, speak, chat with AI, run shell commands, or build
+reusable LLM, JavaScript, key-binding, and pipeline actions.
 
 ## Features
 
@@ -12,6 +19,9 @@ A macOS menu bar app that provides a floating toolbar on text selection for quic
 
 - **Copy** / **Cut** - Clipboard operations on selected text
 - **Open URL** - Open selected text as a URL in the default browser
+- **Run Command** - Run selections that begin with an installed executable in
+  Terminal, iTerm2, Ghostty, Alacritty, Warp, kitty, or WezTerm. Commands with
+  chaining, substitution, redirection, or multiple lines require confirmation.
 
 ### Web Search
 
@@ -46,6 +56,8 @@ Chat with AI about selected text in a floating panel with streaming responses an
 - Tool calling with user approval before reading source content
 - Copy or apply AI responses directly to the original selection
 - Pinnable panel that persists across interactions
+- Local session history with a configurable retention limit and controls to
+  delete individual sessions or clear all history
 
 ### Custom LLM Actions
 
@@ -65,6 +77,12 @@ Scripts run in a separate helper process (`Contents/Helpers/selectionbar-js-help
 so a script that never terminates is killed at its deadline instead of tying up
 SelectionBar. If the helper is missing, execution falls back to running in-process.
 
+### Pipelines
+
+Chain existing JavaScript and LLM actions into an ordered workflow. Each step
+receives the previous step's output, allowing reusable actions to be composed
+without duplicating scripts or prompts.
+
 ### Key Binding Actions
 
 Create shortcut actions in **Actions > Built-in > Key Bindings** to trigger app commands directly (for example `cmd+b` for Bold).
@@ -73,6 +91,12 @@ Create shortcut actions in **Actions > Built-in > Key Bindings** to trigger app 
 - Configure per-app shortcut overrides by bundle ID
 - Built-in starters: Bold, Italic, Underline
 
+### App Profiles
+
+Create per-app action profiles that replace the global custom-action list for a
+specific application. Profiles can select and reorder any configured
+key-binding, JavaScript, LLM, or pipeline action.
+
 ### Do Not Disturb
 
 Require a modifier key (Option, Command, Control, or Shift) to activate the toolbar. Prevents the toolbar from appearing during normal text selection.
@@ -80,14 +104,22 @@ Require a modifier key (Option, Command, Control, or Shift) to activate the tool
 ### Other
 
 - **Ignored Apps** - Exclude specific applications from text selection monitoring
+- **Clipboard Fallback** - Opt specific apps into a stricter copy-based selection
+  fallback when Accessibility does not expose selected text; installed copies of
+  WeChat and Telegram are prefilled
 - **Launch at Login** - Auto-start SelectionBar on login
 - **Auto-Updates** - Built-in update checking via Sparkle
+- **App Language** - Follow the system language or select English, Japanese, or Simplified Chinese
 
 ## Requirements
 
 - macOS 14.0 (Sonoma) or later
-- Accessibility permission (for global text selection monitoring)
+- Accessibility permission (to read and edit selections)
+- Input Monitoring permission (to observe global mouse and keyboard events)
 - Automation permission (optional, for browser page reading and app-specific integrations)
+
+Building from source currently requires Xcode 26 with Swift 6.2 or later because
+the PermissionFlow dependency uses Swift tools version 6.2.
 
 ## Installation
 
@@ -110,7 +142,7 @@ open SelectionBar.app
 ## Usage
 
 1. **Launch the app** - SelectionBar appears in the menu bar
-2. **Grant Accessibility permission** when prompted
+2. **Grant Accessibility and Input Monitoring permissions** when prompted
 3. **Select any text** in any application
 4. **A floating toolbar appears** with action buttons
 5. **Click an action** to process the selected text
@@ -123,16 +155,17 @@ Hold a configured modifier key while selecting text to activate the toolbar. Whe
 
 ### The toolbar never appears
 
-SelectionBar reads selections through the Accessibility API, so it needs
-Accessibility permission — and macOS silently does nothing when that permission
-is missing.
+SelectionBar reads selections through the Accessibility API and detects selection
+gestures using global event monitors. Both Accessibility and Input Monitoring are
+required; macOS may silently suppress either API when its permission is missing.
 
-1. Open **System Settings > Privacy & Security > Accessibility**.
-2. Make sure **SelectionBar** is listed and toggled on.
-3. If it is already on but nothing happens, toggle it off and on again — macOS
-   invalidates the grant whenever the app binary changes, which happens on every
-   update and on every local rebuild.
-4. Quit and relaunch SelectionBar.
+1. Open **SelectionBar > Settings > General > Permissions** and check both statuses.
+2. In **System Settings > Privacy & Security**, make sure **SelectionBar** is
+   enabled under both **Accessibility** and **Input Monitoring**.
+3. If either permission is already enabled but the app still does nothing, toggle
+   it off and on again. Permission grants can become stale after an update or
+   local rebuild changes the app binary.
+4. Quit and relaunch SelectionBar after changing Input Monitoring permission.
 
 Check **Ignored Apps** in settings too: the toolbar is suppressed in any app
 listed there, and in password fields (macOS blocks synthetic events while secure
@@ -160,7 +193,7 @@ OpenAI-compatible endpoints, the base URL must include the version path, e.g.
 | OpenRouter | LLM, Translation, Chat | API key required |
 | DeepL | Translation | API key required |
 | ElevenLabs | Text-to-Speech | API key required |
-| Custom | LLM, Translation, and/or TTS | OpenAI-compatible endpoint |
+| Custom OpenAI-compatible | LLM, Translation, Chat | Choose a provider preset or enter an OpenAI-compatible base URL and credential |
 
 ## Architecture
 
@@ -180,9 +213,10 @@ SPM package with four targets:
 
 ## Tech Stack
 
-- Swift 6.0 / SwiftUI
+- Swift 6 / SwiftUI
 - `@Observable` (Observation framework)
 - macOS Accessibility APIs
+- PermissionFlow (Accessibility and Input Monitoring setup)
 - JavaScriptCore (custom JS actions)
 - MarkdownUI (chat response rendering)
 - PDFKit (PDF text extraction)
@@ -198,12 +232,17 @@ English, Japanese, Simplified Chinese.
 Issues and pull requests are welcome. Before opening a PR:
 
 ```bash
-xcrun swift-format --recursive --in-place Sources Tests Package.swift
+xcrun swift-format lint --recursive --strict Sources Tests Package.swift
 swift build
 swift test
 ```
 
-CI runs the same three steps on every pull request.
+CI runs these checks on macOS 26 for every pull request. To apply formatting
+locally before running the checks:
+
+```bash
+xcrun swift-format --recursive --in-place Sources Tests Package.swift
+```
 
 ## License
 
