@@ -5,11 +5,23 @@ import SwiftUI
 struct SelectionBarApp: App {
   @NSApplicationDelegateAdaptor(SelectionBarAppDelegate.self) var appDelegate
 
+  private static let menuBarIcon: NSImage = {
+    guard
+      let url = Bundle.module.url(forResource: "MenuBarIcon", withExtension: "pdf"),
+      let image = NSImage(contentsOf: url)
+    else {
+      preconditionFailure("Missing bundled MenuBarIcon.pdf")
+    }
+    image.isTemplate = true
+    return image
+  }()
+
   var body: some Scene {
     MenuBarExtra {
       MenuBarRootView()
     } label: {
-      Image(systemName: "rectangle.and.hand.point.up.left")
+      Image(nsImage: Self.menuBarIcon)
+        .renderingMode(.template)
         .accessibilityLabel("Selection Bar")
     }
 
