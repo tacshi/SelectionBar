@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 14" role="img" aria-labelledby="title desc">
+  <title id="title">SelectionBar menu bar icon</title>
+  <desc id="desc">A lowercase letter beside an I-beam text-selection cursor.</desc>
+
+  <g fill="none" stroke="#000" stroke-linecap="round">
+    <path d="M 2.8 1.9 V 12.2" stroke-width="1.25"/>
+    <path d="M 1 1.9 H 4.6" stroke-width="1.4"/>
+    <path d="M 1 12.2 H 4.6" stroke-width="1.4"/>
+  </g>
+
+  <path
+    d="
+      M 80 194
+      C 49 194 42 171 53 144
+      C 73 97 127 73 184 73
+      C 278 73 326 119 326 218
+      L 326 331
+      C 326 358 335 371 350 370
+      C 362 367 370 377 367 390
+      C 363 413 336 427 305 427
+      C 269 427 246 408 240 368
+      C 218 407 179 428 129 428
+      C 66 428 25 395 25 340
+      C 25 280 68 249 124 232
+      C 161 221 198 217 234 214
+      L 234 193
+      C 234 151 217 130 183 130
+      C 149 130 123 145 105 173
+      C 97 185 91 194 80 194
+      Z
+
+      M 233 264
+      C 196 269 163 278 143 291
+      C 119 307 116 330 128 346
+      C 142 365 176 365 197 345
+      C 220 324 232 294 233 264
+      Z
+    "
+    fill="#000"
+    fill-rule="evenodd"
+    transform="translate(5.3 -1.2) scale(0.033)"
+  />
+</svg>
