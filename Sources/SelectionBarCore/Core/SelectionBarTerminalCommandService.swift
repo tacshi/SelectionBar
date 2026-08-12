@@ -615,7 +615,7 @@ struct SelectionBarTerminalCommandService {
     return FileManager.default.isExecutableFile(atPath: url.path)
   }
 
-  nonisolated private static func resolveExecutableInLoginShell(
+  nonisolated static func resolveExecutableInLoginShell(
     token: String,
     shellPath: String
   ) -> URL? {
@@ -624,7 +624,10 @@ struct SelectionBarTerminalCommandService {
 
     let process = Process()
     process.executableURL = URL(fileURLWithPath: shellPath)
-    process.arguments = ["-lc", "command -v -- \"$1\"", "selectionbar", token]
+    // User-installed tools are commonly added from interactive shell startup
+    // files (for example, asdf in .zshrc). SelectionBar is launched by macOS
+    // with a minimal PATH, so a non-interactive login shell cannot see them.
+    process.arguments = ["-lic", "command -v -- \"$1\"", "selectionbar", token]
 
     let outputPipe = Pipe()
     let completion = DispatchSemaphore(value: 0)

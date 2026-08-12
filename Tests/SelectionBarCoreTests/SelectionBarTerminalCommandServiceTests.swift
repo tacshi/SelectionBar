@@ -70,6 +70,31 @@ struct SelectionBarTerminalCommandServiceTests {
     #expect(canRunCommand)
   }
 
+  @Test("login shell resolution loads interactive configuration for npm")
+  func loginShellResolutionLoadsInteractiveConfiguration() throws {
+    let tempDirectory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+    let npmURL = try makeExecutable(named: "npm", in: tempDirectory)
+    let shellURL = tempDirectory.appendingPathComponent("configured-shell")
+    let shellScript = """
+      #!/bin/sh
+      case "$1" in
+        *i*) printf '%s\\n' '\(npmURL.path)' ;;
+        *) exit 1 ;;
+      esac
+      """
+    try shellScript.write(to: shellURL, atomically: true, encoding: .utf8)
+    #expect(shellURL.path.withCString { chmod($0, mode_t(0o755)) } == 0)
+
+    let resolvedURL = SelectionBarTerminalCommandService.resolveExecutableInLoginShell(
+      token: "npm",
+      shellPath: shellURL.path
+    )
+
+    #expect(resolvedURL == npmURL)
+  }
+
   @Test("multi-line selection uses first runnable line and preserves full command in launch plan")
   func multilineSelectionDetectionAndLaunchPlan() async throws {
     let tempDirectory = try makeTemporaryDirectory()
