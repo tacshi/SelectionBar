@@ -803,6 +803,22 @@
         }
       }
     },
+    "Rewrite": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "書き換え"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "改写"
+          }
+        }
+      }
+    },
     "Run": {
       "extractionState": "manual",
       "localizations": {

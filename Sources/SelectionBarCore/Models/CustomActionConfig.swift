@@ -118,6 +118,7 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     guard isBuiltIn, let templateId else { return name }
     switch templateId {
     case "polish": return String(localized: "Polish", bundle: .localizedModule)
+    case "rewrite": return String(localized: "Rewrite", bundle: .localizedModule)
     case "cleanup": return String(localized: "Clean Up", bundle: .localizedModule)
     case "action-items": return String(localized: "Extract Actions", bundle: .localizedModule)
     case "summary": return String(localized: "Summarize", bundle: .localizedModule)
@@ -254,6 +255,8 @@ public struct CustomActionConfig: Codable, Identifiable, Equatable, Sendable, Ha
     switch templateId {
     case "polish":
       return "text.badge.checkmark"
+    case "rewrite":
+      return "arrow.triangle.2.circlepath"
     case "cleanup":
       return "eraser"
     case "action-items":

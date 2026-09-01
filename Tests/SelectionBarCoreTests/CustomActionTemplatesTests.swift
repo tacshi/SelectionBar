@@ -9,6 +9,7 @@ struct CustomActionTemplatesTests {
   /// Templates whose payload is a prompt sent to an LLM.
   static let promptTemplates: [CustomActionConfig] = [
     CustomActionConfig.createPolishTemplate(),
+    CustomActionConfig.createRewriteTemplate(),
     CustomActionConfig.createCleanUpTemplate(),
     CustomActionConfig.createActionItemsTemplate(),
     CustomActionConfig.createSummaryTemplate(),
@@ -118,6 +119,24 @@ struct CustomActionTemplatesTests {
       #expect(!template.modelProvider.isEmpty, "\(template.name)")
       #expect(!template.modelId.isEmpty, "\(template.name)")
     }
+  }
+
+  @Test("rewrite template is an explicit previewed LLM action")
+  func rewriteTemplateShape() {
+    let template = CustomActionConfig.createRewriteTemplate()
+
+    #expect(template.name == "Rewrite")
+    #expect(template.localizedName == String(localized: "Rewrite", bundle: .localizedModule))
+    #expect(template.templateId == "rewrite")
+    #expect(template.effectiveIcon.value == "arrow.triangle.2.circlepath")
+    #expect(template.kind == .llm)
+    #expect(template.outputMode == .resultWindow)
+    #expect(template.modelProvider == "openai")
+    #expect(template.modelId == "gpt-4o-mini")
+    #expect(template.prompt.contains("{{TEXT}}"))
+    #expect(template.prompt.contains("substantially different wording"))
+    #expect(!template.isEnabled)
+    #expect(template.isBuiltIn)
   }
 
   // MARK: - JavaScript templates
