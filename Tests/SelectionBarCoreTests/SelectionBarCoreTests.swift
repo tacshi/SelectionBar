@@ -615,8 +615,9 @@ struct SelectionBarCoreTests {
   @Test("LLM starter templates omit removed clean up action")
   func llmStarterTemplateList() {
     let names = Set(CustomActionConfig.createAllBuiltInTemplates().map(\.name))
-    #expect(names.count == 5)
+    #expect(names.count == 6)
     #expect(names.contains("Polish"))
+    #expect(names.contains("Rewrite"))
     #expect(!names.contains("Clean Up"))
     #expect(names.contains("Extract Actions"))
     #expect(names.contains("Summarize"))

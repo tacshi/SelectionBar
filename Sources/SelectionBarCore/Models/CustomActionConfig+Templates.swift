@@ -56,6 +56,7 @@ extension CustomActionConfig {
   public static func createAllBuiltInTemplates() -> [CustomActionConfig] {
     [
       createPolishTemplate(),
+      createRewriteTemplate(),
       createActionItemsTemplate(),
       createSummaryTemplate(),
       createBulletPointsTemplate(),
@@ -90,6 +91,36 @@ extension CustomActionConfig {
       isEnabled: false,
       isBuiltIn: true,
       templateId: "polish"
+    )
+  }
+
+  private static var rewritePrompt: String {
+    """
+    Rewrite the following selected text with substantially different wording and sentence structures.
+
+    Rules:
+    - Rewrite every natural-language sentence; do not merely polish it or replace a few words
+    - Preserve the original meaning, factual claims, tone, level of detail, and language
+    - Preserve names, numbers, dates, URLs, quotations, code, commands, and technical identifiers exactly
+    - Do not add interpretations, claims, examples, or details that are not in the source
+    - Do not omit any substantive information
+    - Output only the rewritten text
+
+    Selected text:
+    {{TEXT}}
+    """
+  }
+
+  public static func createRewriteTemplate() -> CustomActionConfig {
+    CustomActionConfig(
+      name: "Rewrite",
+      prompt: rewritePrompt,
+      modelProvider: "openai",
+      modelId: "gpt-4o-mini",
+      kind: .llm,
+      isEnabled: false,
+      isBuiltIn: true,
+      templateId: "rewrite"
     )
   }
 

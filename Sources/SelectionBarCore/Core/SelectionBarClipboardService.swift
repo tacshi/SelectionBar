@@ -4,6 +4,35 @@ import os.log
 
 private let logger = Logger(subsystem: "com.selectionbar", category: "SelectionBarClipboardService")
 
+enum CopiedTextSanitizer {
+  static func sanitize(_ text: String) -> String {
+    var sanitized = String.UnicodeScalarView()
+    sanitized.reserveCapacity(text.unicodeScalars.count)
+
+    for scalar in text.unicodeScalars where shouldPreserve(scalar) {
+      sanitized.append(scalar)
+    }
+
+    return String(sanitized)
+  }
+
+  private static func shouldPreserve(_ scalar: Unicode.Scalar) -> Bool {
+    if scalar.properties.generalCategory == .control {
+      return scalar.properties.isWhitespace
+    }
+
+    guard scalar.properties.isDefaultIgnorableCodePoint else {
+      return true
+    }
+
+    // Join controls and variation selectors are invisible but carry legitimate
+    // shaping and presentation semantics in writing systems and emoji.
+    return scalar == "\u{200C}"
+      || scalar == "\u{200D}"
+      || scalar.properties.isVariationSelector
+  }
+}
+
 @MainActor
 final class SelectionBarClipboardService {
   /// How long to leave our text on the pasteboard after posting Cmd+V. Apps
@@ -37,10 +66,9 @@ final class SelectionBarClipboardService {
     }
   }
 
-  func copyToClipboard(_ text: String) {
-    let pasteboard = NSPasteboard.general
+  func copyToClipboard(_ text: String, pasteboard: NSPasteboard = .general) {
     pasteboard.clearContents()
-    pasteboard.setString(text, forType: .string)
+    pasteboard.setString(CopiedTextSanitizer.sanitize(text), forType: .string)
   }
 
   @discardableResult
