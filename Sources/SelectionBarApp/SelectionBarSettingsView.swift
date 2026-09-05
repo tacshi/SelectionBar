@@ -112,6 +112,7 @@ private struct SelectionBarGeneralSettingsTab: View {
           Text("English").tag("en")
           Text("日本語").tag("ja")
           Text("简体中文").tag("zh-Hans")
+          Text(verbatim: "繁體中文").tag("zh-Hant")
         }
         .onChange(of: settings.appLanguage) { _, _ in
           showRestartAlert = true

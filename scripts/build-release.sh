@@ -323,7 +323,7 @@ create_app_bundle() {
             if [[ -f "$xcstrings_source" ]]; then
                 xcrun xcstringstool compile "$xcstrings_source" \
                     --output-directory "$app_bundle" \
-                    --language en --language ja --language zh-Hans
+                    --language en --language ja --language zh-Hans --language zh-Hant
             fi
         fi
     done
@@ -332,7 +332,7 @@ create_app_bundle() {
     if [[ -f "$SCRIPT_DIR/Sources/SelectionBarApp/Resources/Localizable.xcstrings" ]]; then
         xcrun xcstringstool compile "$SCRIPT_DIR/Sources/SelectionBarApp/Resources/Localizable.xcstrings" \
             --output-directory "$app_dir/Contents/Resources" \
-            --language en --language ja --language zh-Hans
+            --language en --language ja --language zh-Hans --language zh-Hant
     fi
 
     # App icon: copy from pre-generated assets
