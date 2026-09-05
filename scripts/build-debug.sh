@@ -189,7 +189,7 @@ for app_bundle in "$APP_DIR/Contents/Resources"/SelectionBar_*.bundle; do
       echo "   Compiling localization: $(basename "$app_bundle")"
       xcrun xcstringstool compile "$xcstrings_source" \
         --output-directory "$app_bundle" \
-        --language en --language ja --language zh-Hans
+        --language en --language ja --language zh-Hans --language zh-Hant
     fi
   fi
 done
@@ -199,7 +199,7 @@ if [ -f "$SCRIPT_DIR/Sources/SelectionBarApp/Resources/Localizable.xcstrings" ];
   echo "   Compiling main bundle localization..."
   xcrun xcstringstool compile "$SCRIPT_DIR/Sources/SelectionBarApp/Resources/Localizable.xcstrings" \
     --output-directory "$APP_DIR/Contents/Resources" \
-    --language en --language ja --language zh-Hans
+    --language en --language ja --language zh-Hans --language zh-Hant
 fi
 
 # App icon must come from pre-generated assets.

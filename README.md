@@ -109,7 +109,7 @@ Require a modifier key (Option, Command, Control, or Shift) to activate the tool
   WeChat and Telegram are prefilled
 - **Launch at Login** - Auto-start SelectionBar on login
 - **Auto-Updates** - Built-in update checking via Sparkle
-- **App Language** - Follow the system language or select English, Japanese, or Simplified Chinese
+- **App Language** - Follow the system language or select English, Japanese, Simplified Chinese, or Traditional Chinese
 
 ## Requirements
 
@@ -225,7 +225,7 @@ SPM package with four targets:
 
 ## Localization
 
-English, Japanese, Simplified Chinese.
+English, Japanese, Simplified Chinese, Traditional Chinese (including Hong Kong and Taiwan system language preferences).
 
 ## Contributing
 
