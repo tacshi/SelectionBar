@@ -155,11 +155,11 @@ build_for_arch() {
     local output_suffix="$2"
 
     log_info "Building for $arch..."
-    swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" >&2 || return 1
-    swift build -c release --product "$JS_HELPER_NAME" --arch "$arch" >&2 || return 1
+    bash "$SCRIPT_DIR/scripts/swift-build-app.sh" -c release --product "$EXECUTABLE_NAME" --arch "$arch" >&2 || return 1
+    bash "$SCRIPT_DIR/scripts/swift-build-app.sh" -c release --product "$JS_HELPER_NAME" --arch "$arch" >&2 || return 1
 
     local build_dir
-    build_dir=$(swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" --show-bin-path) \
+    build_dir=$(bash "$SCRIPT_DIR/scripts/swift-build-app.sh" -c release --product "$EXECUTABLE_NAME" --arch "$arch" --show-bin-path) \
         || return 1
     local app_dir="$SCRIPT_DIR/$APP_NAME-${output_suffix}.app"
 
@@ -197,12 +197,12 @@ build_universal() {
 
     local arch
     for arch in arm64 x86_64; do
-        swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" >&2 || return 1
-        swift build -c release --product "$JS_HELPER_NAME" --arch "$arch" >&2 || return 1
+        bash "$SCRIPT_DIR/scripts/swift-build-app.sh" -c release --product "$EXECUTABLE_NAME" --arch "$arch" >&2 || return 1
+        bash "$SCRIPT_DIR/scripts/swift-build-app.sh" -c release --product "$JS_HELPER_NAME" --arch "$arch" >&2 || return 1
 
         local arch_build_dir
         arch_build_dir=$(
-            swift build -c release --product "$EXECUTABLE_NAME" --arch "$arch" --show-bin-path
+            bash "$SCRIPT_DIR/scripts/swift-build-app.sh" -c release --product "$EXECUTABLE_NAME" --arch "$arch" --show-bin-path
         ) || return 1
 
         if [[ ! -x "$arch_build_dir/$EXECUTABLE_NAME" ]]; then
@@ -311,13 +311,8 @@ create_app_bundle() {
     # Copy Info.plist
     cp "$SCRIPT_DIR/Info.plist" "$app_dir/Contents/"
 
-    # Copy resource bundles
-    for bundle in "$build_dir"/*.bundle; do
-        if [[ -d "$bundle" ]]; then
-            cp -r "$bundle" "$app_dir/Contents/Resources/"
-            chmod -R u+w "$app_dir/Contents/Resources/$(basename "$bundle")"
-        fi
-    done
+    # Embed resource bundles where SwiftPM's generated accessors can find them.
+    bash "$SCRIPT_DIR/scripts/embed-resource-bundles.sh" "$build_dir" "$app_dir" || return 1
 
     # Compile .xcstrings -> .lproj for localization support
     for app_bundle in "$app_dir/Contents/Resources"/SelectionBar_*.bundle; do
@@ -493,7 +488,7 @@ log_success "Notarization credentials found"
 if [[ ! -x "$SPARKLE_BIN/generate_appcast" ]]; then
     log_warning "Sparkle tools not found at $SPARKLE_BIN"
     log_info "Attempting build to resolve SPM artifacts..."
-    swift build -c release --product "$EXECUTABLE_NAME" 2>/dev/null || true
+    bash "$SCRIPT_DIR/scripts/swift-build-app.sh" -c release --product "$EXECUTABLE_NAME" 2>/dev/null || true
     # Verify tools are now available
     if [[ ! -x "$SPARKLE_BIN/generate_appcast" ]]; then
         log_error "Sparkle tools still not found at $SPARKLE_BIN after build"

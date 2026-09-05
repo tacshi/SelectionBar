@@ -235,7 +235,11 @@ Issues and pull requests are welcome. Before opening a PR:
 xcrun swift-format lint --recursive --strict Sources Tests Package.swift
 swift build
 swift test
+bash scripts/test-resource-packaging.sh
 ```
+
+The packaging check loads app and dependency resources from a relocated, signed
+fixture app with its SwiftPM build directory unavailable.
 
 CI runs these checks on macOS 26 for every pull request. To apply formatting
 locally before running the checks:
