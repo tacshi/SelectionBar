@@ -44,3 +44,6 @@ jobs:
 
       - name: Test
         run: swift test
+
+      - name: Test packaged resource loading without the build directory
+        run: bash scripts/test-resource-packaging.sh

@@ -106,7 +106,7 @@ if [ -n "$ARCH" ]; then
 fi
 
 cd "$SCRIPT_DIR"
-swift build "${BUILD_ARGS[@]}"
+bash "$SCRIPT_DIR/scripts/swift-build-app.sh" "${BUILD_ARGS[@]}"
 
 # The JavaScript helper is a separate product; without building it explicitly
 # the bundle would ship without it and silently fall back to uninterruptible
@@ -115,9 +115,9 @@ JS_HELPER_ARGS=("-c" "$CONFIGURATION" "--product" "$JS_HELPER_NAME")
 if [ -n "$ARCH" ]; then
   JS_HELPER_ARGS+=("--arch" "$ARCH")
 fi
-swift build "${JS_HELPER_ARGS[@]}"
+bash "$SCRIPT_DIR/scripts/swift-build-app.sh" "${JS_HELPER_ARGS[@]}"
 
-BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
+BIN_DIR="$(bash "$SCRIPT_DIR/scripts/swift-build-app.sh" "${BUILD_ARGS[@]}" --show-bin-path)"
 BINARY_PATH="$BIN_DIR/$EXECUTABLE_NAME"
 
 if [ ! -f "$BINARY_PATH" ]; then
@@ -175,34 +175,23 @@ install_name_tool -add_rpath "@executable_path/../Frameworks" \
 # Copy static Info.plist
 cp "$SCRIPT_DIR/Info.plist" "$APP_DIR/Contents/"
 
-# Copy resource bundles
-for bundle in "$BIN_DIR"/*.bundle; do
-  if [ -d "$bundle" ]; then
-    bundle_name="$(basename "$bundle")"
-    echo "   Copying bundle: $bundle_name"
-    cp -R "$bundle" "$APP_DIR/Contents/Resources/"
-    chmod -R u+w "$APP_DIR/Contents/Resources/$bundle_name"
-  fi
-done
+# Embed resource bundles where SwiftPM's generated accessors can find them.
+bash "$SCRIPT_DIR/scripts/embed-resource-bundles.sh" "$BIN_DIR" "$APP_DIR"
 
 # Compile .xcstrings -> .lproj for localization support.
-# We compile both:
-# 1) copied app bundles in Contents/Resources
-# 2) original SwiftPM .build bundles (Bundle.module fallback path)
-for base_dir in "$APP_DIR/Contents/Resources" "$BIN_DIR"; do
-  for app_bundle in "$base_dir"/SelectionBar_*.bundle; do
-    if [ -f "$app_bundle/Localizable.xcstrings" ]; then
-      # Derive source path: SelectionBar_SelectionBarApp.bundle -> Sources/SelectionBarApp/Resources/Localizable.xcstrings
-      target_name=$(basename "$app_bundle" | sed 's/SelectionBar_//' | sed 's/\.bundle//')
-      xcstrings_source="$SCRIPT_DIR/Sources/$target_name/Resources/Localizable.xcstrings"
-      if [ -f "$xcstrings_source" ]; then
-        echo "   Compiling localization: $(basename "$app_bundle") ($(basename "$base_dir"))"
-        xcrun xcstringstool compile "$xcstrings_source" \
-          --output-directory "$app_bundle" \
-          --language en --language ja --language zh-Hans
-      fi
+# Compile only the packaged copies; the app must not depend on .build resources.
+for app_bundle in "$APP_DIR/Contents/Resources"/SelectionBar_*.bundle; do
+  if [ -f "$app_bundle/Localizable.xcstrings" ]; then
+    # Derive source path: SelectionBar_SelectionBarApp.bundle -> Sources/SelectionBarApp/Resources/Localizable.xcstrings
+    target_name=$(basename "$app_bundle" | sed 's/SelectionBar_//' | sed 's/\.bundle//')
+    xcstrings_source="$SCRIPT_DIR/Sources/$target_name/Resources/Localizable.xcstrings"
+    if [ -f "$xcstrings_source" ]; then
+      echo "   Compiling localization: $(basename "$app_bundle")"
+      xcrun xcstringstool compile "$xcstrings_source" \
+        --output-directory "$app_bundle" \
+        --language en --language ja --language zh-Hans
     fi
-  done
+  fi
 done
 
 # Also compile App target strings into the main Resources for SwiftUI auto-localization
