@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>1.1.0</title>
+            <pubDate>Sat, 05 Sep 2026 16:29:26 +1200</pubDate>
+            <sparkle:version>29</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 1.1.0</h2><ul><li>Add Traditional Chinese localization (#31)</li><li>Fix packaged app resource bundle lookup (#30)</li><li>Add clean copy and rewrite action (#29)</li><li>Add clean copy and rewrite action</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.1.0/SelectionBar-1.1.0.dmg" length="6941295" type="application/octet-stream" sparkle:edSignature="8hbGg/ce9JR0gch7KbhX5IYDn0D6Qd63sPiFR/jjAnttzPup/8yK/UwcSpujMNQSvGRP0i1Z4RxsgrzwWC3bDg=="/>
+        </item>
+        <item>
             <title>1.0.1</title>
             <pubDate>Wed, 12 Aug 2026 18:51:38 +1200</pubDate>
             <sparkle:version>28</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 1.0.0</h2><ul><li>Redesign logo (#26)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.0.0/SelectionBar-1.0.0.dmg" length="6932949" type="application/octet-stream" sparkle:edSignature="9yN6cq+nFNujKwvuxKHBY9yHGrQkwlrlGBOE4Evo0lTNOEasuKW/HAPLHZLfvOpehib/DrKxIc1yYnvg1BuUCw=="/>
-        </item>
-        <item>
-            <title>0.8.1</title>
-            <pubDate>Wed, 22 Jul 2026 16:58:20 +1200</pubDate>
-            <sparkle:version>25</sparkle:version>
-            <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 0.8.1</h2><ul><li>Fix build (#25)</li><li>Improve (#24)</li><li>Adjust JavaScript runner helper access</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v0.8.1/SelectionBar-0.8.1.dmg" length="8029976" type="application/octet-stream" sparkle:edSignature="aiHVusxjDbE23r7Apocyb0/7u8IBHaj3v6XAITCcWrlsS2grNJyAZdrM7wBt6bd+lBhL6qFy6z22OgjaUE6IBA=="/>
         </item>
     </channel>
 </rss>
