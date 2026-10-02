@@ -102,7 +102,7 @@ private struct SelectionBarGeneralSettingsTab: View {
         Label("Activation", systemImage: "moon.zzz")
       } footer: {
         Text(
-          "When enabled, Selection Bar appears only while the selected modifier key is held."
+          "When enabled, select text, then hold the selected key to show Selection Bar."
         )
       }
 

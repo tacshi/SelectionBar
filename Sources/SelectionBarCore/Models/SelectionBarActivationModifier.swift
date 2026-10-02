@@ -1,6 +1,6 @@
 import Foundation
 
-/// Modifier key that can be required while selecting text to show Selection Bar.
+/// Modifier key used to show Selection Bar for selected text.
 public enum SelectionBarActivationModifier: String, CaseIterable, Codable, Sendable {
   case command
   case option

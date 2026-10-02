@@ -78,7 +78,7 @@ public final class SelectionBarSettingsStore {
     }
   }
 
-  /// When enabled, Selection Bar appears only while the activation modifier is held.
+  /// When enabled, showing Selection Bar requires the activation modifier.
   public var selectionBarDoNotDisturbEnabled: Bool {
     didSet {
       persistIfNeeded()
