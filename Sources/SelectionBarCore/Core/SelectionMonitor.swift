@@ -45,7 +45,7 @@ public final class SelectionMonitor {
   /// Bundle IDs of apps where the selection bar should not appear
   public var ignoredBundleIDs: Set<String> = []
 
-  /// Whether text selection should only trigger while modifier key is held.
+  /// Whether showing the toolbar requires the activation modifier.
   public var requireActivationModifier: Bool = false
 
   /// Required modifier key when `requireActivationModifier` is enabled.
@@ -57,6 +57,7 @@ public final class SelectionMonitor {
   nonisolated(unsafe) private var mouseUpMonitor: Any?
   nonisolated(unsafe) private var mouseDownMonitor: Any?
   nonisolated(unsafe) private var keyDownMonitor: Any?
+  nonisolated(unsafe) private var flagsChangedMonitor: Any?
   nonisolated(unsafe) private var appSwitchObserver: NSObjectProtocol?
   private let accessibility: SelectionMonitorAccessibilityProviding
   private let clipboardFallback: SelectionMonitorClipboardFallbackProviding
@@ -64,6 +65,7 @@ public final class SelectionMonitor {
 
   private var debounceTask: Task<Void, Never>?
   private var isEnabled = false
+  private var previousModifierFlags: NSEvent.ModifierFlags = []
 
   /// Track mouse-down location to detect drag vs click
   private var mouseDownLocation: NSPoint?
@@ -117,7 +119,10 @@ public final class SelectionMonitor {
     // `deinit` can run on any thread when the last release happens off-main,
     // but `NSEvent.removeMonitor` is main-thread-only — so hop rather than
     // calling it inline.
-    let monitors = [mouseUpMonitor, mouseDownMonitor, keyDownMonitor].compactMap { $0 }
+    let monitors = [mouseUpMonitor, mouseDownMonitor, keyDownMonitor, flagsChangedMonitor]
+      .compactMap {
+        $0
+      }
     let observer = appSwitchObserver
     guard !monitors.isEmpty || observer != nil else { return }
 
@@ -150,6 +155,7 @@ public final class SelectionMonitor {
       return
     }
     isEnabled = true
+    previousModifierFlags = NSEvent.modifierFlags
 
     let hasRequiredPermissions = requestRequiredPermissionsIfNeeded()
     let trusted = checkAccessibilityPermission(promptIfNeeded: false)
@@ -195,6 +201,10 @@ public final class SelectionMonitor {
     removeMonitors()
     debounceTask?.cancel()
     debounceTask = nil
+    previousModifierFlags = []
+    mouseDownLocation = nil
+    mouseDownClickCount = 1
+    clearMouseDownWindowOrigin()
     logger.info("SelectionMonitor stopped")
   }
 
@@ -206,10 +216,7 @@ public final class SelectionMonitor {
       [weak self] event in
       let location = NSEvent.mouseLocation
       Task { @MainActor in
-        self?.mouseDownLocation = location
-        self?.mouseDownClickCount = max(event.clickCount, 1)
-        self?.captureMouseDownWindowOrigin()
-        self?.onDismissRequested?()
+        self?.handleMouseDown(at: location, clickCount: event.clickCount)
       }
     }
 
@@ -231,20 +238,34 @@ public final class SelectionMonitor {
     // Monitor escape key (dismiss)
     keyDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) {
       [weak self] event in
+      guard !Self.isOwnSyntheticEvent(event) else { return }
       let isEscape = event.keyCode == 53  // Escape
       let isSelectAll = Self.isSelectAllShortcut(event)
 
-      if isEscape {
-        Task { @MainActor in
+      Task { @MainActor in
+        self?.debounceTask?.cancel()
+        if isEscape {
           self?.onDismissRequested?()
-        }
-        return
-      }
-
-      if isSelectAll {
-        Task { @MainActor in
+        } else if isSelectAll {
           self?.handleSelectAllShortcut(modifierFlags: event.modifierFlags)
         }
+      }
+    }
+
+    // Pressing the activation key can reveal an existing selection.
+    flagsChangedMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) {
+      [weak self] event in
+      guard !Self.isOwnSyntheticEvent(event) else { return }
+      let flags = event.modifierFlags
+      let location = NSEvent.mouseLocation
+      Task { @MainActor in
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else { return }
+        await self?.handleModifierFlagsChanged(
+          flags,
+          at: location,
+          frontmostBundleID: frontApp.bundleIdentifier,
+          frontmostPID: frontApp.processIdentifier
+        )
       }
     }
 
@@ -255,6 +276,7 @@ public final class SelectionMonitor {
       queue: .main
     ) { [weak self] _ in
       Task { @MainActor in
+        self?.debounceTask?.cancel()
         self?.onDismissRequested?()
       }
     }
@@ -273,6 +295,10 @@ public final class SelectionMonitor {
       NSEvent.removeMonitor(monitor)
       keyDownMonitor = nil
     }
+    if let monitor = flagsChangedMonitor {
+      NSEvent.removeMonitor(monitor)
+      flagsChangedMonitor = nil
+    }
     if let observer = appSwitchObserver {
       NSWorkspace.shared.notificationCenter.removeObserver(observer)
       appSwitchObserver = nil
@@ -286,14 +312,27 @@ public final class SelectionMonitor {
     return sqrt(dx * dx + dy * dy)
   }
 
-  private func handleMouseUp(
+  func handleMouseDown(at mouseLocation: NSPoint, clickCount: Int) {
+    debounceTask?.cancel()
+    mouseDownLocation = mouseLocation
+    mouseDownClickCount = max(clickCount, 1)
+    captureMouseDownWindowOrigin()
+    onDismissRequested?()
+  }
+
+  func handleMouseUp(
     at mouseLocation: NSPoint,
     clickCount: Int,
     modifierFlags: NSEvent.ModifierFlags
   ) {
+    defer {
+      mouseDownLocation = nil
+      mouseDownClickCount = 1
+      clearMouseDownWindowOrigin()
+    }
     guard let frontApp = NSWorkspace.shared.frontmostApplication else { return }
 
-    // Skip if VoiceTale is the frontmost app
+    // Skip if SelectionBar is the frontmost app
     if frontApp.bundleIdentifier == Bundle.main.bundleIdentifier {
       return
     }
@@ -327,9 +366,6 @@ public final class SelectionMonitor {
     let isSelectionGesture = wasDrag || effectiveClickCount >= 2
     let isMultiClickGesture = effectiveClickCount >= 2
     let didMoveWindow = focusedWindowMovedSinceMouseDown(forPID: frontApp.processIdentifier)
-    mouseDownLocation = nil
-    mouseDownClickCount = 1
-    clearMouseDownWindowOrigin()
 
     // Only react to explicit selection gestures (drag, double-click, triple-click).
     // This prevents stale selections from re-triggering when windows regain focus
@@ -365,6 +401,46 @@ public final class SelectionMonitor {
         frontmostPID: frontApp.processIdentifier
       )
     }
+  }
+
+  func handleModifierFlagsChanged(
+    _ flags: NSEvent.ModifierFlags,
+    at mouseLocation: NSPoint,
+    frontmostBundleID: String?,
+    frontmostPID: pid_t
+  ) async {
+    let wasPressed = isRequiredActivationModifierPressed(in: previousModifierFlags)
+    previousModifierFlags = flags
+    guard isEnabled, requireActivationModifier,
+      !wasPressed, isRequiredActivationModifierPressed(in: flags),
+      mouseDownLocation == nil
+    else { return }
+
+    if let bundleID = frontmostBundleID,
+      bundleID == Bundle.main.bundleIdentifier || ignoredBundleIDs.contains(bundleID)
+    {
+      return
+    }
+    guard !accessibility.isCurrentProcessElement(at: mouseLocation),
+      !accessibility.isFocusedElementOwnedByCurrentProcess()
+    else { return }
+
+    debounceTask?.cancel()
+    let task = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: .milliseconds(120))
+      guard !Task.isCancelled else { return }
+      await self?.querySelectedText(
+        at: mouseLocation,
+        isSelectionGesture: true,
+        isMultiClickGesture: true,
+        didMoveWindow: false,
+        allowFocusedTextContextFallback: true,
+        frontmostBundleID: frontmostBundleID,
+        frontmostPID: frontmostPID
+      )
+    }
+    debounceTask = task
+    await task.value
   }
 
   func shouldIgnoreMultiClickOpenAction(
@@ -434,9 +510,9 @@ public final class SelectionMonitor {
     frontmostBundleID: String?,
     frontmostPID: pid_t
   ) async {
-    guard isEnabled else { return }
+    guard isEnabled, !Task.isCancelled else { return }
 
-    guard AXIsProcessTrusted() else {
+    guard accessibility.checkAccessibilityPermission(promptIfNeeded: false) else {
       logger.warning("Accessibility not trusted, cannot query selected text")
       return
     }
@@ -480,6 +556,7 @@ public final class SelectionMonitor {
 
     logger.debug("AX query failed, trying clipboard fallback")
     if let text = await queryViaClipboard(isSelectionGesture: isSelectionGesture) {
+      guard isEnabled, !Task.isCancelled else { return }
       logger.info("Clipboard selected text (\(text.count) chars)")
       onTextSelected?(text, mouseLocation)
     }
@@ -632,6 +709,10 @@ public final class SelectionMonitor {
     }
 
     return true
+  }
+
+  private static func isOwnSyntheticEvent(_ event: NSEvent) -> Bool {
+    event.cgEvent?.getIntegerValueField(.eventSourceUnixProcessID) == Int64(getpid())
   }
 
   private func isRequiredActivationModifierPressed(in flags: NSEvent.ModifierFlags) -> Bool {

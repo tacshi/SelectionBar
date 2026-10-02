@@ -149,7 +149,9 @@ open SelectionBar.app
 
 ### Do Not Disturb Mode
 
-Hold a configured modifier key while selecting text to activate the toolbar. When enabled, the toolbar will not appear unless the modifier key is held down.
+Select text, then hold the configured modifier key to show the toolbar. You can
+also hold the key while selecting text. Once shown, the toolbar stays open when
+you release the key so you can choose an action.
 
 ## Troubleshooting
 

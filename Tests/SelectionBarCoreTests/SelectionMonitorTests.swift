@@ -7,6 +7,173 @@ import Testing
 @Suite("SelectionMonitor Tests")
 @MainActor
 struct SelectionMonitorTests {
+  @Test(
+    "pressing the activation key shows an existing selection",
+    arguments: SelectionBarActivationModifier.allCases)
+  func activationKeyShowsExistingSelection(modifier: SelectionBarActivationModifier) async {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.selectedText = "selected range"
+    accessibility.focusedTextContext = true
+    let monitor = makeMonitor(accessibility: accessibility)
+    monitor.requireActivationModifier = true
+    monitor.requiredActivationModifier = modifier
+    monitor.start()
+    defer { monitor.stop() }
+
+    var selections: [String] = []
+    var locations: [NSPoint] = []
+    monitor.onTextSelected = { text, location in
+      selections.append(text)
+      locations.append(location)
+    }
+    let location = NSPoint(x: 40, y: 80)
+    await monitor.handleModifierFlagsChanged(
+      [], at: location, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    monitor.handleMouseDown(at: .zero, clickCount: 1)
+    monitor.handleMouseUp(at: location, clickCount: 1, modifierFlags: [])
+    #expect(selections.isEmpty)
+
+    await monitor.handleModifierFlagsChanged(
+      flags(for: modifier), at: location, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(selections == ["selected range"])
+    #expect(locations == [location])
+  }
+
+  @Test("activation ignores other modifiers and rereads selection on the next press")
+  func activationOnlyTriggersOnConfiguredKeyPress() async {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.selectedText = "first selection"
+    accessibility.focusedTextContext = true
+    let monitor = makeMonitor(accessibility: accessibility)
+    monitor.requireActivationModifier = true
+    monitor.start()
+    defer { monitor.stop() }
+
+    var selections: [String] = []
+    var dismissals = 0
+    monitor.onTextSelected = { text, _ in selections.append(text) }
+    monitor.onDismissRequested = { dismissals += 1 }
+    let location = NSPoint(x: 40, y: 80)
+    await monitor.handleModifierFlagsChanged(
+      .shift, at: location, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(selections.isEmpty)
+
+    await monitor.handleModifierFlagsChanged(
+      .option, at: location, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    await monitor.handleModifierFlagsChanged(
+      [.option, .shift], at: location, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    await monitor.handleModifierFlagsChanged(
+      [], at: location, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(selections == ["first selection"])
+    #expect(dismissals == 0)
+
+    accessibility.selectedText = "second selection"
+    await monitor.handleModifierFlagsChanged(
+      .option, at: location, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(selections == ["first selection", "second selection"])
+  }
+
+  @Test("modifier presses do not query selections when Do Not Disturb is disabled")
+  func activationIsDisabledOutsideDoNotDisturb() async {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.selectedText = "selected range"
+    accessibility.focusedTextContext = true
+    let monitor = makeMonitor(accessibility: accessibility)
+    monitor.start()
+    defer { monitor.stop() }
+
+    await monitor.handleModifierFlagsChanged(
+      .option, at: .zero, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(accessibility.selectedTextQueryCount == 0)
+  }
+
+  @Test("activation key respects ignored apps and SelectionBar-owned UI", arguments: [false, true])
+  func activationSkipsExcludedContexts(ownedBySelectionBar: Bool) async {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.selectedText = "selected range"
+    accessibility.focusedTextContext = true
+    accessibility.focusedElementOwnedByCurrentProcess = ownedBySelectionBar
+    let monitor = makeMonitor(accessibility: accessibility)
+    monitor.requireActivationModifier = true
+    if !ownedBySelectionBar {
+      monitor.ignoredBundleIDs = ["com.example.Editor"]
+    }
+    monitor.start()
+    defer { monitor.stop() }
+
+    await monitor.handleModifierFlagsChanged(
+      .option, at: .zero, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(accessibility.selectedTextQueryCount == 0)
+  }
+
+  @Test("activation key does not show a toolbar without selected text")
+  func activationRequiresSelectedText() async {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.focusedTextContext = true
+    let monitor = makeMonitor(accessibility: accessibility)
+    monitor.requireActivationModifier = true
+    monitor.start()
+    defer { monitor.stop() }
+
+    var selections: [String] = []
+    monitor.onTextSelected = { text, _ in selections.append(text) }
+    await monitor.handleModifierFlagsChanged(
+      .option, at: .zero, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(accessibility.selectedTextQueryCount == 1)
+    #expect(selections.isEmpty)
+  }
+
+  @Test("activation key can read a selection through clipboard fallback")
+  func activationSupportsClipboardFallback() async {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.focusedTextContext = true
+    let clipboard = FakeSelectionMonitorClipboardFallback()
+    clipboard.selectedText = "clipboard selection"
+    let monitor = makeMonitor(accessibility: accessibility, clipboardFallback: clipboard)
+    monitor.requireActivationModifier = true
+    monitor.start()
+    defer { monitor.stop() }
+
+    var selections: [String] = []
+    monitor.onTextSelected = { text, _ in selections.append(text) }
+    await monitor.handleModifierFlagsChanged(
+      .option, at: .zero, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(clipboard.copyCount == 1)
+    #expect(selections == ["clipboard selection"])
+  }
+
+  @Test("stopping the monitor during clipboard fallback prevents a late popup")
+  func stoppingDuringActivationPreventsLatePopup() async {
+    let accessibility = FakeSelectionMonitorAccessibility()
+    accessibility.focusedTextContext = true
+    let clipboard = FakeSelectionMonitorClipboardFallback()
+    clipboard.selectedText = "clipboard selection"
+    let monitor = makeMonitor(accessibility: accessibility, clipboardFallback: clipboard)
+    monitor.requireActivationModifier = true
+    monitor.start()
+    defer { monitor.stop() }
+
+    var selections: [String] = []
+    monitor.onTextSelected = { text, _ in selections.append(text) }
+    clipboard.onCopy = { monitor.stop() }
+    await monitor.handleModifierFlagsChanged(
+      .option, at: .zero, frontmostBundleID: "com.example.Editor", frontmostPID: 42
+    )
+    #expect(clipboard.copyCount == 1)
+    #expect(selections.isEmpty)
+  }
+
   @Test("mouse drag skips clipboard fallback without text selection signals")
   func mouseDragSkipsClipboardFallbackWithoutTextSelectionSignals() {
     let monitor = makeMonitor()
@@ -245,14 +412,25 @@ struct SelectionMonitorTests {
 
   private func makeMonitor(
     accessibility: FakeSelectionMonitorAccessibility = FakeSelectionMonitorAccessibility(),
+    clipboardFallback: FakeSelectionMonitorClipboardFallback =
+      FakeSelectionMonitorClipboardFallback(),
     clipboardFallbackIncludedBundleIDs: Set<String> = []
   ) -> SelectionMonitor {
     let monitor = SelectionMonitor(
       accessibility: accessibility,
-      clipboardFallback: FakeSelectionMonitorClipboardFallback()
+      clipboardFallback: clipboardFallback
     )
     monitor.clipboardFallbackIncludedBundleIDs = clipboardFallbackIncludedBundleIDs
     return monitor
+  }
+
+  private func flags(for modifier: SelectionBarActivationModifier) -> NSEvent.ModifierFlags {
+    switch modifier {
+    case .command: .command
+    case .option: .option
+    case .control: .control
+    case .shift: .shift
+    }
   }
 }
 
@@ -264,6 +442,9 @@ private final class FakeSelectionMonitorAccessibility: SelectionMonitorAccessibi
   var hitTestTextContext = false
   var focusedTextContext = false
   var pointLikelyInFocusedWindowChrome = false
+  var selectedText: String?
+  var selectedTextQueryCount = 0
+  var focusedElementOwnedByCurrentProcess = false
 
   @discardableResult
   func checkAccessibilityPermission(promptIfNeeded _: Bool) -> Bool {
@@ -279,7 +460,8 @@ private final class FakeSelectionMonitorAccessibility: SelectionMonitorAccessibi
   }
 
   func selectedTextFromFocusedHierarchy() -> String? {
-    nil
+    selectedTextQueryCount += 1
+    return selectedText
   }
 
   func hasFocusedTextSelection() -> Bool {
@@ -303,7 +485,7 @@ private final class FakeSelectionMonitorAccessibility: SelectionMonitorAccessibi
   }
 
   func isFocusedElementOwnedByCurrentProcess() -> Bool {
-    false
+    focusedElementOwnedByCurrentProcess
   }
 
   func isFocusedTextContext() -> Bool {
@@ -319,7 +501,13 @@ private final class FakeSelectionMonitorAccessibility: SelectionMonitorAccessibi
 private final class FakeSelectionMonitorClipboardFallback:
   SelectionMonitorClipboardFallbackProviding
 {
+  var selectedText: String?
+  var copyCount = 0
+  var onCopy: (() -> Void)?
+
   func selectedTextByCopyCommand() async -> String? {
-    nil
+    copyCount += 1
+    onCopy?()
+    return selectedText
   }
 }

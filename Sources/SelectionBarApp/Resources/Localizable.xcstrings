@@ -287,24 +287,24 @@
         }
       }
     },
-    "When enabled, Selection Bar appears only while the selected modifier key is held.": {
+    "When enabled, select text, then hold the selected key to show Selection Bar.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "有効時、選択した修飾キーを押している間のみ表示されます。"
+            "value": "有効時、テキストを選択してから指定したキーを押し続けると、Selection Bar が表示されます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "启用后，仅在按住所选修饰键时才显示选择栏。"
+            "value": "启用后，先选择文本，再按住所选按键以显示选择栏。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "啟用後，只有按住所選修飾鍵時才會顯示選取工具列。"
+            "value": "啟用後，先選取文字，再按住所選按鍵以顯示選取工具列。"
           }
         }
       }
