@@ -7,12 +7,14 @@ import Testing
 struct OpenAIClientStreamingTests {
   private enum ProbeError: Error { case captured }
 
-  @Test("Streaming requests apply OpenAI temperature compatibility", arguments: [
-    ("https://api.openai.com/v1", "gpt-6-luna", true),
-    ("https://api.openai.com/v1", "gpt-6.1-sol", true),
-    ("https://api.openai.com/v1", "gpt-4o-mini", false),
-    ("https://custom.example.com/v1", "gpt-6-luna", false),
-  ])
+  @Test(
+    "Streaming requests apply OpenAI temperature compatibility",
+    arguments: [
+      ("https://api.openai.com/v1", "gpt-6-luna", true),
+      ("https://api.openai.com/v1", "gpt-6.1-sol", true),
+      ("https://api.openai.com/v1", "gpt-4o-mini", false),
+      ("https://custom.example.com/v1", "gpt-6-luna", false),
+    ])
   func streamingTemperature(baseURL: String, model: String, omitsTemperature: Bool) async throws {
     let client = SelectionBarOpenAIClient()
     let context = OpenAICompatibleCompletionContext(

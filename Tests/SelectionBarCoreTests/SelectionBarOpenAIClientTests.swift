@@ -27,7 +27,9 @@ struct SelectionBarOpenAIClientTests {
     }
   }
 
-  @Test("OpenAI reasoning requests omit custom temperature", arguments: ["gpt-6-luna", "gpt-6.1-sol", "gpt-5-mini", "o3"])
+  @Test(
+    "OpenAI reasoning requests omit custom temperature",
+    arguments: ["gpt-6-luna", "gpt-6.1-sol", "gpt-5-mini", "o3"])
   func reasoningCompletionTemperature(model: String) async throws {
     let client = SelectionBarOpenAIClient(
       apiKeyReader: { _ in "test-key" },
@@ -36,8 +38,10 @@ struct SelectionBarOpenAIClientTests {
         let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(body["temperature"] == nil)
         #expect(body["model"] as? String == model)
-        return (Data(#"{"choices":[{"message":{"content":"OK"}}]}"#.utf8),
-          makeHTTPResponse(url: request.url!, statusCode: 200))
+        return (
+          Data(#"{"choices":[{"message":{"content":"OK"}}]}"#.utf8),
+          makeHTTPResponse(url: request.url!, statusCode: 200)
+        )
       }
     )
     let snapshot = SelectionBarProviderSettingsSnapshot(
