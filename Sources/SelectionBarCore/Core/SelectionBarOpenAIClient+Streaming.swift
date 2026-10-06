@@ -35,7 +35,7 @@ extension SelectionBarOpenAIClient {
           var body = OpenAICompatibleCompletionRequest(
             model: context.modelId,
             messages: messages,
-            temperature: temperature
+            temperature: context.requestTemperature(temperature)
           )
           body.stream = true
           body.tools = tools

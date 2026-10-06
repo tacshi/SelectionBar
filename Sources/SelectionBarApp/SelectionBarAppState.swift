@@ -5,12 +5,18 @@ import SelectionBarCore
 @Observable
 final class SelectionBarAppState {
   let settingsStore = SelectionBarSettingsStore()
+  var settingsTab: SelectionBarSettingsTab = .general
+  var settingsPresentation = 0
 
   @ObservationIgnored
   lazy var coordinator = SelectionBarCoordinator(settingsStore: settingsStore)
 
+  @ObservationIgnored
+  lazy var grammarCoordinator = GrammarCoordinator(settingsStore: settingsStore)
+
   init() {
     _ = coordinator
+    _ = grammarCoordinator
 
     settingsStore.onEnabledChanged = { [weak self] in
       self?.coordinator.updateEnabled()

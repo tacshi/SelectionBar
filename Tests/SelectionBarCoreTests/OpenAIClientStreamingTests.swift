@@ -5,6 +5,45 @@ import Testing
 
 @Suite("OpenAI Client Streaming Tests")
 struct OpenAIClientStreamingTests {
+  private enum ProbeError: Error { case captured }
+
+  @Test(
+    "Streaming requests apply OpenAI temperature compatibility",
+    arguments: [
+      ("https://api.openai.com/v1", "gpt-6-luna", true),
+      ("https://api.openai.com/v1", "gpt-6.1-sol", true),
+      ("https://api.openai.com/v1", "gpt-4o-mini", false),
+      ("https://custom.example.com/v1", "gpt-6-luna", false),
+    ])
+  func streamingTemperature(baseURL: String, model: String, omitsTemperature: Bool) async throws {
+    let client = SelectionBarOpenAIClient()
+    let context = OpenAICompatibleCompletionContext(
+      baseURL: URL(string: baseURL)!, apiKey: "test-key", modelId: model, extraHeaders: [:]
+    )
+    let stream = client.streamCompletion(
+      messages: [.init(role: "user", content: "Say OK.")],
+      context: context, temperature: 0.7,
+      bytesLoader: { request in
+        let data = try #require(request.httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(body["stream"] as? Bool == true)
+        #expect(body["model"] as? String == model)
+        if omitsTemperature {
+          #expect(body["temperature"] == nil)
+        } else {
+          #expect(body["temperature"] as? Double == 0.7)
+        }
+        throw ProbeError.captured
+      }
+    )
+    do {
+      for try await _ in stream {}
+      Issue.record("Expected request capture")
+    } catch ProbeError.captured {
+      // The loader captures the actual request before any network access.
+    }
+  }
+
   @Test("OpenAIStreamingChunk decodes correctly")
   func chunkDecoding() throws {
     let json = #"{"choices":[{"delta":{"content":"Hello"}}]}"#

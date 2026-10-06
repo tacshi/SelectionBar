@@ -71,6 +71,38 @@ final class SelectionBarClipboardService {
     pasteboard.setString(CopiedTextSanitizer.sanitize(text), forType: .string)
   }
 
+  /// `prepare` validates the source and selects the exact range immediately before dispatch.
+  /// A successful dispatch alone is not proof that the receiving editor applied the edit.
+  func replaceVerifiedText(
+    with text: String,
+    prepare: () -> Bool,
+    verify: () -> Bool,
+    pasteboard: NSPasteboard = .general,
+    postPaste: (() -> Bool)? = nil,
+    settle: @Sendable () async -> Void = {
+      // Once paste was posted, cancellation must not restore the clipboard before the app reads it.
+      await Task.detached { try? await Task.sleep(for: .milliseconds(500)) }.value
+    }
+  ) async throws {
+    try Task.checkCancellation()
+    let snapshot = PasteboardSnapshot(capturing: pasteboard)
+    pasteboard.clearContents()
+    pasteboard.setString(text, forType: .string)
+    let ownedChangeCount = pasteboard.changeCount
+    defer {
+      if pasteboard.changeCount == ownedChangeCount {
+        snapshot.restore(to: pasteboard)
+      }
+    }
+    guard prepare() else { throw GrammarCheckError.changed }
+    let posted =
+      postPaste?() ?? simulateKeyboardShortcut(keyCode: 9, flags: .maskCommand, actionName: "paste")
+    guard posted else { throw GrammarCheckError.applyFailed }
+    await settle()
+    guard verify() else { throw GrammarCheckError.applyFailed }
+    try Task.checkCancellation()
+  }
+
   @discardableResult
   func cutSelection() -> Bool {
     simulateCut()

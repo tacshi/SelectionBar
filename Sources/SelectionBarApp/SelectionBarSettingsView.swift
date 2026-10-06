@@ -5,15 +5,16 @@ import PermissionFlow
 import SelectionBarCore
 import SwiftUI
 
-struct SelectionBarSettingsView: View {
-  private enum RootTab: Hashable {
-    case general
-    case actions
-    case providers
-  }
+enum SelectionBarSettingsTab: Hashable {
+  case general
+  case actions
+  case grammar
+  case providers
+}
 
+struct SelectionBarSettingsView: View {
   @Bindable var settingsStore: SelectionBarSettingsStore
-  @State private var selectedTab: RootTab = .general
+  @Binding var selectedTab: SelectionBarSettingsTab
 
   var body: some View {
     TabView(selection: $selectedTab) {
@@ -21,19 +22,26 @@ struct SelectionBarSettingsView: View {
         .tabItem {
           Label("General", systemImage: "gearshape")
         }
-        .tag(RootTab.general)
+        .tag(SelectionBarSettingsTab.general)
 
       SelectionBarActionsSettingsTab(settingsStore: settingsStore)
         .tabItem {
           Label("Actions", systemImage: "bolt.circle")
         }
-        .tag(RootTab.actions)
+        .tag(SelectionBarSettingsTab.actions)
+
+      GrammarSettingsTab(
+        settingsStore: settingsStore,
+        coordinator: SelectionBarAppManager.shared.appState.grammarCoordinator
+      )
+      .tabItem { Label("Grammar", systemImage: "text.badge.checkmark") }
+      .tag(SelectionBarSettingsTab.grammar)
 
       SelectionBarProvidersSettingsTab(settingsStore: settingsStore)
         .tabItem {
           Label("Providers", systemImage: "server.rack")
         }
-        .tag(RootTab.providers)
+        .tag(SelectionBarSettingsTab.providers)
     }
     .frame(minWidth: 760, minHeight: 560)
   }

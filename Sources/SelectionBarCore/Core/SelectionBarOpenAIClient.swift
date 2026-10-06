@@ -27,6 +27,22 @@ struct SelectionBarOpenAIClient: Sendable {
     settingsSnapshot: SelectionBarProviderSettingsSnapshot,
     temperature: Double
   ) async throws -> String {
+    try await complete(
+      messages: [.init(role: "user", content: prompt)],
+      providerId: providerId, explicitModelId: explicitModelId,
+      preferTranslationModel: preferTranslationModel,
+      settingsSnapshot: settingsSnapshot, temperature: temperature
+    )
+  }
+
+  func complete(
+    messages: [OpenAICompatibleCompletionRequest.Message],
+    providerId: String,
+    explicitModelId: String,
+    preferTranslationModel: Bool,
+    settingsSnapshot: SelectionBarProviderSettingsSnapshot,
+    temperature: Double
+  ) async throws -> String {
     let context = try resolveProviderContext(
       providerId: providerId,
       explicitModelId: explicitModelId,
@@ -35,7 +51,7 @@ struct SelectionBarOpenAIClient: Sendable {
     )
 
     return try await performCompletion(
-      prompt: prompt,
+      messages: messages,
       context: context,
       temperature: temperature
     )
@@ -193,7 +209,7 @@ struct SelectionBarOpenAIClient: Sendable {
   }
 
   private func performCompletion(
-    prompt: String,
+    messages: [OpenAICompatibleCompletionRequest.Message],
     context: OpenAICompatibleCompletionContext,
     temperature: Double
   ) async throws -> String {
@@ -211,8 +227,8 @@ struct SelectionBarOpenAIClient: Sendable {
     request.httpBody = try JSONEncoder().encode(
       OpenAICompatibleCompletionRequest(
         model: context.modelId,
-        messages: [OpenAICompatibleCompletionRequest.Message(role: "user", content: prompt)],
-        temperature: temperature
+        messages: messages,
+        temperature: context.requestTemperature(temperature)
       )
     )
 
@@ -234,7 +250,7 @@ struct SelectionBarOpenAIClient: Sendable {
   }
 }
 
-struct SelectionBarProviderSettingsSnapshot: Sendable {
+struct SelectionBarProviderSettingsSnapshot: Sendable, Equatable {
   let openAIModel: String
   let openAITranslationModel: String
   let openRouterModel: String
@@ -247,12 +263,19 @@ struct OpenAICompatibleCompletionContext {
   let apiKey: String
   let modelId: String
   let extraHeaders: [String: String]
+
+  func requestTemperature(_ value: Double) -> Double? {
+    guard baseURL.host == "api.openai.com" else { return value }
+    // Use model defaults for reasoning models; custom sampling values can be rejected.
+    let reasoningPrefixes = ["gpt-5", "gpt-6", "o1", "o3", "o4"]
+    return reasoningPrefixes.contains(where: { modelId.hasPrefix($0) }) ? nil : value
+  }
 }
 
 struct OpenAICompatibleCompletionRequest: Encodable {
   let model: String
   let messages: [Message]
-  let temperature: Double
+  let temperature: Double?
   var stream: Bool? = nil
   var tools: [ToolDefinition]? = nil
 
