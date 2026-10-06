@@ -1,7 +1,11 @@
 #!/bin/bash
-# Xcode's SwiftPM integration generates Bundle.module accessors that search
-# Contents/Resources in a macOS .app, including for third-party dependencies.
-# The native build system instead searches the app root and the build directory.
+# Swift Build generates Bundle.module accessors that search Contents/Resources.
+# Keep the Xcode backend for older toolchains that lack Swift Build support.
 set -euo pipefail
+
+build_help="$(swift build --help)"
+if [[ "$build_help" == *swiftbuild* ]]; then
+  exec swift build --build-system swiftbuild "$@"
+fi
 
 exec swift build --build-system xcode "$@"
