@@ -8,40 +8,37 @@ import Testing
 @Suite("SelectionBarCoordinator Tests")
 @MainActor
 struct SelectionBarCoordinatorTests {
-  /// Long enough that "did not block on it" is unambiguous even when the
-  /// machine running the tests is busy.
-  private static let resolverDelay = Duration.milliseconds(600)
-  private static let resolverDelaySeconds = 0.6
-
   @Test("selection popup is not blocked by run command visibility resolution")
   func selectionPopupIsNotBlockedByRunCommandVisibilityResolution() async throws {
     let store = makeStore(keychain: InMemoryKeychain())
     let windowPresenter = FakeSelectionBarWindowPresenter()
+    let releaseResolver = AsyncStream<Void>.makeStream()
+    var resolverStarted = false
+    var resolverFinished = false
+    defer { releaseResolver.continuation.finish() }
     let coordinator = SelectionBarCoordinator(
       settingsStore: store,
       monitor: SelectionMonitor(),
       actionHandler: SelectionBarActionHandler(),
       windowControllerFactory: { _ in windowPresenter },
       runCommandVisibilityResolver: { _ in
-        try? await Task.sleep(for: Self.resolverDelay)
+        resolverStarted = true
+        for await _ in releaseResolver.stream {}
+        resolverFinished = true
         return false
       }
     )
 
-    let start = CFAbsoluteTimeGetCurrent()
     coordinator.handleTextSelectedForTesting(text: "git status", at: NSPoint(x: 80, y: 120))
-    let elapsed = CFAbsoluteTimeGetCurrent() - start
 
-    // The point is that showing the bar does not await the resolver, so this is
-    // compared against the resolver's own delay rather than a fixed wall-clock
-    // budget — a loaded CI runner can easily exceed a tight absolute bound
-    // without the code having blocked on anything.
-    #expect(elapsed < Self.resolverDelaySeconds / 2)
     #expect(windowPresenter.showNearCalls == 1)
     #expect(windowPresenter.updateCalls == 0)
 
-    try await Task.sleep(for: Self.resolverDelay + .milliseconds(60))
-
+    try await waitUntil { resolverStarted }
+    #expect(!resolverFinished)
+    #expect(windowPresenter.isVisible)
+    releaseResolver.continuation.finish()
+    try await waitUntil { resolverFinished }
     #expect(windowPresenter.updateCalls == 0)
   }
 
@@ -65,7 +62,7 @@ struct SelectionBarCoordinatorTests {
     #expect(windowPresenter.showNearCalls == 1)
     #expect(windowPresenter.updateCalls == 0)
 
-    try await Task.sleep(for: .milliseconds(120))
+    try await waitUntil { windowPresenter.updateCalls == 1 }
 
     #expect(windowPresenter.updateCalls == 1)
     #expect(windowPresenter.showAtOriginCalls == 1)
@@ -97,7 +94,7 @@ struct SelectionBarCoordinatorTests {
       at: NSPoint(x: 110, y: 150)
     )
 
-    try await Task.sleep(for: .milliseconds(200))
+    try await waitUntil { !resolvedTexts.isEmpty }
 
     #expect(windowPresenter.showNearCalls == 2)
     #expect(windowPresenter.dismissCalls == 1)
@@ -208,12 +205,22 @@ struct SelectionBarCoordinatorTests {
       frontmostBundleID: "com.example.Editor"
     )
 
-    try await Task.sleep(for: .milliseconds(120))
+    try await waitUntil { windowPresenter.updateCalls == 1 }
 
     #expect(windowPresenter.updateCalls == 1)
     #expect(observedActionIDs.count >= 2)
     #expect(observedActionIDs.allSatisfy { $0 == [profileAction.id] })
   }
+}
+
+@MainActor
+private func waitUntil(_ condition: () -> Bool) async throws {
+  let clock = ContinuousClock()
+  let deadline = clock.now + .seconds(5)
+  while !condition() && clock.now < deadline {
+    try await Task.sleep(for: .milliseconds(10))
+  }
+  try #require(condition(), "Timed out waiting for coordinator completion")
 }
 
 private func makeJavaScriptAction(name: String, isEnabled: Bool) -> CustomActionConfig {
