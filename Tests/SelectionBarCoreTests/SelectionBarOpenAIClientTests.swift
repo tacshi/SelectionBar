@@ -27,6 +27,30 @@ struct SelectionBarOpenAIClientTests {
     }
   }
 
+  @Test("OpenAI reasoning requests omit custom temperature", arguments: ["gpt-6-luna", "gpt-6.1-sol", "gpt-5-mini", "o3"])
+  func reasoningCompletionTemperature(model: String) async throws {
+    let client = SelectionBarOpenAIClient(
+      apiKeyReader: { _ in "test-key" },
+      dataLoader: { request in
+        let data = try #require(request.httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(body["temperature"] == nil)
+        #expect(body["model"] as? String == model)
+        return (Data(#"{"choices":[{"message":{"content":"OK"}}]}"#.utf8),
+          makeHTTPResponse(url: request.url!, statusCode: 200))
+      }
+    )
+    let snapshot = SelectionBarProviderSettingsSnapshot(
+      openAIModel: model, openAITranslationModel: "", openRouterModel: "",
+      openRouterTranslationModel: "", customLLMProviders: []
+    )
+    let result = try await client.complete(
+      prompt: "Say OK.", providerId: "openai", explicitModelId: "",
+      preferTranslationModel: false, settingsSnapshot: snapshot, temperature: 0.2
+    )
+    #expect(result == "OK")
+  }
+
   @Test("complete prioritizes explicit model over translation/default model")
   func completionModelSelectionPriority() async throws {
     let capture = CaptureBox()
@@ -84,6 +108,7 @@ struct SelectionBarOpenAIClientTests {
         $0.absoluteString == "https://api.openai.com/v1/chat/completions"
       })
     #expect(capture.value.models == ["gpt-translate", "gpt-explicit"])
+    #expect(capture.value.bodies.allSatisfy { $0["temperature"] as? Double == 0.2 })
   }
 
   @Test("complete uses custom provider translation model and fails when key is missing")

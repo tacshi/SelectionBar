@@ -212,7 +212,7 @@ struct SelectionBarOpenAIClient: Sendable {
       OpenAICompatibleCompletionRequest(
         model: context.modelId,
         messages: [OpenAICompatibleCompletionRequest.Message(role: "user", content: prompt)],
-        temperature: temperature
+        temperature: context.requestTemperature(temperature)
       )
     )
 
@@ -247,12 +247,19 @@ struct OpenAICompatibleCompletionContext {
   let apiKey: String
   let modelId: String
   let extraHeaders: [String: String]
+
+  func requestTemperature(_ value: Double) -> Double? {
+    guard baseURL.host == "api.openai.com" else { return value }
+    // Use model defaults for reasoning models; custom sampling values can be rejected.
+    let reasoningPrefixes = ["gpt-5", "gpt-6", "o1", "o3", "o4"]
+    return reasoningPrefixes.contains(where: { modelId.hasPrefix($0) }) ? nil : value
+  }
 }
 
 struct OpenAICompatibleCompletionRequest: Encodable {
   let model: String
   let messages: [Message]
-  let temperature: Double
+  let temperature: Double?
   var stream: Bool? = nil
   var tools: [ToolDefinition]? = nil
 
