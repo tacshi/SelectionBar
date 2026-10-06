@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>1.2.0</title>
+            <pubDate>Tue, 06 Oct 2026 15:37:15 +1300</pubDate>
+            <sparkle:version>31</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 1.2.0</h2><ul><li>Grammar (#33)</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.2.0/SelectionBar-1.2.0.dmg" length="7682888" type="application/octet-stream" sparkle:edSignature="HS7TRmmVMH94MRACRUZpV/JHV7VP58lzCrE0ZwQs8bkPkz7ylLOi2a34aUJDZUj9sIWJ6T03xIGIIcqoiuVUAQ=="/>
+        </item>
+        <item>
             <title>1.1.1</title>
             <pubDate>Fri, 02 Oct 2026 20:39:59 +1300</pubDate>
             <sparkle:version>30</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 1.1.0</h2><ul><li>Add Traditional Chinese localization (#31)</li><li>Fix packaged app resource bundle lookup (#30)</li><li>Add clean copy and rewrite action (#29)</li><li>Add clean copy and rewrite action</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.1.0/SelectionBar-1.1.0.dmg" length="6941295" type="application/octet-stream" sparkle:edSignature="8hbGg/ce9JR0gch7KbhX5IYDn0D6Qd63sPiFR/jjAnttzPup/8yK/UwcSpujMNQSvGRP0i1Z4RxsgrzwWC3bDg=="/>
-        </item>
-        <item>
-            <title>1.0.1</title>
-            <pubDate>Wed, 12 Aug 2026 18:51:38 +1200</pubDate>
-            <sparkle:version>28</sparkle:version>
-            <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 1.0.1</h2><ul><li>Fix terminal detection for shell-managed commands (#27)</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.0.1/SelectionBar-1.0.1.dmg" length="6932915" type="application/octet-stream" sparkle:edSignature="Rp8cBY0muj++BFPKNX4bIG1Sa6xWUpM906JdRPKWucX3madb4bVMipLoLYoIlHQ7StBHEIPa4coD4E9t/lM1Dw=="/>
         </item>
     </channel>
 </rss>
