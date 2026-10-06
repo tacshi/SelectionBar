@@ -17,6 +17,7 @@ struct MenuBarContentView: View {
       Divider()
 
       Button(action: {
+        SelectionBarAppManager.shared.appState.settingsPresentation += 1
         openSettings()
         NSApplication.shared.activate(ignoringOtherApps: true)
         Task { @MainActor in

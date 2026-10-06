@@ -20,14 +20,11 @@ struct SelectionBarApp: App {
     MenuBarExtra {
       MenuBarRootView()
     } label: {
-      Image(nsImage: Self.menuBarIcon)
-        .renderingMode(.template)
-        .accessibilityLabel("Selection Bar")
+      MenuBarIconView(image: Self.menuBarIcon)
     }
 
     Settings {
-      SelectionBarSettingsView(settingsStore: SelectionBarAppManager.shared.appState.settingsStore)
-        .frame(minWidth: 760, minHeight: 560)
+      SettingsRootView()
     }
   }
 }
@@ -35,5 +32,35 @@ struct SelectionBarApp: App {
 private struct MenuBarRootView: View {
   var body: some View {
     MenuBarContentView(settingsStore: SelectionBarAppManager.shared.appState.settingsStore)
+  }
+}
+
+private struct SettingsRootView: View {
+  @Bindable var state = SelectionBarAppManager.shared.appState
+  var body: some View {
+    SelectionBarSettingsView(settingsStore: state.settingsStore, selectedTab: $state.settingsTab)
+      .frame(minWidth: 760, minHeight: 560)
+      .background(
+        SettingsWindowFocus(presentation: state.settingsPresentation, tab: state.settingsTab))
+  }
+}
+
+private struct MenuBarIconView: View {
+  let image: NSImage
+  @Environment(\.openSettings) private var openSettings
+
+  var body: some View {
+    Image(nsImage: image)
+      .renderingMode(.template)
+      .accessibilityLabel("Selection Bar")
+      .onAppear {
+        let state = SelectionBarAppManager.shared.appState
+        state.grammarCoordinator.onOpenSettings = {
+          state.settingsTab = .grammar
+          state.settingsPresentation += 1
+          openSettings()
+          NSApplication.shared.activate(ignoringOtherApps: true)
+        }
+      }
   }
 }

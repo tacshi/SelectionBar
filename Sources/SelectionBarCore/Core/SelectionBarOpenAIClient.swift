@@ -27,6 +27,22 @@ struct SelectionBarOpenAIClient: Sendable {
     settingsSnapshot: SelectionBarProviderSettingsSnapshot,
     temperature: Double
   ) async throws -> String {
+    try await complete(
+      messages: [.init(role: "user", content: prompt)],
+      providerId: providerId, explicitModelId: explicitModelId,
+      preferTranslationModel: preferTranslationModel,
+      settingsSnapshot: settingsSnapshot, temperature: temperature
+    )
+  }
+
+  func complete(
+    messages: [OpenAICompatibleCompletionRequest.Message],
+    providerId: String,
+    explicitModelId: String,
+    preferTranslationModel: Bool,
+    settingsSnapshot: SelectionBarProviderSettingsSnapshot,
+    temperature: Double
+  ) async throws -> String {
     let context = try resolveProviderContext(
       providerId: providerId,
       explicitModelId: explicitModelId,
@@ -35,7 +51,7 @@ struct SelectionBarOpenAIClient: Sendable {
     )
 
     return try await performCompletion(
-      prompt: prompt,
+      messages: messages,
       context: context,
       temperature: temperature
     )
@@ -193,7 +209,7 @@ struct SelectionBarOpenAIClient: Sendable {
   }
 
   private func performCompletion(
-    prompt: String,
+    messages: [OpenAICompatibleCompletionRequest.Message],
     context: OpenAICompatibleCompletionContext,
     temperature: Double
   ) async throws -> String {
@@ -211,7 +227,7 @@ struct SelectionBarOpenAIClient: Sendable {
     request.httpBody = try JSONEncoder().encode(
       OpenAICompatibleCompletionRequest(
         model: context.modelId,
-        messages: [OpenAICompatibleCompletionRequest.Message(role: "user", content: prompt)],
+        messages: messages,
         temperature: context.requestTemperature(temperature)
       )
     )
@@ -234,7 +250,7 @@ struct SelectionBarOpenAIClient: Sendable {
   }
 }
 
-struct SelectionBarProviderSettingsSnapshot: Sendable {
+struct SelectionBarProviderSettingsSnapshot: Sendable, Equatable {
   let openAIModel: String
   let openAITranslationModel: String
   let openRouterModel: String

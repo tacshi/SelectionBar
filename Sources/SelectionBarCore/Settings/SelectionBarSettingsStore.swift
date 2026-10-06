@@ -290,6 +290,10 @@ public final class SelectionBarSettingsStore {
     didSet { persistIfNeeded() }
   }
 
+  public var grammar = GrammarSettings() {
+    didSet { persistIfNeeded() }
+  }
+
   public init(
     defaults: UserDefaults = .standard,
     storageKey: String = "SelectionBar.settings",
@@ -931,6 +935,7 @@ public final class SelectionBarSettingsStore {
   /// forget persistence, and omitting the `StoredSettings` field is a
   /// compile error.
   private static let persistedFields: [PersistedField] = [
+    bind(\.grammar, \.grammar, default: GrammarSettings()),
     bind(\.selectionBarEnabled, \.selectionBarEnabled, default: false),
     bind(\.selectionBarDoNotDisturbEnabled, \.selectionBarDoNotDisturbEnabled, default: false),
     bind(\.selectionBarActivationModifier, \.selectionBarActivationModifier, default: .option),
@@ -1100,6 +1105,7 @@ public final class SelectionBarSettingsStore {
 /// Codable persistence payload. Field names and order define the on-disk JSON;
 /// every field is optional so older payloads decode with per-field defaults.
 private struct StoredSettings: Codable {
+  var grammar: GrammarSettings?
   var selectionBarEnabled: Bool?
   var selectionBarDoNotDisturbEnabled: Bool?
   var selectionBarActivationModifier: String?

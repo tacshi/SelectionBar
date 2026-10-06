@@ -59,6 +59,32 @@ Chat with AI about selected text in a floating panel with streaming responses an
 - Local session history with a configurable retention limit and controls to
   delete individual sessions or clear all history
 
+### Grammar Check
+
+Check spelling, grammar, punctuation, and clarity in the text's original language,
+including mixed-language passages. Choose British English, American English, or
+accept both conventions.
+
+Configure a provider and optional model override under **Settings > Grammar**,
+then choose **Hotkey only** or **Automatic + hotkey**. Record a shortcut to check
+selected text, or the current paragraph when nothing is selected. Automatic mode
+checks the current paragraph after a typing pause and shows an issue indicator.
+
+Review suggestions before accepting individual changes or applying all of them.
+The panel offers **Grammar only**, **Improve clarity**, and **Rewrite**, with
+optional Formal or Casual tone. Manual checks remember these choices; automatic
+checks preserve your tone and use grammar and clarity suggestions. Rewrite shows
+a full-text preview with an Original comparison.
+
+The review stays open when you edit the source and offers **Recheck** before any
+further changes can be applied. **Undo** restores the latest verified application
+while the source is unchanged; starting a new check or changing the writing
+profile clears this one-level undo state.
+
+Checks are limited to 8,000 characters. When Accessibility exposes a selection
+without a writable text range, results can be copied instead. Copy-based capture
+uses the existing per-app Clipboard Fallback opt-in and only runs on a manual check.
+
 ### Custom LLM Actions
 
 5 built-in prompt templates, plus support for creating your own:
