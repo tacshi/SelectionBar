@@ -28,8 +28,18 @@ final class GrammarReviewState {
   var dismissedCount = 0
   var focus: GrammarReviewFocus?
   var focusRevision = 0
+  /// The suggestion highlighted in the source text and scrolled into view in the review.
+  var highlighted: UUID?
+
+  /// The suggestion the footer's Accept and Dismiss act on.
+  var selected: UUID?
+
+  var currentSuggestion: GrammarSuggestion? {
+    suggestions.first { $0.id == selected } ?? suggestions.first
+  }
 
   func requestFocus(_ target: GrammarReviewFocus) {
+    if case .suggestion(let id) = target { selected = id }
     focus = target
     focusRevision += 1
   }

@@ -30,12 +30,14 @@ struct GrammarReviewView: View {
   let settings: () -> Void
   let enableClipboard: () -> Void
   let close: () -> Void
+  var highlight: (UUID?) -> Void = { _ in }
   var resize: () -> Void = {}
 
   @State private var showOriginal = false
   @State private var visibleSuggestion: UUID?
   @State private var contentHeight: CGFloat = 0
   @State private var restoreKeyboardFocus = false
+  @State private var hoveringSuggestions = false
   @FocusState private var focusedControl: GrammarReviewFocus?
 
   var body: some View {
@@ -106,6 +108,7 @@ struct GrammarReviewView: View {
           .background(heightReader)
         }
         .scrollPosition(id: $visibleSuggestion, anchor: .top)
+        .onHover { hoveringSuggestions = $0 }
         .frame(height: max(48, contentHeight))
       } else if state.phase == .ready || state.phase == .completed {
         Text(state.completionText).font(.callout).foregroundStyle(.secondary)
@@ -144,6 +147,11 @@ struct GrammarReviewView: View {
         if state.focusRevision == revision { focusedControl = target }
       }
     }
+    .onAppear { if let id = state.highlighted { visibleSuggestion = id } }
+    .onChange(of: state.highlighted) { _, id in
+      // Hovering a row also highlights it; only scroll for one that is out of view.
+      if let id, visibleSuggestion != id, !hoveringSuggestions { visibleSuggestion = id }
+    }
     .onChange(of: state.suggestions.map(\.id)) { old, new in
       if let visibleSuggestion, !new.contains(visibleSuggestion),
         let index = old.firstIndex(of: visibleSuggestion)
@@ -178,6 +186,24 @@ struct GrammarReviewView: View {
       }
       Spacer()
       if state.phase == .applying { ProgressView().controlSize(.small) }
+      if let suggestion = state.currentSuggestion {
+        Button(String(localized: "Dismiss", bundle: .localizedModule)) {
+          userAction { dismiss(suggestion) }
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.secondary)
+        .disabled(state.phase != .ready)
+        .focused($focusedControl, equals: state.sourceCanApply ? nil : .suggestion(suggestion.id))
+        if state.sourceCanApply {
+          Button(String(localized: "Accept", bundle: .localizedModule)) {
+            userAction { accept(suggestion) }
+          }
+          .buttonStyle(.bordered)
+          .controlSize(.small)
+          .disabled(state.phase != .ready)
+          .focused($focusedControl, equals: .suggestion(suggestion.id))
+        }
+      }
       if state.sourceCanApply, state.profile.refinement == .rewrite || state.suggestions.count > 1 {
         Button(
           state.profile.refinement == .rewrite
@@ -247,6 +273,7 @@ struct GrammarReviewView: View {
   }
 
   private func suggestionRow(_ suggestion: GrammarSuggestion) -> some View {
+    let isSelected = state.currentSuggestion?.id == suggestion.id
     let difference = GrammarTextDifference(
       original: suggestion.original, replacement: suggestion.replacement)
     return VStack(alignment: .leading, spacing: 8) {
@@ -265,31 +292,27 @@ struct GrammarReviewView: View {
         }
       }
       .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
-
-      Text(suggestion.explanation)
-        .font(.system(size: 12)).foregroundStyle(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
-      HStack(spacing: 14) {
-        Spacer()
-        Button(String(localized: "Dismiss", bundle: .localizedModule)) {
-          userAction { dismiss(suggestion) }
-        }
-        .buttonStyle(.borderless)
-        .foregroundStyle(.secondary)
-        .focused($focusedControl, equals: state.sourceCanApply ? nil : .suggestion(suggestion.id))
-        if state.sourceCanApply {
-          Button(String(localized: "Accept", bundle: .localizedModule)) {
-            userAction { accept(suggestion) }
-          }
-          .buttonStyle(.bordered)
-          .focused($focusedControl, equals: .suggestion(suggestion.id))
-        }
-      }
-      .controlSize(.small)
-      .disabled(state.phase != .ready)
     }
     .padding(12)
-    .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(
+      isSelected ? Color.accentColor.opacity(0.1) : .primary.opacity(0.035),
+      in: RoundedRectangle(cornerRadius: 8)
+    )
+    .overlay {
+      if isSelected, state.suggestions.count > 1 {
+        RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor.opacity(0.5))
+      }
+    }
+    .contentShape(RoundedRectangle(cornerRadius: 8))
+    .onTapGesture {
+      state.selected = suggestion.id
+      highlight(suggestion.id)
+    }
+    .help(suggestion.explanation)
+    .onHover { hovering in
+      highlight(hovering ? suggestion.id : state.currentSuggestion?.id)
+    }
   }
 
   private func differenceText(_ runs: [GrammarTextDifference.Run], removals: Bool) -> Text {

@@ -11,6 +11,8 @@ protocol GrammarTextAccessing: AnyObject {
   func prepareSource(_ snapshot: GrammarTextSnapshot, requireUnchanged: Bool) async throws
   func apply(_ suggestion: GrammarSuggestion, to snapshot: GrammarTextSnapshot) async throws
     -> GrammarTextSnapshot
+  func underlineLayout(for suggestions: [GrammarSuggestion], in snapshot: GrammarTextSnapshot)
+    -> GrammarUnderlineLayout?
 }
 
 @MainActor
@@ -27,7 +29,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
     guard !candidates.contains(where: Self.isComposing) else { throw GrammarCheckError.composition }
 
     let sources = candidates.map { element in
-      let value = Self.string(element, kAXValueAttribute)
+      let value = Self.value(element)
       let selection = Self.range(element, kAXSelectedTextRangeAttribute)
       let editable = value != nil && selection != nil && Self.isEditable(element)
       return GrammarAccessibleText(
@@ -78,7 +80,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
       !ancestors.contains(where: Self.isSecure), !ancestors.contains(where: Self.isComposing)
     else { return false }
     if let fullText = snapshot.fullText {
-      guard GrammarText.identical(Self.string(target, kAXValueAttribute), fullText) else {
+      guard GrammarText.identical(Self.value(target), fullText) else {
         return false
       }
     } else if let selected = snapshot.selectedTextAtCapture {
@@ -119,7 +121,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
     guard !ancestors.contains(where: Self.isSecure) else { return .differentContext }
     guard !ancestors.contains(where: Self.isComposing) else { return .changed }
     if let fullText = snapshot.fullText {
-      return GrammarText.identical(Self.string(target, kAXValueAttribute), fullText)
+      return GrammarText.identical(Self.value(target), fullText)
         ? .current : .changed
     }
     if let selected = snapshot.selectedTextAtCapture {
@@ -139,7 +141,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
     guard status != .differentContext, !requireUnchanged || status == .current,
       let target, let app = NSRunningApplication(processIdentifier: snapshot.processID)
     else { throw GrammarCheckError.changed }
-    if GrammarWindowController.ownsKeyboardFocus { NSApp.keyWindow?.resignKey() }
+    GrammarWindowController.releaseKeyboardFocus()
     app.activate(options: [])
     if let targetWindow { AXUIElementPerformAction(targetWindow, kAXRaiseAction as CFString) }
     if Self.isSettable(target, kAXFocusedAttribute) {
@@ -173,22 +175,81 @@ final class GrammarTextAccess: GrammarTextAccessing {
     updated.text = GrammarText.replacing(snapshot.text, with: [suggestion])
     updated.checkedRange.length += suggestion.replacement.utf16.count - suggestion.range.length
     updated.selectionRange = nil
+    let select = {
+      guard self.isCurrent(snapshot, checkSelection: false) else { return false }
+      var range = CFRange(location: absolute.location, length: absolute.length)
+      guard let value = AXValueCreate(.cfRange, &range),
+        AXUIElementSetAttributeValue(target, kAXSelectedTextRangeAttribute as CFString, value)
+          == .success
+      else { return false }
+      return self.isCurrent(snapshot, checkSelection: false)
+        && Self.range(target, kAXSelectedTextRangeAttribute) == absolute
+    }
+    // Writing the selection through Accessibility needs neither keyboard focus nor the clipboard.
+    // Editors route it through their normal text input, so it behaves like typing.
+    if Self.isSettable(target, kAXSelectedTextAttribute), select(),
+      AXUIElementSetAttributeValue(
+        target, kAXSelectedTextAttribute as CFString, suggestion.replacement as CFString)
+        == .success
+    {
+      for _ in 0..<8 {
+        if isCurrent(updated, checkSelection: false) {
+          updated.selectionRange = Self.range(target, kAXSelectedTextRangeAttribute)
+          return updated
+        }
+        try await Task.sleep(for: .milliseconds(50))
+      }
+      // Some editors accept the write but ignore it. Only an untouched source is safe to paste
+      // into; anything else risks applying the edit twice.
+      guard isCurrent(snapshot, checkSelection: false) else { throw GrammarCheckError.applyFailed }
+    }
     try await clipboard.replaceVerifiedText(
-      with: suggestion.replacement,
-      prepare: {
-        guard self.isCurrent(snapshot, checkSelection: false) else { return false }
-        var range = CFRange(location: absolute.location, length: absolute.length)
-        guard let value = AXValueCreate(.cfRange, &range),
-          AXUIElementSetAttributeValue(target, kAXSelectedTextRangeAttribute as CFString, value)
-            == .success
-        else { return false }
-        return self.isCurrent(snapshot, checkSelection: false)
-          && Self.range(target, kAXSelectedTextRangeAttribute) == absolute
-      },
-      verify: { self.isCurrent(updated, checkSelection: false) }
-    )
+      with: suggestion.replacement, prepare: select,
+      verify: { self.isCurrent(updated, checkSelection: false) })
     updated.selectionRange = Self.range(target, kAXSelectedTextRangeAttribute)
     return updated
+  }
+
+  func underlineLayout(for suggestions: [GrammarSuggestion], in snapshot: GrammarTextSnapshot)
+    -> GrammarUnderlineLayout?
+  {
+    // Ranges only map onto the editor when its full text was read at capture.
+    guard snapshot.targetID == targetID, let target, let fullText = snapshot.fullText,
+      var visible = Self.frame(target)
+    else { return nil }
+    for ancestor in Self.ancestors(of: target).dropFirst() {
+      let role = Self.string(ancestor, kAXRoleAttribute)
+      guard role == kAXScrollAreaRole || role == "AXWebArea" || role == kAXWindowRole,
+        let frame = Self.frame(ancestor)
+      else { continue }
+      visible = visible.intersection(frame)
+    }
+    guard !visible.isNull, visible.width > 0, visible.height > 0 else { return nil }
+    let length = fullText.utf16.count
+    // A hung editor must not stall the main thread for every suggestion.
+    let deadline = Date().addingTimeInterval(0.15)
+    var marks: [GrammarUnderlineLayout.Mark] = []
+    for suggestion in suggestions {
+      guard Date() < deadline else { break }
+      var absolute = NSRange(
+        location: snapshot.checkedRange.location + suggestion.range.location,
+        length: suggestion.range.length)
+      if absolute.length == 0 {
+        // Insertions have no text of their own; mark the character before the gap.
+        absolute =
+          absolute.location > 0
+          ? NSRange(location: absolute.location - 1, length: 1)
+          : NSRange(location: 0, length: min(1, length))
+      }
+      guard absolute.length > 0, NSMaxRange(absolute) <= length else { continue }
+      let rects = Self.lineRanges(target, covering: absolute).compactMap { range in
+        Self.bounds(target, range).map { $0.intersection(visible) }
+      }.filter { !$0.isNull && $0.width > 0 && $0.height > 0 }
+      if !rects.isEmpty {
+        marks.append(.init(id: suggestion.id, category: suggestion.category, rects: rects))
+      }
+    }
+    return GrammarUnderlineLayout(visibleFrame: visible, marks: marks)
   }
 
   private func snapshot(
@@ -202,7 +263,10 @@ final class GrammarTextAccess: GrammarTextAccessing {
       targetID: targetID, processID: app.processIdentifier, bundleID: app.bundleIdentifier ?? "",
       fullText: value, checkedRange: range, selectionRange: selection, text: text,
       anchor: Self.anchor(element, range: value == nil ? nil : range), canApply: canApply,
-      selectedTextAtCapture: selectedTextAtCapture
+      selectedTextAtCapture: selectedTextAtCapture,
+      caret: value.flatMap { value in
+        selection.flatMap { Self.caretRect(element, selection: $0, text: value) }
+      } ?? Self.pointerCaret(in: element, pid: app.processIdentifier)
     )
   }
 
@@ -210,7 +274,12 @@ final class GrammarTextAccess: GrammarTextAccessing {
     guard AXIsProcessTrusted(), !IsSecureEventInputEnabled(),
       let app = NSWorkspace.shared.frontmostApplication,
       app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
-      let element = element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
+      enableAccessibility(for: app),
+      // Electron apps can fail the system-wide query (kAXErrorCannotComplete) while their own
+      // application element still reports the focused input box.
+      let element = element(
+        AXUIElementCreateApplication(app.processIdentifier), kAXFocusedUIElementAttribute)
+        ?? element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
     else { throw GrammarCheckError.unavailable }
     var pid: pid_t = 0
     guard AXUIElementGetPid(element, &pid) == .success, pid == app.processIdentifier else {
@@ -218,6 +287,28 @@ final class GrammarTextAccess: GrammarTextAccessing {
     }
     AXUIElementSetMessagingTimeout(element, 0.25)
     return (app, element)
+  }
+
+  private static var accessibilityEnabledPIDs: Set<pid_t> = []
+
+  /// Electron apps build their Accessibility tree only after a client opts in. Without this the
+  /// focused input box is invisible. Always returns true so it can sit in a guard chain.
+  private static func enableAccessibility(for app: NSRunningApplication) -> Bool {
+    let pid = app.processIdentifier
+    guard !accessibilityEnabledPIDs.contains(pid) else { return true }
+    accessibilityEnabledPIDs = accessibilityEnabledPIDs.filter {
+      NSRunningApplication(processIdentifier: $0) != nil
+    }
+    accessibilityEnabledPIDs.insert(pid)
+    guard let bundleURL = app.bundleURL,
+      FileManager.default.fileExists(
+        atPath: bundleURL.appendingPathComponent(
+          "Contents/Frameworks/Electron Framework.framework"
+        ).path)
+    else { return true }
+    AXUIElementSetAttributeValue(
+      AXUIElementCreateApplication(pid), "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    return true
   }
 
   static func ancestors(of element: AXUIElement) -> [AXUIElement] {
@@ -241,6 +332,22 @@ final class GrammarTextAccess: GrammarTextAccessing {
 
   static func string(_ element: AXUIElement, _ name: String) -> String? {
     attribute(element, name) as? String
+  }
+
+  /// Some editors omit AXValue but still expose their text through ranged reads.
+  static func value(_ element: AXUIElement) -> String? {
+    if let value = string(element, kAXValueAttribute) { return value }
+    guard let count = attribute(element, kAXNumberOfCharactersAttribute) as? Int, count > 0,
+      count <= 500_000
+    else { return nil }
+    var range = CFRange(location: 0, length: count)
+    var result: CFTypeRef?
+    guard let parameter = AXValueCreate(.cfRange, &range),
+      AXUIElementCopyParameterizedAttributeValue(
+        element, kAXStringForRangeParameterizedAttribute as CFString, parameter, &result)
+        == .success
+    else { return nil }
+    return result as? String
   }
 
   static func element(_ element: AXUIElement, _ name: String) -> AXUIElement? {
@@ -290,6 +397,132 @@ final class GrammarTextAccess: GrammarTextAccessing {
       return count > 0
     }
     return true
+  }
+
+  /// Splits a range at visual line breaks so a wrapped suggestion gets one rect per line.
+  private static func lineRanges(_ element: AXUIElement, covering range: NSRange) -> [NSRange] {
+    guard
+      let first = parameterized(element, kAXLineForIndexParameterizedAttribute, range.location)
+        as? Int,
+      let last = parameterized(
+        element, kAXLineForIndexParameterizedAttribute, NSMaxRange(range) - 1) as? Int,
+      last >= first, last - first < 20
+    else { return [range] }
+    let lines = (first...last).compactMap { line -> NSRange? in
+      guard let value = parameterized(element, kAXRangeForLineParameterizedAttribute, line),
+        CFGetTypeID(value) == AXValueGetTypeID()
+      else { return nil }
+      var lineRange = CFRange()
+      guard AXValueGetValue(unsafeDowncast(value, to: AXValue.self), .cfRange, &lineRange) else {
+        return nil
+      }
+      let piece = NSIntersectionRange(
+        range, NSRange(location: lineRange.location, length: lineRange.length))
+      return piece.length > 0 ? piece : nil
+    }
+    return lines.isEmpty ? [range] : lines
+  }
+
+  private static func parameterized(_ element: AXUIElement, _ name: String, _ index: Int)
+    -> CFTypeRef?
+  {
+    var result: CFTypeRef?
+    guard
+      AXUIElementCopyParameterizedAttributeValue(
+        element, name as CFString, index as CFNumber, &result) == .success
+    else { return nil }
+    return result
+  }
+
+  /// Bounds of a text range, converted to AppKit screen coordinates.
+  private static func bounds(_ element: AXUIElement, _ range: NSRange) -> CGRect? {
+    var cfRange = CFRange(location: range.location, length: range.length)
+    var bounds: CFTypeRef?
+    var rect = CGRect.zero
+    guard let value = AXValueCreate(.cfRange, &cfRange),
+      AXUIElementCopyParameterizedAttributeValue(
+        element, kAXBoundsForRangeParameterizedAttribute as CFString, value, &bounds) == .success,
+      let bounds, CFGetTypeID(bounds) == AXValueGetTypeID(),
+      AXValueGetValue(unsafeDowncast(bounds, to: AXValue.self), .cgRect, &rect),
+      rect.width >= 0, rect.height > 0
+    else { return nil }
+    return appKitRect(rect)
+  }
+
+  /// Without text geometry (clipboard capture, or editors such as Zed that expose almost nothing),
+  /// the pointer is the best guess at where the user is working, as long as it is over the source.
+  private static func pointerCaret(in element: AXUIElement, pid: pid_t) -> CGRect? {
+    let pointer = NSEvent.mouseLocation
+    guard
+      let area = frame(element).flatMap({ $0.width > 0 && $0.height > 0 ? $0 : nil })
+        ?? frontWindowFrame(pid: pid), area.contains(pointer)
+    else { return nil }
+    return CGRect(x: pointer.x, y: pointer.y - 9, width: 1, height: 18)
+  }
+
+  /// The app's frontmost on-screen window from the window server, which needs no Accessibility.
+  private static func frontWindowFrame(pid: pid_t) -> CGRect? {
+    guard
+      let windows = CGWindowListCopyWindowInfo(
+        [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+    else { return nil }
+    // The list is ordered front to back.
+    for info in windows {
+      guard info[kCGWindowOwnerPID as String] as? pid_t == pid,
+        info[kCGWindowLayer as String] as? Int == 0,
+        let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+        let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary)
+      else { continue }
+      return appKitRect(rect)
+    }
+    return nil
+  }
+
+  /// A thin rect at the caret, or the last line of a selection.
+  private static func caretRect(_ element: AXUIElement, selection: NSRange, text: String)
+    -> CGRect?
+  {
+    let string = text as NSString
+    guard NSMaxRange(selection) <= string.length else { return nil }
+    if selection.length > 0 {
+      return lineRanges(element, covering: selection).last.flatMap { bounds(element, $0) }
+    }
+    let caret = selection.location
+    let isLineBreak = { (index: Int) in
+      CharacterSet.newlines.contains(UnicodeScalar(string.character(at: index)) ?? " ")
+    }
+    // Zero-length ranges are unreliable across editors, so measure a neighbouring character on
+    // the caret's own line.
+    if caret > 0, !isLineBreak(caret - 1),
+      let before = bounds(element, NSRange(location: caret - 1, length: 1)), before.width > 0
+    {
+      return CGRect(x: before.maxX, y: before.minY, width: 1, height: before.height)
+    }
+    if caret < string.length, !isLineBreak(caret),
+      let after = bounds(element, NSRange(location: caret, length: 1)), after.width > 0
+    {
+      return CGRect(x: after.minX, y: after.minY, width: 1, height: after.height)
+    }
+    return bounds(element, NSRange(location: caret, length: 0))
+  }
+
+  /// An element's frame, converted to AppKit screen coordinates.
+  private static func frame(_ element: AXUIElement) -> CGRect? {
+    var position = CGPoint.zero
+    var size = CGSize.zero
+    guard let positionValue = attribute(element, kAXPositionAttribute),
+      CFGetTypeID(positionValue) == AXValueGetTypeID(),
+      let sizeValue = attribute(element, kAXSizeAttribute),
+      CFGetTypeID(sizeValue) == AXValueGetTypeID(),
+      AXValueGetValue(unsafeDowncast(positionValue, to: AXValue.self), .cgPoint, &position),
+      AXValueGetValue(unsafeDowncast(sizeValue, to: AXValue.self), .cgSize, &size)
+    else { return nil }
+    return appKitRect(CGRect(origin: position, size: size))
+  }
+
+  private static func appKitRect(_ rect: CGRect) -> CGRect {
+    let desktopTop = NSScreen.screens.first?.frame.maxY ?? 0
+    return CGRect(x: rect.minX, y: desktopTop - rect.maxY, width: rect.width, height: rect.height)
   }
 
   private static func anchor(_ element: AXUIElement, range: NSRange?) -> CGPoint {

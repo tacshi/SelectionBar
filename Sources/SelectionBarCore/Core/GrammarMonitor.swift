@@ -1,7 +1,11 @@
 import AppKit
 @preconcurrency import ApplicationServices
 
-enum GrammarMonitorEvent { case input, changed, focus, dismiss }
+enum GrammarMonitorEvent: Equatable {
+  case input, changed, focus, dismiss
+  /// A mouse-down in another app, in AppKit screen coordinates.
+  case click(CGPoint)
+}
 
 @MainActor
 protocol GrammarMonitoring: AnyObject {
@@ -72,12 +76,13 @@ final class GrammarMonitor: GrammarMonitoring {
             return
           }
         } else if NSApp.windows.contains(where: {
-          $0.isVisible && $0.frame.contains(NSEvent.mouseLocation)
+          // The click-through underline overlay sits over the source text; it is not ours to hit.
+          $0.isVisible && !$0.ignoresMouseEvents && $0.frame.contains(NSEvent.mouseLocation)
         }) {
           return
         }
         self.attachObserver()
-        self.callback?(.input)
+        self.callback?(event.type == .leftMouseDown ? .click(NSEvent.mouseLocation) : .input)
       }
     }
     appObserver = NSWorkspace.shared.notificationCenter.addObserver(

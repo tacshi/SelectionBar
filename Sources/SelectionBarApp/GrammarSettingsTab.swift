@@ -36,6 +36,11 @@ struct GrammarSettingsTab: View {
             Text("Record a shortcut for manual checks.").foregroundStyle(.secondary)
           }
           if let error = coordinator.shortcutError { Text(error).foregroundStyle(.red) }
+          Toggle("Underline issues in text", isOn: $settingsStore.grammar.showsUnderlines)
+          if settingsStore.grammar.showsUnderlines {
+            Text("Suggestions are underlined in the editor. Click an underline to review it.")
+              .foregroundStyle(.secondary)
+          }
         }
       }
       if settingsStore.grammar.mode != .off {

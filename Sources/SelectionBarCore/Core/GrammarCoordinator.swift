@@ -15,6 +15,7 @@ public final class GrammarCoordinator {
   @ObservationIgnored private let monitor: any GrammarMonitoring
   @ObservationIgnored private let hotKey: any GrammarHotKeyRegistering
   @ObservationIgnored private let windowFactory: (AnyView) -> any GrammarWindowPresenting
+  @ObservationIgnored private let underlines: any GrammarUnderlinePresenting
   @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
   @ObservationIgnored private var window: (any GrammarWindowPresenting)?
   @ObservationIgnored private var debounceTask: Task<Void, Never>?
@@ -22,6 +23,8 @@ public final class GrammarCoordinator {
   @ObservationIgnored private var captureTask: Task<Void, Never>?
   @ObservationIgnored private var requestTask: Task<Void, Never>?
   @ObservationIgnored private var mutationTask: Task<Void, Never>?
+  @ObservationIgnored private var underlineTask: Task<Void, Never>?
+  @ObservationIgnored private var underlineLayout: GrammarUnderlineLayout?
   @ObservationIgnored private var generation = 0
   @ObservationIgnored private var isStopped = false
   @ObservationIgnored private var isPreparingSource = false
@@ -66,7 +69,8 @@ public final class GrammarCoordinator {
     self.init(
       settingsStore: settingsStore, access: GrammarTextAccess(), service: GrammarCheckService(),
       monitor: GrammarMonitor(), hotKey: GrammarHotKey(),
-      windowFactory: { GrammarWindowController(content: $0) })
+      windowFactory: { GrammarWindowController(content: $0) },
+      underlines: GrammarUnderlineOverlay())
   }
 
   init(
@@ -74,6 +78,7 @@ public final class GrammarCoordinator {
     service: any GrammarChecking, monitor: any GrammarMonitoring,
     hotKey: any GrammarHotKeyRegistering,
     windowFactory: @escaping (AnyView) -> any GrammarWindowPresenting,
+    underlines: any GrammarUnderlinePresenting,
     sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
   ) {
     self.settingsStore = settingsStore
@@ -82,6 +87,7 @@ public final class GrammarCoordinator {
     self.monitor = monitor
     self.hotKey = hotKey
     self.windowFactory = windowFactory
+    self.underlines = underlines
     self.sleep = sleep
     observeSettings()
   }
@@ -150,6 +156,16 @@ public final class GrammarCoordinator {
       return
     }
     if isPreparingSource { return }
+    var event = event
+    if case .click(let point) = event {
+      if review.phase == .ready, let id = underlineLayout?.mark(at: point) {
+        revealSuggestion(id)
+        return
+      }
+      event = .input
+    }
+    // Scrolling, moving, and resizing shift the text under the overlay.
+    scheduleUnderlineRefresh()
     if review.phase == .applying {
       if event == .changed { return }
       if event == .input {
@@ -267,7 +283,7 @@ public final class GrammarCoordinator {
           if let previousSource {
             try await self.access.prepareSource(previousSource, requireUnchanged: false)
           } else if let app = self.sourceApplication {
-            if GrammarWindowController.ownsKeyboardFocus { NSApp.keyWindow?.resignKey() }
+            GrammarWindowController.releaseKeyboardFocus()
             app.activate(options: [])
             try await Task.sleep(for: .milliseconds(50))
             guard
@@ -308,6 +324,7 @@ public final class GrammarCoordinator {
           self.review.result = last.result
           self.review.phase = .ready
           self.showIndicator()
+          self.refreshUnderlines()
           return
         }
         if !manual, let attempted = self.lastAttempt, attempted.profile == profile,
@@ -319,13 +336,17 @@ public final class GrammarCoordinator {
         }
         self.review.result = nil
         self.review.focus = nil
-        if manual { self.presentReview(at: captured.anchor, takeFocus: true) }
+        if manual {
+          self.presentReview(at: captured.anchor, near: captured.caret, takeFocus: true)
+        }
         self.runCheck(captured, profile: profile, automatic: !manual)
       } catch {
         guard !Task.isCancelled, revision == self.generation else { return }
         if manual {
           self.fail(error, captureFailure: true)
-          self.presentReview(at: previousSource?.anchor ?? fallbackPoint, takeFocus: true)
+          self.presentReview(
+            at: previousSource?.anchor ?? fallbackPoint, near: previousSource?.caret,
+            takeFocus: true)
         }
       }
     }
@@ -391,6 +412,7 @@ public final class GrammarCoordinator {
         if !self.expanded, automatic {
           self.showIndicator()
         }
+        self.refreshUnderlines()
       } catch {
         guard !Task.isCancelled, self.generation == revision else { return }
         self.lastAttempt = (captured, profile)
@@ -460,6 +482,7 @@ public final class GrammarCoordinator {
     cancelWork()
     clearUndo()
     review.phase = .applying
+    hideUnderlines()
     let revision = generation
     mutationTask = Task { [weak self] in
       guard let self else { return }
@@ -494,6 +517,7 @@ public final class GrammarCoordinator {
         self.review.hasUndo = true
         self.review.phase = self.review.hasChanges ? .ready : .completed
         self.cacheResult()
+        self.refreshUnderlines()
         self.moveFocus(afterRemovingAt: removedIndex)
         if restorePanelFocus { self.window?.focus() }
       } catch {
@@ -516,6 +540,7 @@ public final class GrammarCoordinator {
     let restorePanelFocus = window?.isKey == true
     cancelWork()
     review.phase = .applying
+    hideUnderlines()
     let revision = generation
     mutationTask = Task { [weak self] in
       guard let self else { return }
@@ -538,6 +563,7 @@ public final class GrammarCoordinator {
         self.review.sourceCanApply = current.canApply
         self.clearUndo()
         self.cacheResult()
+        self.refreshUnderlines()
         self.moveFocus(afterRemovingAt: 0)
         if restorePanelFocus { self.window?.focus() }
       } catch {
@@ -558,6 +584,7 @@ public final class GrammarCoordinator {
     review.dismissedCount += 1
     review.phase = review.hasChanges ? .ready : .completed
     cacheResult()
+    refreshUnderlines()
     moveFocus(afterRemovingAt: index)
   }
 
@@ -579,6 +606,7 @@ public final class GrammarCoordinator {
 
   private func markStale() {
     cancelWork()
+    hideUnderlines()
     if expanded {
       review.phase = .stale
       review.failure = nil
@@ -629,12 +657,63 @@ public final class GrammarCoordinator {
     }
     review.phase = .failed
     review.failure = GrammarReviewFailure(message: message, recovery: recovery)
+    hideUnderlines()
   }
 
   func openReview() {
     expanded = true
     if let snapshot, status(of: snapshot) == .changed { markStale() }
-    presentReview(at: snapshot?.anchor ?? NSEvent.mouseLocation, takeFocus: true)
+    presentReview(
+      at: snapshot?.anchor ?? NSEvent.mouseLocation, near: snapshot?.caret, takeFocus: true)
+  }
+
+  /// Opens the review at one suggestion without taking keyboard focus from the editor.
+  private func revealSuggestion(_ id: UUID) {
+    expanded = true
+    review.selected = id
+    highlight(id)
+    let underline = underlineLayout?.marks.first { $0.id == id }?.rects.last
+    presentReview(
+      at: snapshot?.anchor ?? NSEvent.mouseLocation, near: underline ?? snapshot?.caret,
+      takeFocus: false)
+  }
+
+  private func highlight(_ id: UUID?) {
+    review.highlighted = id
+    underlines.highlight(id)
+  }
+
+  private func scheduleUnderlineRefresh() {
+    guard underlineLayout != nil else { return }
+    underlineTask?.cancel()
+    // Editors update their geometry after the event; scrolling can keep moving it briefly.
+    underlineTask = Task { [weak self] in
+      for delay in [40, 260] {
+        do { try await Task.sleep(for: .milliseconds(delay)) } catch { return }
+        self?.refreshUnderlines()
+      }
+    }
+  }
+
+  private func refreshUnderlines() {
+    guard configuration?.grammar.showsUnderlines == true, let snapshot,
+      review.phase == .ready || review.phase == .checking,
+      case .suggestions(let suggestions) = review.result, !suggestions.isEmpty,
+      dismissedIndicator.map({ !snapshot.hasSameContent(as: $0) }) ?? true,
+      status(of: snapshot) == .current,
+      let layout = access.underlineLayout(for: suggestions, in: snapshot), !layout.marks.isEmpty
+    else {
+      hideUnderlines()
+      return
+    }
+    underlineLayout = layout
+    underlines.show(layout, highlighted: review.highlighted)
+  }
+
+  private func hideUnderlines() {
+    underlineTask?.cancel()
+    underlineLayout = nil
+    underlines.hide()
   }
 
   private func showIndicator() {
@@ -648,7 +727,7 @@ public final class GrammarCoordinator {
     present(content, at: snapshot.anchor, interactive: false, takeFocus: false)
   }
 
-  private func presentReview(at point: NSPoint, takeFocus: Bool) {
+  private func presentReview(at point: NSPoint, near caret: CGRect?, takeFocus: Bool) {
     let content = AnyView(
       GrammarReviewView(
         state: review,
@@ -673,6 +752,7 @@ public final class GrammarCoordinator {
         settings: { [weak self] in self?.openSettings() },
         enableClipboard: { [weak self] in self?.enableClipboardFallback() },
         close: { [weak self] in self?.handle(.dismiss) },
+        highlight: { [weak self] in self?.highlight($0) },
         resize: { [weak self] in
           Task { @MainActor [weak self] in
             await Task.yield()
@@ -680,6 +760,7 @@ public final class GrammarCoordinator {
           }
         }))
     present(content, at: point, interactive: true, takeFocus: takeFocus)
+    if let caret { window?.place(near: caret) }
   }
 
   private func present(_ content: AnyView, at point: NSPoint, interactive: Bool, takeFocus: Bool) {
@@ -719,6 +800,9 @@ public final class GrammarCoordinator {
     review.result = nil
     review.failure = nil
     review.phase = .ready
+    review.highlighted = nil
+    review.selected = nil
+    hideUnderlines()
     window?.dismiss()
     window = nil
   }

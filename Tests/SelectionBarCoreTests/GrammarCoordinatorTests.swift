@@ -400,6 +400,94 @@ struct GrammarCoordinatorTests {
     #expect(fixture.windows.last?.topLeft == origin)
     #expect(fixture.coordinator.review.profile.tone == .formal)
   }
+
+  @Test("Suggestions are underlined in the source and follow dismissal, edits, and Escape")
+  func underlineLifecycle() async throws {
+    let fixture = GrammarFixture(mode: .automatic)
+    defer { fixture.close() }
+    fixture.coordinator.handle(.input)
+    await eventually { fixture.underlines.markCount == 2 }
+    let marks = try #require(fixture.underlines.layout?.marks)
+    #expect(marks.map(\.id) == fixture.coordinator.review.suggestions.map(\.id))
+    // "He are" starts at 0 and spans six characters.
+    #expect(marks[0].rects == [CGRect(x: 0, y: 100, width: 60, height: 16)])
+
+    fixture.coordinator.dismissSuggestion(fixture.coordinator.review.suggestions[0])
+    #expect(fixture.underlines.markCount == 1)
+
+    fixture.access.changeText("They is ready, he are.")
+    fixture.coordinator.handle(.changed)
+    #expect(fixture.underlines.layout == nil)
+
+    fixture.coordinator.handle(.input)
+    await eventually { fixture.underlines.markCount == 1 }
+    fixture.coordinator.handle(.dismiss)
+    #expect(fixture.underlines.layout == nil)
+    fixture.coordinator.handle(.input)
+    try await Task.sleep(for: .milliseconds(120))
+    #expect(fixture.underlines.layout == nil)
+  }
+
+  @Test("Clicking an underline opens its suggestion without taking focus from the editor")
+  func underlineClick() async throws {
+    let fixture = GrammarFixture(mode: .automatic)
+    defer { fixture.close() }
+    fixture.coordinator.handle(.input)
+    await eventually { fixture.underlines.markCount == 2 }
+    let second = fixture.coordinator.review.suggestions[1]
+
+    fixture.coordinator.handle(.click(CGPoint(x: 900, y: 300)))
+    #expect(fixture.coordinator.review.highlighted == nil)
+
+    // "They is" starts at 13: x 130–200, and the hit area reaches just below the text.
+    fixture.coordinator.handle(.click(CGPoint(x: 150, y: 98)))
+    #expect(fixture.coordinator.review.highlighted == second.id)
+    #expect(fixture.underlines.highlighted == second.id)
+    #expect(fixture.windows.last?.isVisible == true)
+    #expect(fixture.windows.last?.isKey == false)
+    #expect(fixture.windows.last?.caret == CGRect(x: 130, y: 100, width: 70, height: 16))
+    #expect(await fixture.service.calls.count == 1)
+
+    #expect(fixture.coordinator.review.currentSuggestion?.id == second.id)
+
+    fixture.coordinator.accept([second])
+    await eventually { fixture.coordinator.review.phase == .ready }
+    #expect(fixture.underlines.markCount == 1)
+    // The footer's Accept and Dismiss move on to the remaining suggestion.
+    #expect(
+      fixture.coordinator.review.currentSuggestion?.id
+        == fixture.coordinator.review.suggestions.first?.id)
+  }
+
+  @Test("The review opens beside the caret, and without a known caret near the passage")
+  func panelNearCaret() async throws {
+    let fixture = GrammarFixture(mode: .hotkey)
+    defer { fixture.close() }
+    let caret = CGRect(x: 240, y: 500, width: 1, height: 17)
+    fixture.access.current.caret = caret
+    fixture.coordinator.checkManually()
+    await eventually { fixture.coordinator.review.phase == .ready }
+    #expect(fixture.windows.last?.caret == caret)
+
+    fixture.coordinator.handle(.dismiss)
+    fixture.access.current.caret = nil
+    fixture.access.current.anchor = CGPoint(x: 80, y: 90)
+    fixture.coordinator.checkManually()
+    await eventually { fixture.coordinator.review.phase == .ready }
+    #expect(fixture.windows.last?.caret == nil)
+    #expect(fixture.windows.last?.topLeft == CGPoint(x: 80, y: 90))
+  }
+
+  @Test("Underlines stay off when disabled in settings")
+  func underlinesDisabled() async throws {
+    let fixture = GrammarFixture(mode: .automatic, showsUnderlines: false)
+    defer { fixture.close() }
+    fixture.coordinator.handle(.input)
+    await eventually { fixture.coordinator.review.suggestions.count == 2 }
+    #expect(fixture.underlines.layout == nil)
+    fixture.coordinator.handle(.click(CGPoint(x: 10, y: 105)))
+    #expect(fixture.coordinator.review.highlighted == nil)
+  }
 }
 
 @MainActor
@@ -411,9 +499,13 @@ private final class GrammarFixture {
   let monitor = GrammarTestMonitor()
   let hotKey = GrammarTestHotKey()
   let windows = GrammarTestWindows()
+  let underlines = GrammarTestUnderlines()
   let coordinator: GrammarCoordinator
 
-  init(mode: GrammarTriggerMode, suspended: Bool = false, excludeAutomatic: Bool = false) {
+  init(
+    mode: GrammarTriggerMode, suspended: Bool = false, excludeAutomatic: Bool = false,
+    showsUnderlines: Bool = true
+  ) {
     let keychain = InMemoryKeychain()
     _ = keychain.save(key: "openai_api_key", value: "fixture-key")
     store = SelectionBarSettingsStore(defaults: UserDefaults(suiteName: suite)!, keychain: keychain)
@@ -421,13 +513,14 @@ private final class GrammarFixture {
     store.grammar.mode = mode
     store.grammar.providerID = "openai"
     store.grammar.shortcut = "cmd+ctrl+g"
+    store.grammar.showsUnderlines = showsUnderlines
     if excludeAutomatic {
       store.grammar.excludedApps = [IgnoredApp(id: "grammar.test", name: "Test")]
     }
     service = GrammarTestService(suspended: suspended)
     coordinator = GrammarCoordinator(
       settingsStore: store, access: access, service: service, monitor: monitor, hotKey: hotKey,
-      windowFactory: { [windows] _ in windows.makeWindow() },
+      windowFactory: { [windows] _ in windows.makeWindow() }, underlines: underlines,
       sleep: { _ in try await Task.sleep(for: .milliseconds(20)) })
   }
 
@@ -489,6 +582,24 @@ private final class GrammarTestAccess: GrammarTextAccessing {
       throw GrammarCheckError.changed
     }
     restorations += 1
+  }
+
+  /// Lays text out on one line at 10pt per UTF-16 unit, 16pt tall, starting at (0, 100).
+  func underlineLayout(for suggestions: [GrammarSuggestion], in snapshot: GrammarTextSnapshot)
+    -> GrammarUnderlineLayout?
+  {
+    GrammarUnderlineLayout(
+      visibleFrame: CGRect(x: 0, y: 0, width: 1_000, height: 400),
+      marks: suggestions.map { suggestion in
+        let location = snapshot.checkedRange.location + suggestion.range.location
+        return .init(
+          id: suggestion.id, category: suggestion.category,
+          rects: [
+            CGRect(
+              x: CGFloat(location * 10), y: 100, width: CGFloat(suggestion.range.length * 10),
+              height: 16)
+          ])
+      })
   }
 
   func apply(_ suggestion: GrammarSuggestion, to snapshot: GrammarTextSnapshot) async throws
@@ -584,6 +695,11 @@ private final class GrammarTestWindow: GrammarWindowPresenting {
     topLeft = point
     isVisible = true
   }
+  private(set) var caret: CGRect?
+  func place(near caret: CGRect) {
+    self.caret = caret
+    topLeft = NSPoint(x: caret.minX, y: caret.minY)
+  }
   func update(content: AnyView, interactive: Bool) {}
   func resizeToFit() {}
   func focus() { isKey = true }
@@ -591,4 +707,19 @@ private final class GrammarTestWindow: GrammarWindowPresenting {
     isVisible = false
     isKey = false
   }
+}
+
+@MainActor
+private final class GrammarTestUnderlines: GrammarUnderlinePresenting {
+  private(set) var layout: GrammarUnderlineLayout?
+  private(set) var highlighted: UUID?
+
+  var markCount: Int { layout?.marks.count ?? 0 }
+
+  func show(_ layout: GrammarUnderlineLayout, highlighted: UUID?) {
+    self.layout = layout
+    self.highlighted = highlighted
+  }
+  func highlight(_ id: UUID?) { highlighted = id }
+  func hide() { layout = nil }
 }

@@ -67,8 +67,15 @@ accept both conventions.
 
 Configure a provider and optional model override under **Settings > Grammar**,
 then choose **Hotkey only** or **Automatic + hotkey**. Record a shortcut to check
-selected text, or the current paragraph when nothing is selected. Automatic mode
-checks the current paragraph after a typing pause and shows an issue indicator.
+selected text, or the current paragraph of the focused input box when nothing is
+selected (on a blank line, the paragraph above the caret). Automatic mode checks
+the current paragraph after a typing pause and shows an issue indicator. Input
+boxes in Electron apps such as Slack, Obsidian, and VS Code are supported.
+
+Suggestions are underlined in the source text, like Grammarly: red for
+correctness, blue for clarity, purple for tone. Click an underline to open the
+review at that suggestion without leaving the editor; hovering a suggestion in
+the review highlights its text. Turn this off under **Settings > Grammar**.
 
 Review suggestions before accepting individual changes or applying all of them.
 The panel offers **Grammar only**, **Improve clarity**, and **Rewrite**, with

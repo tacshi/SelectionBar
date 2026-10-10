@@ -78,11 +78,13 @@ public struct GrammarSettings: Codable, Equatable, Sendable {
   public var englishConvention: GrammarEnglishConvention = .both
   public var excludedApps: [IgnoredApp] = []
   public var manualProfile = GrammarWritingProfile()
+  public var showsUnderlines = true
 
   public init() {}
 
   private enum CodingKeys: String, CodingKey {
-    case mode, shortcut, providerID, modelID, englishConvention, excludedApps, manualProfile
+    case mode, shortcut, providerID, modelID, englishConvention, excludedApps, manualProfile,
+      showsUnderlines
   }
 
   public init(from decoder: Decoder) throws {
@@ -101,5 +103,6 @@ public struct GrammarSettings: Codable, Equatable, Sendable {
     manualProfile =
       try values.decodeIfPresent(GrammarWritingProfile.self, forKey: .manualProfile)
       ?? GrammarWritingProfile()
+    showsUnderlines = try values.decodeIfPresent(Bool.self, forKey: .showsUnderlines) ?? true
   }
 }
