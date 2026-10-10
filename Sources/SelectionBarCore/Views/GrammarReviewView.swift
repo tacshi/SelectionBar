@@ -186,6 +186,24 @@ struct GrammarReviewView: View {
       }
       Spacer()
       if state.phase == .applying { ProgressView().controlSize(.small) }
+      if let suggestion = state.currentSuggestion {
+        Button(String(localized: "Dismiss", bundle: .localizedModule)) {
+          userAction { dismiss(suggestion) }
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.secondary)
+        .disabled(state.phase != .ready)
+        .focused($focusedControl, equals: state.sourceCanApply ? nil : .suggestion(suggestion.id))
+        if state.sourceCanApply {
+          Button(String(localized: "Accept", bundle: .localizedModule)) {
+            userAction { accept(suggestion) }
+          }
+          .buttonStyle(.bordered)
+          .controlSize(.small)
+          .disabled(state.phase != .ready)
+          .focused($focusedControl, equals: .suggestion(suggestion.id))
+        }
+      }
       if state.sourceCanApply, state.profile.refinement == .rewrite || state.suggestions.count > 1 {
         Button(
           state.profile.refinement == .rewrite
@@ -255,6 +273,7 @@ struct GrammarReviewView: View {
   }
 
   private func suggestionRow(_ suggestion: GrammarSuggestion) -> some View {
+    let isSelected = state.currentSuggestion?.id == suggestion.id
     let difference = GrammarTextDifference(
       original: suggestion.original, replacement: suggestion.replacement)
     return VStack(alignment: .leading, spacing: 8) {
@@ -273,40 +292,26 @@ struct GrammarReviewView: View {
         }
       }
       .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
-
-      Text(suggestion.explanation)
-        .font(.system(size: 12)).foregroundStyle(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
-      HStack(spacing: 14) {
-        Spacer()
-        Button(String(localized: "Dismiss", bundle: .localizedModule)) {
-          userAction { dismiss(suggestion) }
-        }
-        .buttonStyle(.borderless)
-        .foregroundStyle(.secondary)
-        .focused($focusedControl, equals: state.sourceCanApply ? nil : .suggestion(suggestion.id))
-        if state.sourceCanApply {
-          Button(String(localized: "Accept", bundle: .localizedModule)) {
-            userAction { accept(suggestion) }
-          }
-          .buttonStyle(.bordered)
-          .focused($focusedControl, equals: .suggestion(suggestion.id))
-        }
-      }
-      .controlSize(.small)
-      .disabled(state.phase != .ready)
     }
     .padding(12)
+    .frame(maxWidth: .infinity, alignment: .leading)
     .background(
-      state.highlighted == suggestion.id ? Color.accentColor.opacity(0.1) : .primary.opacity(0.035),
+      isSelected ? Color.accentColor.opacity(0.1) : .primary.opacity(0.035),
       in: RoundedRectangle(cornerRadius: 8)
     )
-    .onHover { hovering in
-      if hovering {
-        highlight(suggestion.id)
-      } else if state.highlighted == suggestion.id {
-        highlight(nil)
+    .overlay {
+      if isSelected, state.suggestions.count > 1 {
+        RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor.opacity(0.5))
       }
+    }
+    .contentShape(RoundedRectangle(cornerRadius: 8))
+    .onTapGesture {
+      state.selected = suggestion.id
+      highlight(suggestion.id)
+    }
+    .help(suggestion.explanation)
+    .onHover { hovering in
+      highlight(hovering ? suggestion.id : state.currentSuggestion?.id)
     }
   }
 

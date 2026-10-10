@@ -336,13 +336,17 @@ public final class GrammarCoordinator {
         }
         self.review.result = nil
         self.review.focus = nil
-        if manual { self.presentReview(at: captured.anchor, takeFocus: true) }
+        if manual {
+          self.presentReview(at: captured.anchor, near: captured.caret, takeFocus: true)
+        }
         self.runCheck(captured, profile: profile, automatic: !manual)
       } catch {
         guard !Task.isCancelled, revision == self.generation else { return }
         if manual {
           self.fail(error, captureFailure: true)
-          self.presentReview(at: previousSource?.anchor ?? fallbackPoint, takeFocus: true)
+          self.presentReview(
+            at: previousSource?.anchor ?? fallbackPoint, near: previousSource?.caret,
+            takeFocus: true)
         }
       }
     }
@@ -659,14 +663,19 @@ public final class GrammarCoordinator {
   func openReview() {
     expanded = true
     if let snapshot, status(of: snapshot) == .changed { markStale() }
-    presentReview(at: snapshot?.anchor ?? NSEvent.mouseLocation, takeFocus: true)
+    presentReview(
+      at: snapshot?.anchor ?? NSEvent.mouseLocation, near: snapshot?.caret, takeFocus: true)
   }
 
   /// Opens the review at one suggestion without taking keyboard focus from the editor.
   private func revealSuggestion(_ id: UUID) {
     expanded = true
+    review.selected = id
     highlight(id)
-    presentReview(at: snapshot?.anchor ?? NSEvent.mouseLocation, takeFocus: false)
+    let underline = underlineLayout?.marks.first { $0.id == id }?.rects.last
+    presentReview(
+      at: snapshot?.anchor ?? NSEvent.mouseLocation, near: underline ?? snapshot?.caret,
+      takeFocus: false)
   }
 
   private func highlight(_ id: UUID?) {
@@ -718,7 +727,7 @@ public final class GrammarCoordinator {
     present(content, at: snapshot.anchor, interactive: false, takeFocus: false)
   }
 
-  private func presentReview(at point: NSPoint, takeFocus: Bool) {
+  private func presentReview(at point: NSPoint, near caret: CGRect?, takeFocus: Bool) {
     let content = AnyView(
       GrammarReviewView(
         state: review,
@@ -751,6 +760,7 @@ public final class GrammarCoordinator {
           }
         }))
     present(content, at: point, interactive: true, takeFocus: takeFocus)
+    if let caret { window?.place(near: caret) }
   }
 
   private func present(_ content: AnyView, at point: NSPoint, interactive: Bool, takeFocus: Bool) {
@@ -791,6 +801,7 @@ public final class GrammarCoordinator {
     review.failure = nil
     review.phase = .ready
     review.highlighted = nil
+    review.selected = nil
     hideUnderlines()
     window?.dismiss()
     window = nil

@@ -445,11 +445,37 @@ struct GrammarCoordinatorTests {
     #expect(fixture.underlines.highlighted == second.id)
     #expect(fixture.windows.last?.isVisible == true)
     #expect(fixture.windows.last?.isKey == false)
+    #expect(fixture.windows.last?.caret == CGRect(x: 130, y: 100, width: 70, height: 16))
     #expect(await fixture.service.calls.count == 1)
+
+    #expect(fixture.coordinator.review.currentSuggestion?.id == second.id)
 
     fixture.coordinator.accept([second])
     await eventually { fixture.coordinator.review.phase == .ready }
     #expect(fixture.underlines.markCount == 1)
+    // The footer's Accept and Dismiss move on to the remaining suggestion.
+    #expect(
+      fixture.coordinator.review.currentSuggestion?.id
+        == fixture.coordinator.review.suggestions.first?.id)
+  }
+
+  @Test("The review opens beside the caret, and without a known caret near the passage")
+  func panelNearCaret() async throws {
+    let fixture = GrammarFixture(mode: .hotkey)
+    defer { fixture.close() }
+    let caret = CGRect(x: 240, y: 500, width: 1, height: 17)
+    fixture.access.current.caret = caret
+    fixture.coordinator.checkManually()
+    await eventually { fixture.coordinator.review.phase == .ready }
+    #expect(fixture.windows.last?.caret == caret)
+
+    fixture.coordinator.handle(.dismiss)
+    fixture.access.current.caret = nil
+    fixture.access.current.anchor = CGPoint(x: 80, y: 90)
+    fixture.coordinator.checkManually()
+    await eventually { fixture.coordinator.review.phase == .ready }
+    #expect(fixture.windows.last?.caret == nil)
+    #expect(fixture.windows.last?.topLeft == CGPoint(x: 80, y: 90))
   }
 
   @Test("Underlines stay off when disabled in settings")
@@ -668,6 +694,11 @@ private final class GrammarTestWindow: GrammarWindowPresenting {
   func showNear(point: NSPoint) {
     topLeft = point
     isVisible = true
+  }
+  private(set) var caret: CGRect?
+  func place(near caret: CGRect) {
+    self.caret = caret
+    topLeft = NSPoint(x: caret.minX, y: caret.minY)
   }
   func update(content: AnyView, interactive: Bool) {}
   func resizeToFit() {}

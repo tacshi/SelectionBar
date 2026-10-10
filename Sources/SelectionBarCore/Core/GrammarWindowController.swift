@@ -8,6 +8,8 @@ protocol GrammarWindowPresenting: AnyObject {
   var isVisible: Bool { get }
   var onDismiss: (() -> Void)? { get set }
   func showNear(point: NSPoint)
+  /// Keeps the panel beside the caret's line, below it when it fits and above otherwise.
+  func place(near caret: CGRect)
   func update(content: AnyView, interactive: Bool)
   func resizeToFit()
   func focus()
@@ -35,6 +37,8 @@ final class GrammarWindowController: NSWindowController, GrammarWindowPresenting
     panel.orderFrontRegardless()
   }
   private let hostingView: NSHostingView<AnyView>
+  private var caret: CGRect?
+  private var placedAbove = false
   var onDismiss: (() -> Void)? {
     didSet { (window as? GrammarPanel)?.dismissAction = onDismiss }
   }
@@ -57,6 +61,8 @@ final class GrammarWindowController: NSWindowController, GrammarWindowPresenting
     super.init(window: panel)
     panel.constrainAfterDrag = { [weak self] in
       guard let self, let anchor = self.topLeft else { return }
+      // A panel the user moved stays where they put it.
+      self.caret = nil
       self.position(topLeft: anchor, screen: self.window?.screen)
     }
   }
@@ -70,6 +76,7 @@ final class GrammarWindowController: NSWindowController, GrammarWindowPresenting
 
   func showNear(point: NSPoint) {
     guard let window else { return }
+    caret = nil
     sizeToFit()
     let size = window.frame.size
     let screen = NSScreen.screens.first { $0.frame.contains(point) } ?? NSScreen.main
@@ -81,12 +88,22 @@ final class GrammarWindowController: NSWindowController, GrammarWindowPresenting
     window.orderFrontRegardless()
   }
 
+  func place(near caret: CGRect) {
+    self.caret = caret
+    placedAbove = false
+    sizeToFit()
+    positionNearCaret()
+    if window?.isVisible == false { window?.orderFrontRegardless() }
+  }
+
   func update(content: AnyView, interactive: Bool) {
     let anchor = topLeft
     hostingView.rootView = content
     (window as? GrammarPanel)?.allowsKeyboardFocus = interactive
     sizeToFit()
-    if let anchor {
+    if caret != nil {
+      positionNearCaret()
+    } else if let anchor {
       let screen = window?.screen ?? NSScreen.screens.first { $0.frame.contains(anchor) }
       position(topLeft: anchor, screen: screen)
     }
@@ -102,7 +119,27 @@ final class GrammarWindowController: NSWindowController, GrammarWindowPresenting
   func resizeToFit() {
     let anchor = topLeft
     sizeToFit()
-    if let anchor { position(topLeft: anchor, screen: window?.screen) }
+    if caret != nil {
+      positionNearCaret()
+    } else if let anchor {
+      position(topLeft: anchor, screen: window?.screen)
+    }
+  }
+
+  private func positionNearCaret() {
+    guard let window, let caret else { return }
+    let gap: CGFloat = 8
+    let screen =
+      NSScreen.screens.first { $0.frame.contains(CGPoint(x: caret.midX, y: caret.midY)) }
+      ?? NSScreen.main
+    let visible = screen?.visibleFrame ?? .infinite
+    // Judge the room below against a full review, not the small checking state, so the panel
+    // does not jump above the caret once results arrive. Once above, it stays above.
+    let expectedHeight = max(window.frame.height, 360)
+    if !placedAbove, caret.minY - gap - expectedHeight < visible.minY { placedAbove = true }
+    let top =
+      placedAbove ? caret.maxY + gap + window.frame.height : caret.minY - gap
+    position(topLeft: NSPoint(x: caret.minX - 24, y: top), screen: screen)
   }
 
   func dismiss() { window?.orderOut(nil) }

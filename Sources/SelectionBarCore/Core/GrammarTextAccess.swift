@@ -263,7 +263,10 @@ final class GrammarTextAccess: GrammarTextAccessing {
       targetID: targetID, processID: app.processIdentifier, bundleID: app.bundleIdentifier ?? "",
       fullText: value, checkedRange: range, selectionRange: selection, text: text,
       anchor: Self.anchor(element, range: value == nil ? nil : range), canApply: canApply,
-      selectedTextAtCapture: selectedTextAtCapture
+      selectedTextAtCapture: selectedTextAtCapture,
+      caret: value.flatMap { value in
+        selection.flatMap { Self.caretRect(element, selection: $0, text: value) }
+      } ?? Self.pointerCaret(in: element, pid: app.processIdentifier)
     )
   }
 
@@ -272,7 +275,11 @@ final class GrammarTextAccess: GrammarTextAccessing {
       let app = NSWorkspace.shared.frontmostApplication,
       app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
       enableAccessibility(for: app),
-      let element = element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
+      // Electron apps can fail the system-wide query (kAXErrorCannotComplete) while their own
+      // application element still reports the focused input box.
+      let element = element(
+        AXUIElementCreateApplication(app.processIdentifier), kAXFocusedUIElementAttribute)
+        ?? element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
     else { throw GrammarCheckError.unavailable }
     var pid: pid_t = 0
     guard AXUIElementGetPid(element, &pid) == .success, pid == app.processIdentifier else {
@@ -437,9 +444,66 @@ final class GrammarTextAccess: GrammarTextAccessing {
         element, kAXBoundsForRangeParameterizedAttribute as CFString, value, &bounds) == .success,
       let bounds, CFGetTypeID(bounds) == AXValueGetTypeID(),
       AXValueGetValue(unsafeDowncast(bounds, to: AXValue.self), .cgRect, &rect),
-      rect.width > 0, rect.height > 0
+      rect.width >= 0, rect.height > 0
     else { return nil }
     return appKitRect(rect)
+  }
+
+  /// Without text geometry (clipboard capture, or editors such as Zed that expose almost nothing),
+  /// the pointer is the best guess at where the user is working, as long as it is over the source.
+  private static func pointerCaret(in element: AXUIElement, pid: pid_t) -> CGRect? {
+    let pointer = NSEvent.mouseLocation
+    guard
+      let area = frame(element).flatMap({ $0.width > 0 && $0.height > 0 ? $0 : nil })
+        ?? frontWindowFrame(pid: pid), area.contains(pointer)
+    else { return nil }
+    return CGRect(x: pointer.x, y: pointer.y - 9, width: 1, height: 18)
+  }
+
+  /// The app's frontmost on-screen window from the window server, which needs no Accessibility.
+  private static func frontWindowFrame(pid: pid_t) -> CGRect? {
+    guard
+      let windows = CGWindowListCopyWindowInfo(
+        [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+    else { return nil }
+    // The list is ordered front to back.
+    for info in windows {
+      guard info[kCGWindowOwnerPID as String] as? pid_t == pid,
+        info[kCGWindowLayer as String] as? Int == 0,
+        let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+        let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary)
+      else { continue }
+      return appKitRect(rect)
+    }
+    return nil
+  }
+
+  /// A thin rect at the caret, or the last line of a selection.
+  private static func caretRect(_ element: AXUIElement, selection: NSRange, text: String)
+    -> CGRect?
+  {
+    let string = text as NSString
+    guard NSMaxRange(selection) <= string.length else { return nil }
+    if selection.length > 0 {
+      return lineRanges(element, covering: selection).last.flatMap { bounds(element, $0) }
+    }
+    let caret = selection.location
+    let isLineBreak = { (index: Int) in
+      CharacterSet.newlines.contains(UnicodeScalar(string.character(at: index)) ?? " ")
+    }
+    // Zero-length ranges are unreliable across editors, so measure a neighbouring character on
+    // the caret's own line.
+    if caret > 0, !isLineBreak(caret - 1),
+      let before = bounds(element, NSRange(location: caret - 1, length: 1)), before.width > 0
+    {
+      return CGRect(x: before.maxX, y: before.minY, width: 1, height: before.height)
+    }
+    if caret < string.length, !isLineBreak(caret),
+      let after = bounds(element, NSRange(location: caret, length: 1)), after.width > 0
+    {
+      return CGRect(x: after.minX, y: after.minY, width: 1, height: after.height)
+    }
+    return bounds(element, NSRange(location: caret, length: 0))
   }
 
   /// An element's frame, converted to AppKit screen coordinates.

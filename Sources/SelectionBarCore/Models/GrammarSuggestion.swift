@@ -35,6 +35,8 @@ struct GrammarTextSnapshot: Equatable {
   var anchor: CGPoint
   var canApply: Bool
   var selectedTextAtCapture: String? = nil
+  /// The caret's line (or the end of the selection) in AppKit screen coordinates, when known.
+  var caret: CGRect? = nil
 
   func hasSameContent(as other: Self) -> Bool {
     targetID == other.targetID && processID == other.processID
