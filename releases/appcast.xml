@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>1.2.1</title>
+            <pubDate>Sat, 10 Oct 2026 19:23:39 +1300</pubDate>
+            <sparkle:version>32</sparkle:version>
+            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 1.2.1</h2><ul><li>Grammar input capture (#34)</li><li>Use Swift Build backend for app packaging</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.2.1/SelectionBar-1.2.1.dmg" length="7921402" type="application/octet-stream" sparkle:edSignature="/mhsmNRAq0wLpj7Is3yuUslCDnObgD0zHfW2EFIP46DGVn7dCE0GEjYl63598IVh4GfeIGGEAZCuW5Zm6TqQAg=="/>
+        </item>
+        <item>
             <title>1.2.0</title>
             <pubDate>Tue, 06 Oct 2026 15:37:15 +1300</pubDate>
             <sparkle:version>31</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 1.1.1</h2><ul><li>Allow activation key to reveal existing text selection (#32)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.1.1/SelectionBar-1.1.1.dmg" length="7003178" type="application/octet-stream" sparkle:edSignature="Ff0e3tnp4qJeBBkFABwMYvo+lngTJ8VNGrqMKhMWICvFJkvkxaFHXxcyNchy8RhK8yZzdqpoXQzGZ3MToe4gDg=="/>
-        </item>
-        <item>
-            <title>1.1.0</title>
-            <pubDate>Sat, 05 Sep 2026 16:29:26 +1200</pubDate>
-            <sparkle:version>29</sparkle:version>
-            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 1.1.0</h2><ul><li>Add Traditional Chinese localization (#31)</li><li>Fix packaged app resource bundle lookup (#30)</li><li>Add clean copy and rewrite action (#29)</li><li>Add clean copy and rewrite action</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.1.0/SelectionBar-1.1.0.dmg" length="6941295" type="application/octet-stream" sparkle:edSignature="8hbGg/ce9JR0gch7KbhX5IYDn0D6Qd63sPiFR/jjAnttzPup/8yK/UwcSpujMNQSvGRP0i1Z4RxsgrzwWC3bDg=="/>
         </item>
     </channel>
 </rss>
