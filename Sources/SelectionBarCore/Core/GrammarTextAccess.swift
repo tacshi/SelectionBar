@@ -141,7 +141,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
     guard status != .differentContext, !requireUnchanged || status == .current,
       let target, let app = NSRunningApplication(processIdentifier: snapshot.processID)
     else { throw GrammarCheckError.changed }
-    if GrammarWindowController.ownsKeyboardFocus { NSApp.keyWindow?.resignKey() }
+    GrammarWindowController.releaseKeyboardFocus()
     app.activate(options: [])
     if let targetWindow { AXUIElementPerformAction(targetWindow, kAXRaiseAction as CFString) }
     if Self.isSettable(target, kAXFocusedAttribute) {
@@ -175,20 +175,37 @@ final class GrammarTextAccess: GrammarTextAccessing {
     updated.text = GrammarText.replacing(snapshot.text, with: [suggestion])
     updated.checkedRange.length += suggestion.replacement.utf16.count - suggestion.range.length
     updated.selectionRange = nil
+    let select = {
+      guard self.isCurrent(snapshot, checkSelection: false) else { return false }
+      var range = CFRange(location: absolute.location, length: absolute.length)
+      guard let value = AXValueCreate(.cfRange, &range),
+        AXUIElementSetAttributeValue(target, kAXSelectedTextRangeAttribute as CFString, value)
+          == .success
+      else { return false }
+      return self.isCurrent(snapshot, checkSelection: false)
+        && Self.range(target, kAXSelectedTextRangeAttribute) == absolute
+    }
+    // Writing the selection through Accessibility needs neither keyboard focus nor the clipboard.
+    // Editors route it through their normal text input, so it behaves like typing.
+    if Self.isSettable(target, kAXSelectedTextAttribute), select(),
+      AXUIElementSetAttributeValue(
+        target, kAXSelectedTextAttribute as CFString, suggestion.replacement as CFString)
+        == .success
+    {
+      for _ in 0..<8 {
+        if isCurrent(updated, checkSelection: false) {
+          updated.selectionRange = Self.range(target, kAXSelectedTextRangeAttribute)
+          return updated
+        }
+        try await Task.sleep(for: .milliseconds(50))
+      }
+      // Some editors accept the write but ignore it. Only an untouched source is safe to paste
+      // into; anything else risks applying the edit twice.
+      guard isCurrent(snapshot, checkSelection: false) else { throw GrammarCheckError.applyFailed }
+    }
     try await clipboard.replaceVerifiedText(
-      with: suggestion.replacement,
-      prepare: {
-        guard self.isCurrent(snapshot, checkSelection: false) else { return false }
-        var range = CFRange(location: absolute.location, length: absolute.length)
-        guard let value = AXValueCreate(.cfRange, &range),
-          AXUIElementSetAttributeValue(target, kAXSelectedTextRangeAttribute as CFString, value)
-            == .success
-        else { return false }
-        return self.isCurrent(snapshot, checkSelection: false)
-          && Self.range(target, kAXSelectedTextRangeAttribute) == absolute
-      },
-      verify: { self.isCurrent(updated, checkSelection: false) }
-    )
+      with: suggestion.replacement, prepare: select,
+      verify: { self.isCurrent(updated, checkSelection: false) })
     updated.selectionRange = Self.range(target, kAXSelectedTextRangeAttribute)
     return updated
   }

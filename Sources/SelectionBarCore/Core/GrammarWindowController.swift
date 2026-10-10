@@ -26,6 +26,14 @@ private final class GrammarPanel: NSPanel {
 @MainActor
 final class GrammarWindowController: NSWindowController, GrammarWindowPresenting {
   static var ownsKeyboardFocus: Bool { NSApp.keyWindow is GrammarPanel }
+
+  /// Hands keyboard input back to the app underneath. A non-activating panel keeps receiving
+  /// keystrokes until it leaves the screen; calling `resignKey()` only updates AppKit's own state.
+  static func releaseKeyboardFocus() {
+    guard let panel = NSApp.keyWindow as? GrammarPanel else { return }
+    panel.orderOut(nil)
+    panel.orderFrontRegardless()
+  }
   private let hostingView: NSHostingView<AnyView>
   var onDismiss: (() -> Void)? {
     didSet { (window as? GrammarPanel)?.dismissAction = onDismiss }

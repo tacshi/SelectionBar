@@ -283,7 +283,7 @@ public final class GrammarCoordinator {
           if let previousSource {
             try await self.access.prepareSource(previousSource, requireUnchanged: false)
           } else if let app = self.sourceApplication {
-            if GrammarWindowController.ownsKeyboardFocus { NSApp.keyWindow?.resignKey() }
+            GrammarWindowController.releaseKeyboardFocus()
             app.activate(options: [])
             try await Task.sleep(for: .milliseconds(50))
             guard
