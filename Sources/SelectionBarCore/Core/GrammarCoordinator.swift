@@ -17,6 +17,7 @@ public final class GrammarCoordinator {
   @ObservationIgnored private let windowFactory: (AnyView) -> any GrammarWindowPresenting
   @ObservationIgnored private let underlines: any GrammarUnderlinePresenting
   @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
+  @ObservationIgnored private let autoCloseDelay: Duration
   @ObservationIgnored private var window: (any GrammarWindowPresenting)?
   @ObservationIgnored private var debounceTask: Task<Void, Never>?
   @ObservationIgnored private var eventTask: Task<Void, Never>?
@@ -24,6 +25,8 @@ public final class GrammarCoordinator {
   @ObservationIgnored private var requestTask: Task<Void, Never>?
   @ObservationIgnored private var mutationTask: Task<Void, Never>?
   @ObservationIgnored private var underlineTask: Task<Void, Never>?
+  @ObservationIgnored private var autoCloseTask: Task<Void, Never>?
+  @ObservationIgnored private var isPanelHovered = false
   @ObservationIgnored private var underlineLayout: GrammarUnderlineLayout?
   @ObservationIgnored private var generation = 0
   @ObservationIgnored private var isStopped = false
@@ -79,7 +82,8 @@ public final class GrammarCoordinator {
     hotKey: any GrammarHotKeyRegistering,
     windowFactory: @escaping (AnyView) -> any GrammarWindowPresenting,
     underlines: any GrammarUnderlinePresenting,
-    sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+    autoCloseDelay: Duration = .milliseconds(1500)
   ) {
     self.settingsStore = settingsStore
     self.access = access
@@ -89,6 +93,7 @@ public final class GrammarCoordinator {
     self.windowFactory = windowFactory
     self.underlines = underlines
     self.sleep = sleep
+    self.autoCloseDelay = autoCloseDelay
     observeSettings()
   }
 
@@ -520,6 +525,7 @@ public final class GrammarCoordinator {
         self.refreshUnderlines()
         self.moveFocus(afterRemovingAt: removedIndex)
         if restorePanelFocus { self.window?.focus() }
+        self.scheduleAutoClose()
       } catch {
         guard self.generation == revision else { return }
         self.clearUndo()
@@ -586,6 +592,30 @@ public final class GrammarCoordinator {
     cacheResult()
     refreshUnderlines()
     moveFocus(afterRemovingAt: index)
+    scheduleAutoClose()
+  }
+
+  /// Closes a finished review after a pause that keeps its summary and Undo reachable.
+  private func scheduleAutoClose() {
+    guard review.phase == .completed, !isPanelHovered else { return }
+    autoCloseTask?.cancel()
+    let revision = generation
+    autoCloseTask = Task { [weak self, autoCloseDelay] in
+      do { try await Task.sleep(for: autoCloseDelay) } catch { return }
+      guard let self, !Task.isCancelled, self.generation == revision,
+        self.review.phase == .completed, !self.isPanelHovered
+      else { return }
+      self.closeReview()
+    }
+  }
+
+  func panelHoverChanged(_ hovering: Bool) {
+    isPanelHovered = hovering
+    if hovering {
+      autoCloseTask?.cancel()
+    } else {
+      scheduleAutoClose()
+    }
   }
 
   private func moveFocus(afterRemovingAt index: Int) {
@@ -753,6 +783,7 @@ public final class GrammarCoordinator {
         enableClipboard: { [weak self] in self?.enableClipboardFallback() },
         close: { [weak self] in self?.handle(.dismiss) },
         highlight: { [weak self] in self?.highlight($0) },
+        hover: { [weak self] in self?.panelHoverChanged($0) },
         resize: { [weak self] in
           Task { @MainActor [weak self] in
             await Task.yield()
@@ -789,6 +820,7 @@ public final class GrammarCoordinator {
     captureTask?.cancel()
     requestTask?.cancel()
     mutationTask?.cancel()
+    autoCloseTask?.cancel()
   }
 
   private func closeReview() {
@@ -803,6 +835,7 @@ public final class GrammarCoordinator {
     review.highlighted = nil
     review.selected = nil
     hideUnderlines()
+    isPanelHovered = false
     window?.dismiss()
     window = nil
   }
