@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>1.2.2</title>
+            <pubDate>Sun, 11 Oct 2026 10:12:19 +1300</pubDate>
+            <sparkle:version>33</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 1.2.2</h2><ul><li>Auto-close the Grammar panel once the review is finished (#35)</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.2.2/SelectionBar-1.2.2.dmg" length="7926599" type="application/octet-stream" sparkle:edSignature="Vs9d13YvPjv/bN0kr+tMz9wM6FwQxxNgT6AaIi700mDooOnsslABKiBE0QsZMx644pvll0/grT2Qg4qV/hjmAQ=="/>
+        </item>
+        <item>
             <title>1.2.1</title>
             <pubDate>Sat, 10 Oct 2026 19:23:39 +1300</pubDate>
             <sparkle:version>32</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 1.2.0</h2><ul><li>Grammar (#33)</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.2.0/SelectionBar-1.2.0.dmg" length="7682888" type="application/octet-stream" sparkle:edSignature="HS7TRmmVMH94MRACRUZpV/JHV7VP58lzCrE0ZwQs8bkPkz7ylLOi2a34aUJDZUj9sIWJ6T03xIGIIcqoiuVUAQ=="/>
-        </item>
-        <item>
-            <title>1.1.1</title>
-            <pubDate>Fri, 02 Oct 2026 20:39:59 +1300</pubDate>
-            <sparkle:version>30</sparkle:version>
-            <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 1.1.1</h2><ul><li>Allow activation key to reveal existing text selection (#32)</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.1.1/SelectionBar-1.1.1.dmg" length="7003178" type="application/octet-stream" sparkle:edSignature="Ff0e3tnp4qJeBBkFABwMYvo+lngTJ8VNGrqMKhMWICvFJkvkxaFHXxcyNchy8RhK8yZzdqpoXQzGZ3MToe4gDg=="/>
         </item>
     </channel>
 </rss>
