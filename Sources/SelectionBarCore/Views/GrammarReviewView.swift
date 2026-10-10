@@ -30,12 +30,14 @@ struct GrammarReviewView: View {
   let settings: () -> Void
   let enableClipboard: () -> Void
   let close: () -> Void
+  var highlight: (UUID?) -> Void = { _ in }
   var resize: () -> Void = {}
 
   @State private var showOriginal = false
   @State private var visibleSuggestion: UUID?
   @State private var contentHeight: CGFloat = 0
   @State private var restoreKeyboardFocus = false
+  @State private var hoveringSuggestions = false
   @FocusState private var focusedControl: GrammarReviewFocus?
 
   var body: some View {
@@ -106,6 +108,7 @@ struct GrammarReviewView: View {
           .background(heightReader)
         }
         .scrollPosition(id: $visibleSuggestion, anchor: .top)
+        .onHover { hoveringSuggestions = $0 }
         .frame(height: max(48, contentHeight))
       } else if state.phase == .ready || state.phase == .completed {
         Text(state.completionText).font(.callout).foregroundStyle(.secondary)
@@ -143,6 +146,11 @@ struct GrammarReviewView: View {
         await Task.yield()
         if state.focusRevision == revision { focusedControl = target }
       }
+    }
+    .onAppear { if let id = state.highlighted { visibleSuggestion = id } }
+    .onChange(of: state.highlighted) { _, id in
+      // Hovering a row also highlights it; only scroll for one that is out of view.
+      if let id, visibleSuggestion != id, !hoveringSuggestions { visibleSuggestion = id }
     }
     .onChange(of: state.suggestions.map(\.id)) { old, new in
       if let visibleSuggestion, !new.contains(visibleSuggestion),
@@ -289,7 +297,17 @@ struct GrammarReviewView: View {
       .disabled(state.phase != .ready)
     }
     .padding(12)
-    .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+    .background(
+      state.highlighted == suggestion.id ? Color.accentColor.opacity(0.1) : .primary.opacity(0.035),
+      in: RoundedRectangle(cornerRadius: 8)
+    )
+    .onHover { hovering in
+      if hovering {
+        highlight(suggestion.id)
+      } else if state.highlighted == suggestion.id {
+        highlight(nil)
+      }
+    }
   }
 
   private func differenceText(_ runs: [GrammarTextDifference.Run], removals: Bool) -> Text {

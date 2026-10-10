@@ -28,6 +28,8 @@ final class GrammarReviewState {
   var dismissedCount = 0
   var focus: GrammarReviewFocus?
   var focusRevision = 0
+  /// The suggestion highlighted in the source text and scrolled into view in the review.
+  var highlighted: UUID?
 
   func requestFocus(_ target: GrammarReviewFocus) {
     focus = target

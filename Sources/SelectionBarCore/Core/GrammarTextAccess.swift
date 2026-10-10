@@ -11,6 +11,8 @@ protocol GrammarTextAccessing: AnyObject {
   func prepareSource(_ snapshot: GrammarTextSnapshot, requireUnchanged: Bool) async throws
   func apply(_ suggestion: GrammarSuggestion, to snapshot: GrammarTextSnapshot) async throws
     -> GrammarTextSnapshot
+  func underlineLayout(for suggestions: [GrammarSuggestion], in snapshot: GrammarTextSnapshot)
+    -> GrammarUnderlineLayout?
 }
 
 @MainActor
@@ -191,6 +193,48 @@ final class GrammarTextAccess: GrammarTextAccessing {
     return updated
   }
 
+  func underlineLayout(for suggestions: [GrammarSuggestion], in snapshot: GrammarTextSnapshot)
+    -> GrammarUnderlineLayout?
+  {
+    // Ranges only map onto the editor when its full text was read at capture.
+    guard snapshot.targetID == targetID, let target, let fullText = snapshot.fullText,
+      var visible = Self.frame(target)
+    else { return nil }
+    for ancestor in Self.ancestors(of: target).dropFirst() {
+      let role = Self.string(ancestor, kAXRoleAttribute)
+      guard role == kAXScrollAreaRole || role == "AXWebArea" || role == kAXWindowRole,
+        let frame = Self.frame(ancestor)
+      else { continue }
+      visible = visible.intersection(frame)
+    }
+    guard !visible.isNull, visible.width > 0, visible.height > 0 else { return nil }
+    let length = fullText.utf16.count
+    // A hung editor must not stall the main thread for every suggestion.
+    let deadline = Date().addingTimeInterval(0.15)
+    var marks: [GrammarUnderlineLayout.Mark] = []
+    for suggestion in suggestions {
+      guard Date() < deadline else { break }
+      var absolute = NSRange(
+        location: snapshot.checkedRange.location + suggestion.range.location,
+        length: suggestion.range.length)
+      if absolute.length == 0 {
+        // Insertions have no text of their own; mark the character before the gap.
+        absolute =
+          absolute.location > 0
+          ? NSRange(location: absolute.location - 1, length: 1)
+          : NSRange(location: 0, length: min(1, length))
+      }
+      guard absolute.length > 0, NSMaxRange(absolute) <= length else { continue }
+      let rects = Self.lineRanges(target, covering: absolute).compactMap { range in
+        Self.bounds(target, range).map { $0.intersection(visible) }
+      }.filter { !$0.isNull && $0.width > 0 && $0.height > 0 }
+      if !rects.isEmpty {
+        marks.append(.init(id: suggestion.id, category: suggestion.category, rects: rects))
+      }
+    }
+    return GrammarUnderlineLayout(visibleFrame: visible, marks: marks)
+  }
+
   private func snapshot(
     app: NSRunningApplication, element: AXUIElement, value: String?, range: NSRange,
     selection: NSRange?, text: String, canApply: Bool, selectedTextAtCapture: String? = nil
@@ -329,6 +373,75 @@ final class GrammarTextAccess: GrammarTextAccessing {
       return count > 0
     }
     return true
+  }
+
+  /// Splits a range at visual line breaks so a wrapped suggestion gets one rect per line.
+  private static func lineRanges(_ element: AXUIElement, covering range: NSRange) -> [NSRange] {
+    guard
+      let first = parameterized(element, kAXLineForIndexParameterizedAttribute, range.location)
+        as? Int,
+      let last = parameterized(
+        element, kAXLineForIndexParameterizedAttribute, NSMaxRange(range) - 1) as? Int,
+      last >= first, last - first < 20
+    else { return [range] }
+    let lines = (first...last).compactMap { line -> NSRange? in
+      guard let value = parameterized(element, kAXRangeForLineParameterizedAttribute, line),
+        CFGetTypeID(value) == AXValueGetTypeID()
+      else { return nil }
+      var lineRange = CFRange()
+      guard AXValueGetValue(unsafeDowncast(value, to: AXValue.self), .cfRange, &lineRange) else {
+        return nil
+      }
+      let piece = NSIntersectionRange(
+        range, NSRange(location: lineRange.location, length: lineRange.length))
+      return piece.length > 0 ? piece : nil
+    }
+    return lines.isEmpty ? [range] : lines
+  }
+
+  private static func parameterized(_ element: AXUIElement, _ name: String, _ index: Int)
+    -> CFTypeRef?
+  {
+    var result: CFTypeRef?
+    guard
+      AXUIElementCopyParameterizedAttributeValue(
+        element, name as CFString, index as CFNumber, &result) == .success
+    else { return nil }
+    return result
+  }
+
+  /// Bounds of a text range, converted to AppKit screen coordinates.
+  private static func bounds(_ element: AXUIElement, _ range: NSRange) -> CGRect? {
+    var cfRange = CFRange(location: range.location, length: range.length)
+    var bounds: CFTypeRef?
+    var rect = CGRect.zero
+    guard let value = AXValueCreate(.cfRange, &cfRange),
+      AXUIElementCopyParameterizedAttributeValue(
+        element, kAXBoundsForRangeParameterizedAttribute as CFString, value, &bounds) == .success,
+      let bounds, CFGetTypeID(bounds) == AXValueGetTypeID(),
+      AXValueGetValue(unsafeDowncast(bounds, to: AXValue.self), .cgRect, &rect),
+      rect.width > 0, rect.height > 0
+    else { return nil }
+    return appKitRect(rect)
+  }
+
+  /// An element's frame, converted to AppKit screen coordinates.
+  private static func frame(_ element: AXUIElement) -> CGRect? {
+    var position = CGPoint.zero
+    var size = CGSize.zero
+    guard let positionValue = attribute(element, kAXPositionAttribute),
+      CFGetTypeID(positionValue) == AXValueGetTypeID(),
+      let sizeValue = attribute(element, kAXSizeAttribute),
+      CFGetTypeID(sizeValue) == AXValueGetTypeID(),
+      AXValueGetValue(unsafeDowncast(positionValue, to: AXValue.self), .cgPoint, &position),
+      AXValueGetValue(unsafeDowncast(sizeValue, to: AXValue.self), .cgSize, &size)
+    else { return nil }
+    return appKitRect(CGRect(origin: position, size: size))
+  }
+
+  private static func appKitRect(_ rect: CGRect) -> CGRect {
+    let desktopTop = NSScreen.screens.first?.frame.maxY ?? 0
+    return CGRect(x: rect.minX, y: desktopTop - rect.maxY, width: rect.width, height: rect.height)
   }
 
   private static func anchor(_ element: AXUIElement, range: NSRange?) -> CGPoint {

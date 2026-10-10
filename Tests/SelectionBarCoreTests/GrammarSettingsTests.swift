@@ -38,6 +38,7 @@ struct GrammarSettingsTests {
     store.grammar.englishConvention = .british
     store.grammar.manualProfile = GrammarWritingProfile(refinement: .rewrite, tone: .formal)
     store.grammar.excludedApps = [IgnoredApp(id: "test.app", name: "Test")]
+    store.grammar.showsUnderlines = false
     store.flushPendingWrites()
     let restored = SelectionBarSettingsStore(
       defaults: defaults, storageKey: "settings", keychain: InMemoryKeychain())
@@ -48,7 +49,7 @@ struct GrammarSettingsTests {
     #expect(
       Set(grammar.keys) == [
         "mode", "shortcut", "providerID", "modelID", "englishConvention", "excludedApps",
-        "manualProfile",
+        "manualProfile", "showsUnderlines",
       ])
   }
 }

@@ -5830,6 +5830,50 @@
           }
         }
       }
+    },
+    "Underline issues in text": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキスト内の問題に下線を表示"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在文本中为问题添加下划线"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在文字中為問題加上底線"
+          }
+        }
+      }
+    },
+    "Suggestions are underlined in the editor. Click an underline to review it.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提案はエディタ内に下線で表示されます。下線をクリックすると確認できます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建议会在编辑器中以下划线标出。点击下划线即可查看。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建議會在編輯器中以底線標示。按一下底線即可檢視。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
