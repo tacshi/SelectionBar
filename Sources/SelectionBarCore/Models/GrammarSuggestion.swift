@@ -90,7 +90,19 @@ enum GrammarText {
     guard Range(selection, in: text) != nil else { throw GrammarCheckError.unavailable }
     if preferSelection && selection.length > 0 { return selection }
     // Paragraph boundaries come from the editor's text, not visual line wrapping.
-    return (text as NSString).paragraphRange(for: NSRange(location: selection.location, length: 0))
+    let string = text as NSString
+    var range = string.paragraphRange(for: NSRange(location: selection.location, length: 0))
+    // A caret on a blank line (e.g. just after Return) refers to the paragraph above it.
+    var previous = range
+    while string.substring(with: previous).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      previous.location > 0
+    {
+      previous = string.paragraphRange(for: NSRange(location: previous.location - 1, length: 0))
+    }
+    if !string.substring(with: previous).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      range = previous
+    }
+    return range
   }
 
   static func validate(_ text: String) throws {

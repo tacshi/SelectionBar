@@ -132,6 +132,25 @@ struct GrammarTextCaptureTests {
         == "Second paragraph.")
   }
 
+  @Test("A caret on a blank line checks the paragraph above it", arguments: [17, 18, 19])
+  func blankLineParagraph(caret: Int) throws {
+    let text = "First paragraph.\n\n\n"
+    let editor = GrammarAccessibleText(
+      fullText: text, selectedRange: NSRange(location: caret, length: 0), isEditable: true)
+    let result = try GrammarTextCapture.resolve([editor], preferSelection: true)
+    #expect(result.text == "First paragraph.\n")
+    #expect(result.checkedRange == NSRange(location: 0, length: 17))
+  }
+
+  @Test("A caret inside a paragraph never widens to its neighbours")
+  func paragraphOnly() throws {
+    let text = "One.\n\nTwo is here.\nThree."
+    let editor = GrammarAccessibleText(
+      fullText: text, selectedRange: NSRange(location: 9, length: 0), isEditable: true)
+    #expect(
+      try GrammarTextCapture.resolve([editor], preferSelection: true).text == "Two is here.\n")
+  }
+
   @Test("Genuinely empty fields and missing Accessibility data retain distinct errors")
   func noText() {
     let empty = GrammarAccessibleText(

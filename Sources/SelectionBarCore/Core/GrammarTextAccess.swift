@@ -27,7 +27,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
     guard !candidates.contains(where: Self.isComposing) else { throw GrammarCheckError.composition }
 
     let sources = candidates.map { element in
-      let value = Self.string(element, kAXValueAttribute)
+      let value = Self.value(element)
       let selection = Self.range(element, kAXSelectedTextRangeAttribute)
       let editable = value != nil && selection != nil && Self.isEditable(element)
       return GrammarAccessibleText(
@@ -78,7 +78,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
       !ancestors.contains(where: Self.isSecure), !ancestors.contains(where: Self.isComposing)
     else { return false }
     if let fullText = snapshot.fullText {
-      guard GrammarText.identical(Self.string(target, kAXValueAttribute), fullText) else {
+      guard GrammarText.identical(Self.value(target), fullText) else {
         return false
       }
     } else if let selected = snapshot.selectedTextAtCapture {
@@ -119,7 +119,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
     guard !ancestors.contains(where: Self.isSecure) else { return .differentContext }
     guard !ancestors.contains(where: Self.isComposing) else { return .changed }
     if let fullText = snapshot.fullText {
-      return GrammarText.identical(Self.string(target, kAXValueAttribute), fullText)
+      return GrammarText.identical(Self.value(target), fullText)
         ? .current : .changed
     }
     if let selected = snapshot.selectedTextAtCapture {
@@ -210,6 +210,7 @@ final class GrammarTextAccess: GrammarTextAccessing {
     guard AXIsProcessTrusted(), !IsSecureEventInputEnabled(),
       let app = NSWorkspace.shared.frontmostApplication,
       app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
+      enableAccessibility(for: app),
       let element = element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
     else { throw GrammarCheckError.unavailable }
     var pid: pid_t = 0
@@ -218,6 +219,28 @@ final class GrammarTextAccess: GrammarTextAccessing {
     }
     AXUIElementSetMessagingTimeout(element, 0.25)
     return (app, element)
+  }
+
+  private static var accessibilityEnabledPIDs: Set<pid_t> = []
+
+  /// Electron apps build their Accessibility tree only after a client opts in. Without this the
+  /// focused input box is invisible. Always returns true so it can sit in a guard chain.
+  private static func enableAccessibility(for app: NSRunningApplication) -> Bool {
+    let pid = app.processIdentifier
+    guard !accessibilityEnabledPIDs.contains(pid) else { return true }
+    accessibilityEnabledPIDs = accessibilityEnabledPIDs.filter {
+      NSRunningApplication(processIdentifier: $0) != nil
+    }
+    accessibilityEnabledPIDs.insert(pid)
+    guard let bundleURL = app.bundleURL,
+      FileManager.default.fileExists(
+        atPath: bundleURL.appendingPathComponent(
+          "Contents/Frameworks/Electron Framework.framework"
+        ).path)
+    else { return true }
+    AXUIElementSetAttributeValue(
+      AXUIElementCreateApplication(pid), "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    return true
   }
 
   static func ancestors(of element: AXUIElement) -> [AXUIElement] {
@@ -241,6 +264,22 @@ final class GrammarTextAccess: GrammarTextAccessing {
 
   static func string(_ element: AXUIElement, _ name: String) -> String? {
     attribute(element, name) as? String
+  }
+
+  /// Some editors omit AXValue but still expose their text through ranged reads.
+  static func value(_ element: AXUIElement) -> String? {
+    if let value = string(element, kAXValueAttribute) { return value }
+    guard let count = attribute(element, kAXNumberOfCharactersAttribute) as? Int, count > 0,
+      count <= 500_000
+    else { return nil }
+    var range = CFRange(location: 0, length: count)
+    var result: CFTypeRef?
+    guard let parameter = AXValueCreate(.cfRange, &range),
+      AXUIElementCopyParameterizedAttributeValue(
+        element, kAXStringForRangeParameterizedAttribute as CFString, parameter, &result)
+        == .success
+    else { return nil }
+    return result as? String
   }
 
   static func element(_ element: AXUIElement, _ name: String) -> AXUIElement? {
