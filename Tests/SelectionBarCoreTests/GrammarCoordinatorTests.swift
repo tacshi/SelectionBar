@@ -308,6 +308,55 @@ struct GrammarCoordinatorTests {
     #expect(fixture.access.restorations == 4)
   }
 
+  @Test("A finished review closes itself after Apply All or dismissing the last suggestion")
+  func autoCloseWhenFinished() async throws {
+    let applied = GrammarFixture(mode: .hotkey, autoCloseDelay: .milliseconds(30))
+    defer { applied.close() }
+    applied.coordinator.checkManually()
+    await eventually { applied.coordinator.review.phase == .ready }
+    applied.coordinator.applyAll()
+    await eventually { applied.coordinator.review.phase == .completed }
+    #expect(applied.windows.last?.isVisible == true)
+    await eventually { applied.windows.last?.isVisible == false }
+
+    let dismissed = GrammarFixture(mode: .hotkey, autoCloseDelay: .milliseconds(30))
+    defer { dismissed.close() }
+    dismissed.coordinator.checkManually()
+    await eventually { dismissed.coordinator.review.phase == .ready }
+    for suggestion in dismissed.coordinator.review.suggestions {
+      dismissed.coordinator.dismissSuggestion(suggestion)
+    }
+    #expect(dismissed.coordinator.review.phase == .completed)
+    await eventually { dismissed.windows.last?.isVisible == false }
+  }
+
+  @Test("Pending suggestions, Undo, and hovering keep the review open")
+  func autoCloseDeferred() async throws {
+    let fixture = GrammarFixture(mode: .hotkey, autoCloseDelay: .milliseconds(30))
+    defer { fixture.close() }
+    fixture.coordinator.checkManually()
+    await eventually { fixture.coordinator.review.phase == .ready }
+    fixture.coordinator.accept([fixture.coordinator.review.suggestions[0]])
+    await eventually { fixture.coordinator.review.phase == .ready }
+    try await Task.sleep(for: .milliseconds(120))
+    #expect(fixture.windows.last?.isVisible == true)
+
+    fixture.coordinator.accept(fixture.coordinator.review.suggestions)
+    await eventually { fixture.coordinator.review.phase == .completed }
+    fixture.coordinator.undo()
+    await eventually { fixture.coordinator.review.phase == .ready }
+    try await Task.sleep(for: .milliseconds(120))
+    #expect(fixture.windows.last?.isVisible == true)
+
+    fixture.coordinator.panelHoverChanged(true)
+    fixture.coordinator.applyAll()
+    await eventually { fixture.coordinator.review.phase == .completed }
+    try await Task.sleep(for: .milliseconds(120))
+    #expect(fixture.windows.last?.isVisible == true)
+    fixture.coordinator.panelHoverChanged(false)
+    await eventually { fixture.windows.last?.isVisible == false }
+  }
+
   @Test("Rewrite preview retains its original and supports Apply and Undo")
   func rewriteApplyUndo() async throws {
     let fixture = GrammarFixture(mode: .hotkey)
@@ -504,7 +553,7 @@ private final class GrammarFixture {
 
   init(
     mode: GrammarTriggerMode, suspended: Bool = false, excludeAutomatic: Bool = false,
-    showsUnderlines: Bool = true
+    showsUnderlines: Bool = true, autoCloseDelay: Duration = .seconds(60)
   ) {
     let keychain = InMemoryKeychain()
     _ = keychain.save(key: "openai_api_key", value: "fixture-key")
@@ -521,7 +570,7 @@ private final class GrammarFixture {
     coordinator = GrammarCoordinator(
       settingsStore: store, access: access, service: service, monitor: monitor, hotKey: hotKey,
       windowFactory: { [windows] _ in windows.makeWindow() }, underlines: underlines,
-      sleep: { _ in try await Task.sleep(for: .milliseconds(20)) })
+      sleep: { _ in try await Task.sleep(for: .milliseconds(20)) }, autoCloseDelay: autoCloseDelay)
   }
 
   func close() {

@@ -31,6 +31,7 @@ struct GrammarReviewView: View {
   let enableClipboard: () -> Void
   let close: () -> Void
   var highlight: (UUID?) -> Void = { _ in }
+  var hover: (Bool) -> Void = { _ in }
   var resize: () -> Void = {}
 
   @State private var showOriginal = false
@@ -127,6 +128,7 @@ struct GrammarReviewView: View {
       RoundedRectangle(cornerRadius: 14).strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
         .allowsHitTesting(false)
     }
+    .onHover { hover($0) }
     .onPreferenceChange(GrammarContentHeightKey.self) { height in
       // Grow for real content, but keep the review stable as individual suggestions disappear.
       let next = max(contentHeight, min(320, ceil(height)))
