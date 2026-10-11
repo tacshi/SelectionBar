@@ -4,6 +4,15 @@
         <title>SelectionBar</title>
         <sparkle:fullReleaseNotesLink>https://github.com/tacshi/SelectionBar/releases</sparkle:fullReleaseNotesLink>
         <item>
+            <title>1.2.3</title>
+            <pubDate>Mon, 12 Oct 2026 10:16:50 +1300</pubDate>
+            <sparkle:version>34</sparkle:version>
+            <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>What's New in 1.2.3</h2><ul><li>Show a search field in the SF Symbol picker (#36)</li></ul>]]></description>
+            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.2.3/SelectionBar-1.2.3.dmg" length="7944406" type="application/octet-stream" sparkle:edSignature="XDY/pEOS+ZDlyCNcrJJ6sNoB7HdBvcpuBYCnGl6wjCPs9oapK/9vtqfWQNBRE2AfkkHGU+11zQY+SIPskFwJBg=="/>
+        </item>
+        <item>
             <title>1.2.2</title>
             <pubDate>Sun, 11 Oct 2026 10:12:19 +1300</pubDate>
             <sparkle:version>33</sparkle:version>
@@ -20,15 +29,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[<h2>What's New in 1.2.1</h2><ul><li>Grammar input capture (#34)</li><li>Use Swift Build backend for app packaging</li></ul>]]></description>
             <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.2.1/SelectionBar-1.2.1.dmg" length="7921402" type="application/octet-stream" sparkle:edSignature="/mhsmNRAq0wLpj7Is3yuUslCDnObgD0zHfW2EFIP46DGVn7dCE0GEjYl63598IVh4GfeIGGEAZCuW5Zm6TqQAg=="/>
-        </item>
-        <item>
-            <title>1.2.0</title>
-            <pubDate>Tue, 06 Oct 2026 15:37:15 +1300</pubDate>
-            <sparkle:version>31</sparkle:version>
-            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>What's New in 1.2.0</h2><ul><li>Grammar (#33)</li></ul>]]></description>
-            <enclosure url="https://github.com/tacshi/SelectionBar/releases/download/v1.2.0/SelectionBar-1.2.0.dmg" length="7682888" type="application/octet-stream" sparkle:edSignature="HS7TRmmVMH94MRACRUZpV/JHV7VP58lzCrE0ZwQs8bkPkz7ylLOi2a34aUJDZUj9sIWJ6T03xIGIIcqoiuVUAQ=="/>
         </item>
     </channel>
 </rss>
