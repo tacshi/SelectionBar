@@ -8,6 +8,10 @@
 #   ./scripts/build-release.sh 0.1.2 --no-upload  # Build locally without upload
 #   ./scripts/build-release.sh 0.1.2 --no-tag     # Skip git tag creation
 #   ./scripts/build-release.sh 0.1.2 --arch arm64 # Build for specific architecture only
+#
+# Release notes: release-notes/SelectionBar-VERSION.md is used verbatim when it
+# exists. Otherwise notes are generated from the commits since the last tag and
+# shown for review before the build starts; answer 'e' to edit them in $EDITOR.
 
 set -e
 
@@ -144,9 +148,11 @@ generate_release_notes() {
 }
 
 # Escape HTML entities and convert markdown list to HTML list items
-# Prevents XSS from malicious commit messages
+# Prevents XSS from malicious commit messages. Hand-edited notes may contain
+# blank lines or lines without a "- " bullet, so every non-blank line becomes
+# one item.
 escape_release_notes_html() {
-    echo "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/^- /<li>/; s/$/<\/li>/'
+    echo "$1" | sed '/^[[:space:]]*$/d; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/^[-*] //; s/^/<li>/; s/$/<\/li>/'
 }
 
 # Build app for specific architecture
@@ -527,8 +533,21 @@ NEW_BUILD=$((CURRENT_BUILD + 1))
 log_info "Current: $CURRENT_VERSION (build $CURRENT_BUILD)"
 log_info "New: $VERSION (build $NEW_BUILD)"
 
-# Generate release notes preview
-RELEASE_NOTES=$(generate_release_notes)
+# Release notes: a hand-written file wins; otherwise generate a draft from git
+RELEASE_NOTES_SRC="$SCRIPT_DIR/release-notes/$APP_NAME-$VERSION.md"
+if [[ -f "$RELEASE_NOTES_SRC" ]]; then
+    RELEASE_NOTES=$(cat "$RELEASE_NOTES_SRC")
+    if ! grep -qE '[^[:space:]]' <<< "$RELEASE_NOTES"; then
+        log_error "Release notes file is empty: release-notes/$APP_NAME-$VERSION.md"
+        exit 1
+    fi
+    RELEASE_NOTES_REVIEWED=true
+    log_success "Release notes: release-notes/$APP_NAME-$VERSION.md (hand-written)"
+else
+    RELEASE_NOTES=$(generate_release_notes)
+    RELEASE_NOTES_REVIEWED=false
+    log_info "Release notes: generated from git log"
+fi
 log_info "Release notes preview:"
 echo "$RELEASE_NOTES" | head -5 | while read line; do
     log_info "  $line"
@@ -539,6 +558,53 @@ if [[ "$DRY_RUN" == "true" ]]; then
     log_step "DRY RUN COMPLETE"
     log_success "All prerequisites validated"
     exit 0
+fi
+
+# Generated notes are published to the GitHub release and the Sparkle update
+# dialog, so review them now: discovering a bad line after a notarization run
+# means rebuilding. 'e' opens the draft in $EDITOR and re-shows what you save.
+if [[ "$RELEASE_NOTES_REVIEWED" == "false" && "$NO_UPLOAD" == "false" ]]; then
+    if [[ ! -t 0 ]]; then
+        log_error "Generated release notes need an interactive review before upload"
+        log_info "Write them to release-notes/$APP_NAME-$VERSION.md and re-run; that file is used verbatim."
+        exit 1
+    fi
+
+    NOTES_DRAFT_DIR=$(mktemp -d)
+    NOTES_DRAFT="$NOTES_DRAFT_DIR/$APP_NAME-$VERSION.md"
+    printf '%s\n' "$RELEASE_NOTES" > "$NOTES_DRAFT"
+
+    while :; do
+        echo "" >&2
+        echo "--- release notes for $VERSION ---" >&2
+        cat "$NOTES_DRAFT" >&2
+        echo "---" >&2
+        printf 'Use these notes? [y]es / [e]dit / [N]o: ' >&2
+        read -r reply || reply=""
+        case "$reply" in
+            y|Y)
+                if ! grep -qE '[^[:space:]]' "$NOTES_DRAFT"; then
+                    log_warning "Release notes are empty; edit them or abort"
+                    continue
+                fi
+                break
+                ;;
+            e|E)
+                ${VISUAL:-${EDITOR:-vi}} "$NOTES_DRAFT"
+                ;;
+            *)
+                log_error "Aborted before building"
+                log_info "To keep this draft and edit it outside the release run:"
+                log_info "  mkdir -p release-notes && cp \"$NOTES_DRAFT\" release-notes/$APP_NAME-$VERSION.md"
+                log_info "then edit that file and re-run; it is used verbatim."
+                exit 1
+                ;;
+        esac
+    done
+
+    RELEASE_NOTES=$(cat "$NOTES_DRAFT")
+    rm -rf "$NOTES_DRAFT_DIR"
+    log_success "Release notes confirmed"
 fi
 
 # ============================================================================

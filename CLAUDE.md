@@ -72,3 +72,5 @@ Three languages: English (en), Japanese (ja), Simplified Chinese (zh-Hans). Stri
 ```
 
 Releases go to GitHub (`tacshi/SelectionBar`) with Sparkle appcast generation. Artifacts land in `releases/`.
+
+Release notes come from `release-notes/SelectionBar-<version>.md` verbatim when that file exists. Otherwise they are generated from commits since the last tag and shown for review (`[y]es / [e]dit / [N]o`, edit opens `$EDITOR`) before the version bump and build. An upload without a terminal requires the hand-written file.
