@@ -198,6 +198,7 @@ struct ActionsCustomActionEditorView: View {
                 .disabled(true)
 
               Button("Pick SF Symbol") {
+                sfSymbolSearchText = ""
                 showingSFSymbolPicker = true
               }
             }
@@ -474,23 +475,43 @@ struct ActionsCustomActionEditorView: View {
     }
     .sheet(isPresented: $showingSFSymbolPicker) {
       NavigationStack {
-        List(filteredSFSymbolNames, id: \.self) { symbol in
-          Button {
-            selectedSFSymbol = symbol
-            showingSFSymbolPicker = false
-          } label: {
-            HStack(spacing: 10) {
-              Image(systemName: symbol)
-                .frame(width: 20)
-              Text(symbol)
-                .font(.system(.body, design: .monospaced))
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 0) {
+          // `.searchable` renders in the window toolbar, which sheets on macOS
+          // don't have, so the search field has to live in the content.
+          HStack {
+            Image(systemName: "magnifyingglass")
+              .foregroundStyle(.secondary)
+            TextField("Search symbols", text: $sfSymbolSearchText)
+              .textFieldStyle(.plain)
           }
-          .buttonStyle(.plain)
+          .padding(8)
+          .background(Color(nsColor: .controlBackgroundColor))
+          .clipShape(.rect(cornerRadius: 8))
+          .padding(.horizontal)
+          .padding(.vertical, 8)
+
+          List(filteredSFSymbolNames, id: \.self) { symbol in
+            Button {
+              selectedSFSymbol = symbol
+              showingSFSymbolPicker = false
+            } label: {
+              HStack(spacing: 10) {
+                Image(systemName: symbol)
+                  .frame(width: 20)
+                Text(symbol)
+                  .font(.system(.body, design: .monospaced))
+              }
+              .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+          }
+          .overlay {
+            if filteredSFSymbolNames.isEmpty {
+              ContentUnavailableView.search(text: sfSymbolSearchText)
+            }
+          }
         }
         .navigationTitle("SF Symbols")
-        .searchable(text: $sfSymbolSearchText, prompt: "Search symbols")
         .toolbar {
           ToolbarItem(placement: .cancellationAction) {
             Button("Cancel") {
