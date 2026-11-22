@@ -16,10 +16,7 @@ struct SettingsStoreRoundTripTests {
     SelectionBarSettingsStore.availableTerminalAppsResolver = { [.terminal, .ghostty, .warp] }
     defer { SelectionBarSettingsStore.availableTerminalAppsResolver = originalTerminalResolver }
 
-    let suite = "SelectionBarCoreTests.RoundTrip.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let keychain = InMemoryKeychain()
     _ = keychain.save(key: "openai_api_key", value: "openai-key")

@@ -173,10 +173,7 @@ struct SelectionBarSettingsStoreTests {
 
   @Test("legacy settings payload without built-in key bindings preserves existing values")
   func legacyPayloadWithoutBuiltInKeyBindingsPreservesSettings() {
-    let suite = "SelectionBarCoreTests.StrictSettings.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let legacyJSON = """
       {
@@ -200,10 +197,7 @@ struct SelectionBarSettingsStoreTests {
 
   @Test("built-in key bindings persist across reload")
   func builtInKeyBindingsPersistAcrossReload() {
-    let suite = "SelectionBarCoreTests.BuiltInKeys.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let keychain = InMemoryKeychain()
     let store = SelectionBarSettingsStore(
@@ -247,10 +241,7 @@ struct SelectionBarSettingsStoreTests {
 
   @Test("action profiles persist across reload")
   func actionProfilesPersistAcrossReload() {
-    let suite = "SelectionBarCoreTests.ActionProfiles.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let keychain = InMemoryKeychain()
     let store = SelectionBarSettingsStore(
@@ -811,10 +802,7 @@ struct SelectionBarSettingsStoreTests {
 
   @Test("custom web search engine and custom scheme persist across reload")
   func customWebSearchSettingsPersist() {
-    let suite = "SelectionBarCoreTests.Search.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let keychain = InMemoryKeychain()
     let store = SelectionBarSettingsStore(
@@ -838,10 +826,7 @@ struct SelectionBarSettingsStoreTests {
 
   @Test("do-not-disturb activation settings default, notify, and persist")
   func doNotDisturbActivationSettingsLifecycle() {
-    let suite = "SelectionBarCoreTests.DND.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let keychain = InMemoryKeychain()
     let store = SelectionBarSettingsStore(
@@ -883,10 +868,7 @@ struct SelectionBarSettingsStoreTests {
       SelectionBarSettingsStore.appInstallationResolver = originalResolver
     }
 
-    let suite = "SelectionBarCoreTests.ClipboardFallbackApps.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let keychain = InMemoryKeychain()
     let store = SelectionBarSettingsStore(
@@ -933,10 +915,7 @@ struct SelectionBarSettingsStoreTests {
       SelectionBarSettingsStore.availableTerminalAppsResolver = originalResolver
     }
 
-    let suite = "SelectionBarCoreTests.Terminals.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let keychain = InMemoryKeychain()
     let store = SelectionBarSettingsStore(
@@ -966,10 +945,7 @@ struct SelectionBarSettingsStoreTests {
       SelectionBarSettingsStore.availableTerminalAppsResolver = originalResolver
     }
 
-    let suite = "SelectionBarCoreTests.TerminalFallback.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let defaults = InMemoryUserDefaults()
 
     let keychain = InMemoryKeychain()
     let store = SelectionBarSettingsStore(
