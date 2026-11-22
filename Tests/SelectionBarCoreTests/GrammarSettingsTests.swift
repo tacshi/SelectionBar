@@ -23,9 +23,7 @@ struct GrammarSettingsTests {
   }
   @Test("Old settings default to off; grammar configuration persists without checked text")
   func persistence() throws {
-    let name = "GrammarSettingsTests.\(UUID())"
-    let defaults = try #require(UserDefaults(suiteName: name))
-    defer { defaults.removePersistentDomain(forName: name) }
+    let defaults = InMemoryUserDefaults()
     defaults.set(Data(#"{"selectionBarEnabled":true}"#.utf8), forKey: "settings")
     let store = SelectionBarSettingsStore(
       defaults: defaults, storageKey: "settings", keychain: InMemoryKeychain())

@@ -541,7 +541,6 @@ struct GrammarCoordinatorTests {
 
 @MainActor
 private final class GrammarFixture {
-  let suite = "GrammarCoordinator.\(UUID())"
   let store: SelectionBarSettingsStore
   let access = GrammarTestAccess()
   let service: GrammarTestService
@@ -557,7 +556,8 @@ private final class GrammarFixture {
   ) {
     let keychain = InMemoryKeychain()
     _ = keychain.save(key: "openai_api_key", value: "fixture-key")
-    store = SelectionBarSettingsStore(defaults: UserDefaults(suiteName: suite)!, keychain: keychain)
+    store = SelectionBarSettingsStore(
+      defaults: InMemoryUserDefaults(), keychain: keychain)
     store.selectionBarEnabled = true
     store.grammar.mode = mode
     store.grammar.providerID = "openai"
@@ -576,7 +576,6 @@ private final class GrammarFixture {
   func close() {
     coordinator.stop()
     store.flushPendingWrites()
-    UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
   }
 }
 

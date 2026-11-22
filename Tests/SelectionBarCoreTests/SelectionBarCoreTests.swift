@@ -788,9 +788,7 @@ struct SelectionBarCoreTests {
 
   @Test("cannot enable LLM action without provider and model")
   func llmActionRequiresProviderAndModel() {
-    let defaultsSuite = "SelectionBarCoreTests.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: defaultsSuite)!
-    defer { defaults.removePersistentDomain(forName: defaultsSuite) }
+    let defaults = InMemoryUserDefaults()
 
     let store = SelectionBarSettingsStore(
       defaults: defaults, storageKey: "test.settings", keychain: InMemoryKeychain())
@@ -820,9 +818,7 @@ struct SelectionBarCoreTests {
 
   @Test("cannot enable key-binding action with invalid shortcut")
   func keyBindingActionRequiresValidShortcut() {
-    let defaultsSuite = "SelectionBarCoreTests.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: defaultsSuite)!
-    defer { defaults.removePersistentDomain(forName: defaultsSuite) }
+    let defaults = InMemoryUserDefaults()
 
     let store = SelectionBarSettingsStore(
       defaults: defaults, storageKey: "test.settings", keychain: InMemoryKeychain())
@@ -852,9 +848,7 @@ struct SelectionBarCoreTests {
 
   @Test("reconcile disables invalid enabled LLM action")
   func reconcileDisablesInvalidEnabledLLMAction() {
-    let defaultsSuite = "SelectionBarCoreTests.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: defaultsSuite)!
-    defer { defaults.removePersistentDomain(forName: defaultsSuite) }
+    let defaults = InMemoryUserDefaults()
 
     let store = SelectionBarSettingsStore(
       defaults: defaults, storageKey: "test.settings", keychain: InMemoryKeychain())
@@ -875,9 +869,7 @@ struct SelectionBarCoreTests {
 
   @Test("reconcile migrates legacy clean escapes icon")
   func reconcileMigratesLegacyCleanEscapesIcon() {
-    let defaultsSuite = "SelectionBarCoreTests.\(UUID().uuidString)"
-    let defaults = UserDefaults(suiteName: defaultsSuite)!
-    defer { defaults.removePersistentDomain(forName: defaultsSuite) }
+    let defaults = InMemoryUserDefaults()
 
     let store = SelectionBarSettingsStore(
       defaults: defaults, storageKey: "test.settings", keychain: InMemoryKeychain())
